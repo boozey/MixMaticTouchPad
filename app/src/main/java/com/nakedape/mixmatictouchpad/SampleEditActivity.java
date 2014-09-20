@@ -26,6 +26,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import javazoom.jl.converter.Converter;
@@ -222,10 +224,8 @@ public class SampleEditActivity extends Activity {
         InputStream wavStream;
         try{
             wavStream = new FileInputStream(WAV_CACHE_PATH);
-            sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
-            byte[] audioSample = new byte[512];
-            
-
+            //sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
+            sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH);
         } catch (FileNotFoundException e){e.printStackTrace();}
         /*
         Intent result = new Intent("com.example.RESULT_ACTION", Uri.parse("content://result_uri"));
@@ -266,7 +266,7 @@ public class SampleEditActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
         context = this;
-        WAV_CACHE_PATH = getExternalCacheDir() + "//temp.wav";
+        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";//getExternalCacheDir() + "//temp.wav";
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
@@ -356,10 +356,16 @@ public class SampleEditActivity extends Activity {
             InputStream wavStream;
             try {
                 wavStream = new FileInputStream(WAV_CACHE_PATH);
+                byte[] rateInt = new byte[4];
+                wavStream.skip(24);
+                wavStream.read(rateInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(rateInt).order(ByteOrder.LITTLE_ENDIAN);
+                sampleRate = bb.getInt();
+                Log.d("Sample Rate", String.valueOf(sampleRate));
                 TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
                 AudioSample v = (AudioSample)findViewById(R.id.spectralView);
                 v.LoadAudio(wavStream, audioFormat, bufferSize, overlap, 0.3);
-            } catch (FileNotFoundException e){e.printStackTrace();}
+            } catch (FileNotFoundException e){e.printStackTrace();} catch (IOException e){e.printStackTrace();}
 
 
             try {

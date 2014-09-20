@@ -17,6 +17,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +29,7 @@ import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
 import be.tarsos.dsp.onsets.ComplexOnsetDetector;
 import be.tarsos.dsp.onsets.OnsetHandler;
+import javazoom.jl.converter.WaveFile;
 
 /**
  * Created by Nathan on 8/31/2014.
@@ -230,20 +233,30 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath){
         try {
+            WaveFile waveFile = new WaveFile();
+            waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
             wavStream.skip(44);
-            wavStream.skip((long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8));
+            long offset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8);
+            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8) - offset;
+            wavStream.skip(offset);
+            Log.d("Offset", String.valueOf(offset));
+            Log.d("Length", String.valueOf(length));
+            byte[] buffer = new byte[1024];
+            int bufferLength;
+            for (long i = offset; i < length + offset; i += buffer.length){
+                bufferLength = wavStream.read(buffer);
+                //waveFile.Write(buffer, bufferLength);
+                short[] shorts = new short[buffer.length / 2];
+                ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                waveFile.WriteData(shorts, shorts.length);
+            }
+            waveFile.Close();
+            try {
+                wavStream.close();
+            } catch (IOException e) {e.printStackTrace();}
 
 
         } catch (IOException e) {e.printStackTrace();}
-        return true;
-    }
-    public boolean WriteSelectionToFile(String readPath, String writePath){
-        Wave wave = new Wave(readPath);
-        //wave.trim(selectionStartTime, sampleLength - selectionEndTime);
-        Log.d("wave.length", String.valueOf(wave.length()));
-        wave.rightTrim(sampleLength - selectionEndTime);
-        WaveFileManager waveFileManager = new WaveFileManager(wave);
-        waveFileManager.saveWaveAsFile(writePath);
         return true;
     }
 
@@ -345,8 +358,8 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 canvas.drawCircle(selectEnd, 0, 2, paintSelect);
                 canvas.drawCircle(selectEnd, getHeight(), 2, paintSelect);
                 paintSelect.setColor(Color.LTGRAY);
-                canvas.drawText(String.valueOf(Math.round(selectionStartTime/60)) + ":" + String.format("%.2f", selectionStartTime % 60), selectStart, getHeight() - 10, paintSelect);
-                canvas.drawText(String.valueOf(Math.round(selectionEndTime/60)) + ":" + String.format("%.2f", selectionEndTime % 60), selectEnd, getHeight() - 10, paintSelect);
+                canvas.drawText(String.valueOf((int)Math.floor(selectionStartTime/60)) + ":" + String.format("%.2f", selectionStartTime % 60), selectStart, getHeight() - 10, paintSelect);
+                canvas.drawText(String.valueOf((int)Math.floor(selectionEndTime/60)) + ":" + String.format("%.2f", selectionEndTime % 60), selectEnd, getHeight() - 10, paintSelect);
             }
             // Draw play position indicator
             if (isPlaying) {

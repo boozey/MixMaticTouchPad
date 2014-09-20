@@ -25,11 +25,7 @@ public class AndroidAudioPlayer implements AudioProcessor {
     }
     @Override
     public boolean process(AudioEvent audioEvent){
-        ByteBuffer bb = ByteBuffer.wrap(audioEvent.getByteBuffer().clone());
-        byte[] audioBuffer = new byte[(audioEvent.getBufferSize() - audioEvent.getOverlap())];
-        bb.get(audioBuffer, 0, audioBuffer.length);
-        bb.get(audioBuffer, 0, audioBuffer.length);
-        audioTrack.write(audioBuffer, 0, audioBuffer.length);
+        audioTrack.write(audioEvent.getByteBuffer(), 0, audioEvent.getBufferSize());
         audioTrack.play();
         return true;
     }
