@@ -229,11 +229,12 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         return true;
     }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath){
-        Wave wave = new Wave(wavStream);
-        wave.trim(selectionStartTime, sampleLength - selectionEndTime);
-        Log.d("wave.length = ", String.valueOf(wave.length()));
-        WaveFileManager waveFileManager = new WaveFileManager(wave);
-        waveFileManager.saveWaveAsFile(writePath);
+        try {
+            wavStream.skip(44);
+            wavStream.skip((long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8));
+
+
+        } catch (IOException e) {e.printStackTrace();}
         return true;
     }
     public boolean WriteSelectionToFile(String readPath, String writePath){

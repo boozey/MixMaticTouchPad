@@ -223,6 +223,8 @@ public class SampleEditActivity extends Activity {
         try{
             wavStream = new FileInputStream(WAV_CACHE_PATH);
             sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
+            byte[] audioSample = new byte[512];
+            
 
         } catch (FileNotFoundException e){e.printStackTrace();}
         /*
