@@ -22,6 +22,7 @@ import android.widget.SeekBar;
 import com.musicg.wave.Wave;
 import com.musicg.wave.WaveFileManager;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,10 +46,12 @@ public class SampleEditActivity extends Activity {
     private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
     private int bufferSize = 1024;
-    private int overlap = 512;
+    private int overlap = 256;
     private InputStream musicStream;
     private ProgressDialog dlg;
     private Context context;
+    private int sampleId;
+    private SoundPool soundPool;
 
     // Media player variables
     private Uri fullMusicUri;
@@ -99,7 +102,25 @@ public class SampleEditActivity extends Activity {
                     dlg = new ProgressDialog(context);
                     dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                     dlg.setIndeterminate(false);
-                    dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
+                    InputStream wavStream;
+                    long len = 0;
+                    try {
+                        File file = new File(WAV_CACHE_PATH);
+                        //len = file.length();
+                        wavStream = new FileInputStream(file);
+                        byte[] lenInt = new byte[4];
+                        wavStream.skip(40);
+                        wavStream.read(lenInt, 0, 4);
+                        ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                        len = bb.getInt();
+                        len = len / 4 / (int)sampleRate;
+                        Log.d("Wave duration (s)", String.valueOf(len));
+                        wavStream.close();
+                    } catch (IOException e) {e.printStackTrace();}
+                    if (len > 0)
+                        dlg.setMax((int)len);
+                    else
+                        dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
                     dlg.setCancelable(false);
                     dlg.setMessage("Processing Audio");
                     dlg.show();
@@ -156,7 +177,7 @@ public class SampleEditActivity extends Activity {
     public void LoadAudioFile(){
         // Allow user to select an audio file
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("audio/*");
+        intent.setType("audio/mp3");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         if (intent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(intent, REQUEST_MUSIC_GET);
@@ -214,7 +235,7 @@ public class SampleEditActivity extends Activity {
         InputStream wavStream;
         try{
             wavStream = new FileInputStream(WAV_CACHE_PATH);
-            sample.Play(wavStream, sample.getSelectionStart(), sample.getSelectionEnd());
+            sample.Play(WAV_CACHE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
 
         } catch (FileNotFoundException e){e.printStackTrace();}
     }
@@ -224,7 +245,6 @@ public class SampleEditActivity extends Activity {
         InputStream wavStream;
         try{
             wavStream = new FileInputStream(WAV_CACHE_PATH);
-            //sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
             sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH);
         } catch (FileNotFoundException e){e.printStackTrace();}
         /*
@@ -235,11 +255,7 @@ public class SampleEditActivity extends Activity {
     }
 
     public void PlayTrimmedWAV(View view){
-        SoundPool pool = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
-        int id = pool.load(WAV_SAMPLE_PATH, 1);
-        pool.play(id,1, 1, 1, 0, 1f);
-        Wave wave = new Wave(WAV_SAMPLE_PATH);
-        Log.d("Wave file size", String.valueOf(wave.length()));
+        sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
     }
 
     public void ZoomIn(View view){
@@ -278,6 +294,15 @@ public class SampleEditActivity extends Activity {
         mPlayer = new MediaPlayer();
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
+        soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
+        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+                float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                soundPool.play(sampleId, volume, volume, 1, 0, 1f);
+                Log.d("Sound Pool Playing", String.valueOf(sampleId));
+            }
+        });
 
         // Setup beat threshold bar
         SeekBar bar = (SeekBar)findViewById(R.id.beatSensitivity);

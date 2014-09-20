@@ -5,6 +5,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
@@ -17,7 +18,7 @@ public class AndroidAudioPlayer implements AudioProcessor {
     private AudioTrack audioTrack;
     AndroidAudioPlayer(TarsosDSPAudioFormat audioFormat){
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
-                44100,
+                (int)audioFormat.getSampleRate(),
                 AudioFormat.CHANNEL_OUT_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 2048,
@@ -25,7 +26,9 @@ public class AndroidAudioPlayer implements AudioProcessor {
     }
     @Override
     public boolean process(AudioEvent audioEvent){
-        audioTrack.write(audioEvent.getByteBuffer(), 0, audioEvent.getBufferSize());
+        short[] shorts = new short[audioEvent.getBufferSize() / 2];
+        ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+        audioTrack.write(shorts, 0, shorts.length);
         audioTrack.play();
         return true;
     }

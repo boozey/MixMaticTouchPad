@@ -177,29 +177,35 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         invalidate();
     }
 
-    public void Play(InputStream wavStream, double startTime, final double endTime){
-        UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-        dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
-        AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat);
-        dispatcher.addAudioProcessor(player);
-        dispatcher.skip(startTime);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (dispatcher.secondsProcessed() < endTime){
-                    try{
-                        Thread.sleep(10);
-                    } catch (InterruptedException e){e.printStackTrace();}
-                }
-                dispatcher.stop();
-            }
-        }).start();
-        dispatcher.run();
+    public void Play(String source, double startTime, final double endTime){
+        InputStream wavStream;
         try {
-            audioStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            wavStream = new FileInputStream(source);
+            UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
+            dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
+            AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat);
+            dispatcher.addAudioProcessor(player);
+            dispatcher.skip(startTime);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (dispatcher.secondsProcessed() < endTime) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    dispatcher.stop();
+                }
+            }).start();
+            dispatcher.run();
+            try {
+                audioStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }catch (FileNotFoundException e){e.printStackTrace();}
     }
 
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
@@ -245,7 +251,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             int bufferLength;
             for (long i = offset; i < length + offset; i += buffer.length){
                 bufferLength = wavStream.read(buffer);
-                //waveFile.Write(buffer, bufferLength);
                 short[] shorts = new short[buffer.length / 2];
                 ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                 waveFile.WriteData(shorts, shorts.length);
