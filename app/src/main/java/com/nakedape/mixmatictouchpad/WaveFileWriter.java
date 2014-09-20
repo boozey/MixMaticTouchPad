@@ -24,7 +24,8 @@ public class WaveFileWriter implements AudioProcessor {
     @Override
     public boolean process(AudioEvent audioEvent){
         ByteBuffer bb = ByteBuffer.wrap(audioEvent.getByteBuffer().clone());
-        byte[] audioBuffer = new byte[audioEvent.getBufferSize()];//[(audioEvent.getBufferSize() - audioEvent.getOverlap())];
+        byte[] audioBuffer = new byte[(audioEvent.getBufferSize() - audioEvent.getOverlap())];
+        bb.get(audioBuffer, 0, audioBuffer.length);
         bb.get(audioBuffer, 0, audioBuffer.length);
         short[] shorts = new short[audioBuffer.length / 2];
         ByteBuffer.wrap(audioBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);

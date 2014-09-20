@@ -4,6 +4,8 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 
+import java.nio.ByteBuffer;
+
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
@@ -23,7 +25,11 @@ public class AndroidAudioPlayer implements AudioProcessor {
     }
     @Override
     public boolean process(AudioEvent audioEvent){
-        audioTrack.write(audioEvent.getByteBuffer(), 0, audioEvent.getBufferSize() / 2);
+        ByteBuffer bb = ByteBuffer.wrap(audioEvent.getByteBuffer().clone());
+        byte[] audioBuffer = new byte[(audioEvent.getBufferSize() - audioEvent.getOverlap())];
+        bb.get(audioBuffer, 0, audioBuffer.length);
+        bb.get(audioBuffer, 0, audioBuffer.length);
+        audioTrack.write(audioBuffer, 0, audioBuffer.length);
         audioTrack.play();
         return true;
     }
