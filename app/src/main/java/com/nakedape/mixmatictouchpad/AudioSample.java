@@ -12,6 +12,7 @@ import android.view.View;
 import com.musicg.wave.Wave;
 import com.musicg.wave.WaveFileManager;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -73,49 +74,41 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         setDrawingCacheEnabled(true);
     }
 
-    public void LoadAudio(File wavFile, TarsosDSPAudioFormat audioFormat, int bufferSize, int overLap, double beatThreshold){
-        InputStream wavStream;
+    public void LoadAudio(String source, TarsosDSPAudioFormat audioFormat, int bufferSize, int overLap, double beatThreshold){
         try {
-            wavStream = new FileInputStream(wavFile);
-            LoadAudio(wavStream, audioFormat, bufferSize, overLap, beatThreshold);
-
-        } catch (FileNotFoundException e){e.printStackTrace();}
-    }
-    public void LoadAudio(InputStream wavStream, TarsosDSPAudioFormat audioFormat, int bufferSize, int overLap, double beatThreshold){
-        this.audioFormat = audioFormat;
-        this.bufferSize = bufferSize;
-        this.overLap = overLap;
-        //Set up and run Tarsos
-        UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-        dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
-        beats = new ArrayList<BeatInfo>(500);
-        beatsData = new ArrayList<Line>(500);
-        waveFormData = new ArrayList<Line>(1000);
-        ComplexOnsetDetector onsetDetector = new ComplexOnsetDetector(bufferSize, beatThreshold);
-        onsetDetector.setHandler(this);
-        dispatcher.addAudioProcessor(onsetDetector);
-        Oscilloscope.OscilloscopeEventHandler handler = new Oscilloscope.OscilloscopeEventHandler() {
-            @Override
-            public void handleEvent(float[] floats, AudioEvent audioEvent) {
-                float total = 0;
-                for (int i = 0; i < floats.length; i +=2){
-                    total += floats[i+1];
+            InputStream wavStream = new BufferedInputStream(new FileInputStream(source));
+            this.audioFormat = audioFormat;
+            this.bufferSize = bufferSize;
+            this.overLap = overLap;
+            //Set up and run Tarsos
+            UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
+            dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
+            beats = new ArrayList<BeatInfo>(500);
+            beatsData = new ArrayList<Line>(500);
+            waveFormData = new ArrayList<Line>(1000);
+            ComplexOnsetDetector onsetDetector = new ComplexOnsetDetector(bufferSize, beatThreshold);
+            onsetDetector.setHandler(this);
+            dispatcher.addAudioProcessor(onsetDetector);
+            Oscilloscope.OscilloscopeEventHandler handler = new Oscilloscope.OscilloscopeEventHandler() {
+                @Override
+                public void handleEvent(float[] floats, AudioEvent audioEvent) {
+                    float total = 0;
+                    for (int i = 0; i < floats.length; i += 2) {
+                        total += floats[i + 1];
+                    }
+                    waveFormData.add(new Line(dispatcher.secondsProcessed(), total / floats.length));
                 }
-                waveFormData.add(new Line(dispatcher.secondsProcessed(), total / floats.length));
-            }
-        };
-        Oscilloscope oscilloscope = new Oscilloscope(handler);
-        dispatcher.addAudioProcessor(oscilloscope);
-        dispatcher.run();
-        sampleLength = dispatcher.secondsProcessed();
-        dispatcher.removeAudioProcessor(oscilloscope);
-        dispatcher.removeAudioProcessor(onsetDetector);
-        windowStartTime = 0;
-        windowEndTime = sampleLength;
-        isLoading = false;
-        waveFormRender.addAll(waveFormData);
-        beatsRender.addAll(beatsData);
-        try {
+            };
+            Oscilloscope oscilloscope = new Oscilloscope(handler);
+            dispatcher.addAudioProcessor(oscilloscope);
+            dispatcher.run();
+            sampleLength = dispatcher.secondsProcessed();
+            Log.d("Dispatcher", String.valueOf(sampleLength) + " seconds processed");
+            windowStartTime = 0;
+            windowEndTime = sampleLength;
+            isLoading = false;
+            waveFormRender.addAll(waveFormData);
+            beatsRender.addAll(beatsData);
             audioStream.close();
             wavStream.close();
         }catch (IOException e){e.printStackTrace();}
@@ -180,7 +173,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     public void Play(String source, double startTime, final double endTime){
         InputStream wavStream;
         try {
-            wavStream = new FileInputStream(source);
+            wavStream = new BufferedInputStream(new FileInputStream(source));
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
             dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
             AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat);
@@ -202,6 +195,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             dispatcher.run();
             try {
                 audioStream.close();
+                wavStream.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }

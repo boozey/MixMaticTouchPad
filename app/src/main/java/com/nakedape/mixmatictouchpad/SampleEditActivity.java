@@ -22,6 +22,7 @@ import android.widget.SeekBar;
 import com.musicg.wave.Wave;
 import com.musicg.wave.WaveFileManager;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -105,19 +106,19 @@ public class SampleEditActivity extends Activity {
                     dlg.setIndeterminate(false);
                     InputStream wavStream;
                     long len = 0;
-                    try {
+                    //try {
                         File file = new File(WAV_CACHE_PATH);
-                        //len = file.length();
-                        wavStream = new FileInputStream(file);
-                        byte[] lenInt = new byte[4];
-                        wavStream.skip(40);
-                        wavStream.read(lenInt, 0, 4);
-                        ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
-                        len = bb.getInt();
+                        len = file.length() - 44;
+                        //wavStream = new FileInputStream(file);
+                        //byte[] lenInt = new byte[4];
+                        //wavStream.skip(40);
+                        //wavStream.read(lenInt, 0, 4);
+                        //ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                        //len = bb.getInt();
                         sampleLength = (int)len / 4 / (int)sampleRate;
                         Log.d("Wave duration", String.valueOf(len));
-                        wavStream.close();
-                    } catch (IOException e) {e.printStackTrace();}
+                        //wavStream.close();
+                    //} catch (IOException e) {e.printStackTrace();}
                     if (len > 0)
                         dlg.setMax(sampleLength);
                     else
@@ -376,16 +377,17 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             InputStream wavStream;
             try {
-                wavStream = new FileInputStream(WAV_CACHE_PATH);
+                wavStream = new BufferedInputStream(new FileInputStream(WAV_CACHE_PATH));
                 byte[] rateInt = new byte[4];
                 wavStream.skip(24);
                 wavStream.read(rateInt, 0, 4);
                 ByteBuffer bb = ByteBuffer.wrap(rateInt).order(ByteOrder.LITTLE_ENDIAN);
                 sampleRate = bb.getInt();
                 Log.d("Sample Rate", String.valueOf(sampleRate));
+                wavStream.close();
                 TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
                 AudioSample v = (AudioSample)findViewById(R.id.spectralView);
-                v.LoadAudio(wavStream, audioFormat, bufferSize, overlap, 0.3);
+                v.LoadAudio(WAV_CACHE_PATH, audioFormat, bufferSize, overlap, 0.3);
             } catch (FileNotFoundException e){e.printStackTrace();} catch (IOException e){e.printStackTrace();}
 
 
