@@ -46,7 +46,7 @@ public class SampleEditActivity extends Activity {
     private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
     private int bufferSize = 1024;
-    private int overlap = 256;
+    private int overlap = 0;
     private InputStream musicStream;
     private ProgressDialog dlg;
     private Context context;
@@ -232,21 +232,12 @@ public class SampleEditActivity extends Activity {
 
     public void TarsosPlay(View view){
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-        InputStream wavStream;
-        try{
-            wavStream = new FileInputStream(WAV_CACHE_PATH);
-            sample.Play(WAV_CACHE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
-
-        } catch (FileNotFoundException e){e.printStackTrace();}
+        sample.Play(WAV_CACHE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
     }
 
     public void Save(View view){
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-        InputStream wavStream;
-        try{
-            wavStream = new FileInputStream(WAV_CACHE_PATH);
-            sample.WriteSelectionToFile(wavStream, WAV_SAMPLE_PATH);
-        } catch (FileNotFoundException e){e.printStackTrace();}
+        sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
         /*
         Intent result = new Intent("com.example.RESULT_ACTION", Uri.parse("content://result_uri"));
         setResult(Activity.RESULT_OK, result);

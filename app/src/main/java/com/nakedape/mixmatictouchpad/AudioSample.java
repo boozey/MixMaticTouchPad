@@ -237,8 +237,10 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         }
         return true;
     }
-    public boolean WriteSelectionToFile(InputStream wavStream, String writePath){
+    public boolean WriteSelectionToFile(String source, String writePath){
+        InputStream wavStream;
         try {
+            wavStream = new FileInputStream(source);
             WaveFile waveFile = new WaveFile();
             waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
             wavStream.skip(44);
