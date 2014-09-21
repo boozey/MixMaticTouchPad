@@ -45,13 +45,14 @@ public class SampleEditActivity extends Activity {
     private String WAV_CACHE_PATH;
     private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
+    private int sampleLength;
     private int bufferSize = 1024;
     private int overlap = 0;
     private InputStream musicStream;
     private ProgressDialog dlg;
     private Context context;
-    private int sampleId;
     private SoundPool soundPool;
+    private int sampleId;
 
     // Media player variables
     private Uri fullMusicUri;
@@ -85,7 +86,7 @@ public class SampleEditActivity extends Activity {
             AudioSample view = (AudioSample)findViewById(R.id.spectralView);
             switch (msg.what){
                 case AUDIO_PROGRESS:
-                    view.updatePlayIndicator((double)msg.arg1/mPlayer.getDuration());
+                    view.updatePlayIndicator((double)msg.arg1/sampleLength);
                     break;
                 case AUDIO_PROCESSING_UPDATE:
                     dlg.setProgress(msg.arg1);
@@ -98,7 +99,7 @@ public class SampleEditActivity extends Activity {
                     break;
                 case AUDIO_CONVERTED:
                     dlg.dismiss();
-                    // Display indeterminate progress dialog
+                    // Display determinate progress dialog
                     dlg = new ProgressDialog(context);
                     dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                     dlg.setIndeterminate(false);
@@ -113,12 +114,12 @@ public class SampleEditActivity extends Activity {
                         wavStream.read(lenInt, 0, 4);
                         ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
                         len = bb.getInt();
-                        len = len / 4 / (int)sampleRate;
-                        Log.d("Wave duration (s)", String.valueOf(len));
+                        sampleLength = (int)len / 4 / (int)sampleRate;
+                        Log.d("Wave duration", String.valueOf(len));
                         wavStream.close();
                     } catch (IOException e) {e.printStackTrace();}
                     if (len > 0)
-                        dlg.setMax((int)len);
+                        dlg.setMax(sampleLength);
                     else
                         dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
                     dlg.setCancelable(false);
@@ -238,6 +239,7 @@ public class SampleEditActivity extends Activity {
     public void Save(View view){
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
+        sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
         /*
         Intent result = new Intent("com.example.RESULT_ACTION", Uri.parse("content://result_uri"));
         setResult(Activity.RESULT_OK, result);
@@ -246,7 +248,9 @@ public class SampleEditActivity extends Activity {
     }
 
     public void PlayTrimmedWAV(View view){
-        sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
+        float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        soundPool.play(sampleId, volume, volume, 1, 0, 1f);
+        Log.d("Sound Pool Playing", String.valueOf(sampleId));
     }
 
     public void ZoomIn(View view){
@@ -285,13 +289,14 @@ public class SampleEditActivity extends Activity {
         mPlayer = new MediaPlayer();
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
+        b = (Button)findViewById(R.id.button3);
+        b.setEnabled(false);
         soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
             @Override
             public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-                float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-                soundPool.play(sampleId, volume, volume, 1, 0, 1f);
-                Log.d("Sound Pool Playing", String.valueOf(sampleId));
+                Button b = (Button)findViewById(R.id.button3);
+                b.setEnabled(true);
             }
         });
 
