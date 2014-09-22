@@ -45,8 +45,9 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     private List<BeatInfo> beats;
     public double sampleLength;
     private double selectionStartTime = -1, selectionEndTime = -1, windowStartTime, windowEndTime;
+    private double beatThreshold = 0.3;
     private TarsosDSPAudioFormat audioFormat;
-    private int bufferSize, overLap;
+    private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
     private Paint paintBrush = new Paint(), paintSelect = new Paint();
     private float selectStart = -1, selectEnd = -1;
     private List<Line> waveFormData = new ArrayList<Line>();
@@ -74,12 +75,21 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         setDrawingCacheEnabled(true);
     }
 
-    public void LoadAudio(String source, TarsosDSPAudioFormat audioFormat, int bufferSize, int overLap, double beatThreshold){
+    public void LoadAudio(String source){
         try {
             InputStream wavStream = new BufferedInputStream(new FileInputStream(source));
-            this.audioFormat = audioFormat;
-            this.bufferSize = bufferSize;
-            this.overLap = overLap;
+            //Read the sample rate
+            byte[] rateInt = new byte[4];
+            wavStream.skip(24);
+            wavStream.read(rateInt, 0, 4);
+            ByteBuffer bb = ByteBuffer.wrap(rateInt).order(ByteOrder.LITTLE_ENDIAN);
+            sampleRate = bb.getInt();
+            Log.d("Sample Rate", String.valueOf(sampleRate));
+
+            audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
+            // Small buffer size to allow more accurate rendering of waveform
+            bufferSize = 1024;
+            overLap = bufferSize / 2;
             //Set up and run Tarsos
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
             dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
@@ -175,8 +185,10 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         try {
             wavStream = new BufferedInputStream(new FileInputStream(source));
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
+            bufferSize = 1024 * 32; //32KB buffer = AudioTrack minimum buffer * 2
+            overLap = 0;
             dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
-            AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat);
+            AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat, bufferSize);
             dispatcher.addAudioProcessor(player);
             dispatcher.skip(startTime);
             new Thread(new Runnable() {
@@ -234,7 +246,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     public boolean WriteSelectionToFile(String source, String writePath){
         InputStream wavStream;
         try {
-            wavStream = new FileInputStream(source);
+            wavStream = new BufferedInputStream(new FileInputStream(source));
             WaveFile waveFile = new WaveFile();
             waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
             wavStream.skip(44);
@@ -243,7 +255,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             wavStream.skip(offset);
             Log.d("Offset", String.valueOf(offset));
             Log.d("Length", String.valueOf(length));
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             int bufferLength;
             for (long i = offset; i < length + offset; i += buffer.length){
                 bufferLength = wavStream.read(buffer);

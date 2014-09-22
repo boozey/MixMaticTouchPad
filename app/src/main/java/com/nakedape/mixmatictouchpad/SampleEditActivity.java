@@ -47,8 +47,6 @@ public class SampleEditActivity extends Activity {
     private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
     private int sampleLength;
-    private int bufferSize = 1024;
-    private int overlap = 0;
     private InputStream musicStream;
     private ProgressDialog dlg;
     private Context context;
@@ -106,19 +104,19 @@ public class SampleEditActivity extends Activity {
                     dlg.setIndeterminate(false);
                     InputStream wavStream;
                     long len = 0;
-                    //try {
+                    try {
                         File file = new File(WAV_CACHE_PATH);
-                        len = file.length() - 44;
-                        //wavStream = new FileInputStream(file);
-                        //byte[] lenInt = new byte[4];
-                        //wavStream.skip(40);
-                        //wavStream.read(lenInt, 0, 4);
-                        //ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
-                        //len = bb.getInt();
+                        //len = file.length();
+                        wavStream = new FileInputStream(file);
+                        byte[] lenInt = new byte[4];
+                        wavStream.skip(40);
+                        wavStream.read(lenInt, 0, 4);
+                        ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                        len = bb.getInt();
                         sampleLength = (int)len / 4 / (int)sampleRate;
-                        Log.d("Wave duration", String.valueOf(len));
-                        //wavStream.close();
-                    //} catch (IOException e) {e.printStackTrace();}
+                        Log.d("Wave duration", String.valueOf(sampleLength));
+                        wavStream.close();
+                    } catch (IOException e) {e.printStackTrace();}
                     if (len > 0)
                         dlg.setMax(sampleLength);
                     else
@@ -279,6 +277,9 @@ public class SampleEditActivity extends Activity {
         setContentView(R.layout.activity_sample_edit);
         context = this;
         WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";//getExternalCacheDir() + "//temp.wav";
+        File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "cache.wav");
+        if (temp.isFile())
+            temp.delete();
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
@@ -373,31 +374,13 @@ public class SampleEditActivity extends Activity {
     // Thread to process audio
     public class LoadAudioThread implements Runnable{
         @Override
-        public void run(){
+        public void run() {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-            InputStream wavStream;
-            try {
-                wavStream = new BufferedInputStream(new FileInputStream(WAV_CACHE_PATH));
-                byte[] rateInt = new byte[4];
-                wavStream.skip(24);
-                wavStream.read(rateInt, 0, 4);
-                ByteBuffer bb = ByteBuffer.wrap(rateInt).order(ByteOrder.LITTLE_ENDIAN);
-                sampleRate = bb.getInt();
-                Log.d("Sample Rate", String.valueOf(sampleRate));
-                wavStream.close();
-                TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
-                AudioSample v = (AudioSample)findViewById(R.id.spectralView);
-                v.LoadAudio(WAV_CACHE_PATH, audioFormat, bufferSize, overlap, 0.3);
-            } catch (FileNotFoundException e){e.printStackTrace();} catch (IOException e){e.printStackTrace();}
-
-
-            try {
-                musicStream.close();
-            }catch (IOException e){e.printStackTrace();}
+            AudioSample v = (AudioSample) findViewById(R.id.spectralView);
+            v.LoadAudio(WAV_CACHE_PATH);
 
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();
-
         }
     }
 
