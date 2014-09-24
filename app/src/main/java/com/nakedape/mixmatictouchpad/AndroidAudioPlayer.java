@@ -25,6 +25,7 @@ public class AndroidAudioPlayer implements AudioProcessor {
                 AudioFormat.ENCODING_PCM_16BIT,
                 bufferSize * 2,
                 AudioTrack.MODE_STREAM);
+        audioTrack.play();
     }
     @Override
     public boolean process(AudioEvent audioEvent){
@@ -32,12 +33,14 @@ public class AndroidAudioPlayer implements AudioProcessor {
         ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
         audioTrack.write(shorts, 0, shorts.length);
         //byte[] bytes = new byte[audioEvent.getBufferSize()];
-        //ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).get(bytes);
+        //ByteBuffer.wrap(audioEvent.getByteBuffer()).get(bytes);
         //audioTrack.write(bytes, 0, bytes.length);
-        audioTrack.play();
         return true;
     }
 
     @Override
-    public void processingFinished(){}
+    public void processingFinished(){
+        audioTrack.stop();
+        audioTrack.release();
+    }
 }

@@ -17,32 +17,30 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.SeekBar;
 
-import com.musicg.wave.Wave;
-import com.musicg.wave.WaveFileManager;
-
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import javazoom.jl.converter.Converter;
+import javazoom.jl.decoder.Header;
 import javazoom.jl.decoder.JavaLayerException;
+import javazoom.jl.decoder.Obuffer;
 
 
 public class SampleEditActivity extends Activity {
 
     static final int REQUEST_MUSIC_GET = 0;
-    static final int AUDIO_PROGRESS = 1;
-    static final int AUDIO_PROCESSING_UPDATE = 2;
-    static final int AUDIO_CONVERTED = 3;
+    static final int AUDIO_PLAY_PROGRESS = 1;
+    static final int AUDIO_PLAY_COMPLETE = 2;
+    static final int AUDIO_PROCESSING_UPDATE = 3;
     static final int AUDIO_PROCESSING_COMPLETE = 4;
+    static final int MP3_CONVERTER_UPDATE = 5;
+    static final int MP3_CONVERSION_COMPLETE = 6;
+
     private String WAV_CACHE_PATH;
     private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
@@ -82,21 +80,29 @@ public class SampleEditActivity extends Activity {
     Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(Message msg){
-            AudioSample view = (AudioSample)findViewById(R.id.spectralView);
+            AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
             switch (msg.what){
-                case AUDIO_PROGRESS:
-                    view.updatePlayIndicator((double)msg.arg1/sampleLength);
+                case AUDIO_PLAY_PROGRESS:
+                    audioSample.updatePlayIndicator((double)msg.arg1 / 1000);
+                    break;
+                case AUDIO_PLAY_COMPLETE:
+                    audioSample.isPlaying = false;
+                    Button b = (Button)findViewById(R.id.buttonPlay);
+                    b.setText("Play");
                     break;
                 case AUDIO_PROCESSING_UPDATE:
                     dlg.setProgress(msg.arg1);
                     break;
                 case AUDIO_PROCESSING_COMPLETE:
                     dlg.dismiss();
-                    view.updateView();
+                    audioSample.updateView();
                     mPlayer.release();
                     mPlayer = null;
                     break;
-                case AUDIO_CONVERTED:
+                case MP3_CONVERTER_UPDATE:
+                    dlg.setProgress(msg.arg1);
+                    break;
+                case MP3_CONVERSION_COMPLETE:
                     dlg.dismiss();
                     // Display determinate progress dialog
                     dlg = new ProgressDialog(context);
@@ -106,7 +112,6 @@ public class SampleEditActivity extends Activity {
                     long len = 0;
                     try {
                         File file = new File(WAV_CACHE_PATH);
-                        //len = file.length();
                         wavStream = new FileInputStream(file);
                         byte[] lenInt = new byte[4];
                         wavStream.skip(40);
@@ -155,14 +160,22 @@ public class SampleEditActivity extends Activity {
                             b.setEnabled(true);
                         }
                     });
-                    mPlayer.prepareAsync();
+                    mPlayer.prepare();
+                    sampleLength = mPlayer.getDuration() / 1000;
                 } catch (IOException e){
                     e.printStackTrace();
                 }
                 // Display indeterminate progress dialog
                 dlg = new ProgressDialog(this);
-                dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                dlg.setIndeterminate(true);
+                if (sampleLength > 0){
+                    dlg.setIndeterminate(false);
+                    dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                    dlg.setMax(sampleLength * 1000 / 26);
+                }
+                else {
+                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                    dlg.setIndeterminate(true);
+                }
                 dlg.setCancelable(false);
                 dlg.setMessage("Converting MP3 to wav");
                 dlg.show();
@@ -194,35 +207,37 @@ public class SampleEditActivity extends Activity {
 
             if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                 Button b = (Button) findViewById(R.id.buttonPlay);
+                AudioSample audioSample = (AudioSample) findViewById(R.id.spectralView);
                 if (mPlayer != null) {
                     if (mPlayer.isPlaying()){
                         mPlayer.pause();
+                        audioSample.isPlaying = false;
                         b.setText("Play");
                     }
                     else {
                         // Start playback.
                         b.setText("Pause");
-                        AudioSample v = (AudioSample) findViewById(R.id.spectralView);
+                        audioSample.isPlaying = true;
                         // Start playing from beginning of selection
-                        if (v.getSelectionStart() > 0)
-                            mPlayer.seekTo((int) Math.round(v.getSelectionStart()));
+                        if (audioSample.getSelectionStart() > 0)
+                            mPlayer.seekTo((int)(audioSample.getSelectionStart() * 1000));
                         mPlayer.start();
-                        //new Thread(new PlayIndicator()).start();
+                        new Thread(new PlayIndicator()).start();
                     }
                 }
                 else { // Start a new instance
                     mPlayer = new MediaPlayer();
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
-                        //mPlayer.setDataSource(getApplicationContext(), fullMusicUri);
                         b.setText("Pause");
-                        mPlayer.setDataSource(context, Uri.parse(getBaseContext().getCacheDir().getAbsolutePath() + "temp.wav"));
+                        audioSample.isPlaying = true;
+                        mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
-                        AudioSample v = (AudioSample) findViewById(R.id.spectralView);
                         // Start playing from beginning of selection
-                        if (v.getSelectionStart() > 0)
-                            mPlayer.seekTo((int) Math.round(v.getSelectionStart()));
+                        if (audioSample.getSelectionStart() > 0)
+                            mPlayer.seekTo((int)(audioSample.getSelectionStart() * 1000));
                         mPlayer.start();
+                        new Thread(new PlayIndicator()).start();
                     } catch (IOException e){
                         e.printStackTrace();
                     }
@@ -237,8 +252,11 @@ public class SampleEditActivity extends Activity {
 
     public void Save(View view){
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
+        if (temp.isFile())
+            temp.delete();
         sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
-        sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
+        //sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
         /*
         Intent result = new Intent("com.example.RESULT_ACTION", Uri.parse("content://result_uri"));
         setResult(Activity.RESULT_OK, result);
@@ -291,37 +309,12 @@ public class SampleEditActivity extends Activity {
         mPlayer = new MediaPlayer();
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
-        b = (Button)findViewById(R.id.button3);
-        b.setEnabled(false);
         soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
             @Override
             public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-                Button b = (Button)findViewById(R.id.button3);
-                b.setEnabled(true);
             }
         });
-
-        // Setup beat threshold bar
-        SeekBar bar = (SeekBar)findViewById(R.id.beatSensitivity);
-        bar.setProgress(30);
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                ChangeBeatThreshold(progress);
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-
     }
 
     @Override
@@ -363,10 +356,37 @@ public class SampleEditActivity extends Activity {
         public void run(){
             // Convert mp3 to wav
             Converter c = new Converter();
+            Converter.ProgressListener listener = new Converter.ProgressListener() {
+                @Override
+                public void converterUpdate(int updateID, int param1, int param2) {
+                }
+
+                @Override
+                public void parsedFrame(int frameNo, Header header) {
+
+                }
+
+                @Override
+                public void readFrame(int frameNo, Header header) {
+
+                }
+
+                @Override
+                public void decodedFrame(int frameNo, Header header, Obuffer o) {
+                    Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
+                    m.arg1 = frameNo;
+                    m.sendToTarget();
+                }
+
+                @Override
+                public boolean converterException(Throwable t) {
+                    return false;
+                }
+            };
             try {
-                c.convert(musicStream, WAV_CACHE_PATH, null, null);
+                c.convert(musicStream, WAV_CACHE_PATH, listener, null);
             } catch (JavaLayerException e){e.printStackTrace();}
-            Message m = mHandler.obtainMessage(AUDIO_CONVERTED);
+            Message m = mHandler.obtainMessage(MP3_CONVERSION_COMPLETE);
             m.sendToTarget();
         }
     }
@@ -412,13 +432,12 @@ public class SampleEditActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSample view = (AudioSample)findViewById(R.id.spectralView);
-            int selectionEnd = (int)Math.round(view.getSelectionEnd() * 1000);
-            if (selectionEnd < 0)
-                selectionEnd = mPlayer.getDuration();
+            AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
+            audioSample.isPlaying = true;
+            int selectionEnd = (int)Math.round(audioSample.getSelectionEnd() * 1000);
             while (mPlayer.getCurrentPosition() < selectionEnd){
                 try {
-                    Message m = mHandler.obtainMessage(AUDIO_PROGRESS);
+                    Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                     m.arg1 = mPlayer.getCurrentPosition();
                     m.sendToTarget();
                     Thread.sleep(100);
@@ -427,6 +446,8 @@ public class SampleEditActivity extends Activity {
                 }
             }
             mPlayer.pause();
+            Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
+            m.sendToTarget();
         }
     }
 }

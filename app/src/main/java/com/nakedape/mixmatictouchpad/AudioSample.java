@@ -119,8 +119,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             isLoading = false;
             waveFormRender.addAll(waveFormData);
             beatsRender.addAll(beatsData);
-            audioStream.close();
-            wavStream.close();
         }catch (IOException e){e.printStackTrace();}
     }
 
@@ -185,7 +183,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         try {
             wavStream = new BufferedInputStream(new FileInputStream(source));
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-            bufferSize = 1024 * 32; //32KB buffer = AudioTrack minimum buffer * 2
+            bufferSize = 1024 * 64; //32KB buffer = AudioTrack minimum buffer * 2
             overLap = 0;
             dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
             AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat, bufferSize);
@@ -205,12 +203,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 }
             }).start();
             dispatcher.run();
-            try {
-                audioStream.close();
-                wavStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }catch (FileNotFoundException e){e.printStackTrace();}
     }
 
@@ -281,7 +273,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     }
 
     public void updatePlayIndicator(double time){
-        playPos.x = (float)(time * getWidth());
+        playPos.x = (float)(time);
         invalidate();
     }
 
@@ -377,7 +369,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             // Draw play position indicator
             if (isPlaying) {
                 paintSelect.setColor(Color.RED);
-                canvas.drawLine(playPos.x, getHeight(), playPos.x, playPos.y, paintSelect);
+                canvas.drawLine((float)(playPos.x - windowStartTime) * dpPerSec, 0, (float)(playPos.x - windowStartTime) * dpPerSec, getHeight(), paintSelect);
             }
         }
     }
