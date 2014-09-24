@@ -346,7 +346,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 // Draw beat marks
                 paintBrush.setColor(Color.GREEN);
                 for (Line line : beatsRender) {
-                    canvas.drawLine(line.x * dpPerSec, 0, line.x * dpPerSec, line.y, paintBrush);
+                    canvas.drawLine((float)(line.x - windowStartTime) * dpPerSec, 0, (float)(line.x - windowStartTime) * dpPerSec, line.y, paintBrush);
                 }
             }
 

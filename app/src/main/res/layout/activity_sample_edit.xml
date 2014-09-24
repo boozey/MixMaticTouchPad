@@ -16,7 +16,8 @@
         android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:layout_above="@+id/buttonPlay" />
+        android:layout_above="@+id/buttonPlay"
+        android:onClick="TarsosPlay" />
 
     <Button
         style="?android:attr/buttonStyleSmall"
@@ -37,8 +38,9 @@
         android:onClick="Save"
         android:layout_toStartOf="@+id/buttonZoomOut"
         android:layout_below="@+id/spectralView"
-        android:layout_toRightOf="@+id/buttonPlay"
-        android:layout_toEndOf="@+id/buttonPlay" />
+        android:layout_toEndOf="@+id/checkBoxShowBeats"
+        android:layout_toRightOf="@+id/checkBoxShowBeats"
+        style="?android:attr/buttonStyleSmall" />
 
     <CheckBox
         android:layout_width="wrap_content"
@@ -71,5 +73,16 @@
         android:layout_toLeftOf="@id/buttonZoomIn"
         android:layout_alignTop="@+id/buttonZoomIn"
         android:onClick="ZoomOut" />
+
+    <Button
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Play Tarsos"
+        android:id="@+id/button"
+        android:layout_below="@+id/spectralView"
+        android:layout_toRightOf="@+id/buttonPlay"
+        android:layout_toEndOf="@+id/buttonPlay"
+        android:onClick="TarsosPlay" />
 
 </RelativeLayout>

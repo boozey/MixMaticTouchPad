@@ -24,13 +24,10 @@ public class WaveFileWriter implements AudioProcessor {
     @Override
     public boolean process(AudioEvent audioEvent){
         ByteBuffer bb = ByteBuffer.wrap(audioEvent.getByteBuffer().clone());
-        byte[] audioBuffer = new byte[(audioEvent.getBufferSize() - audioEvent.getOverlap())];
-        bb.get(audioBuffer, 0, audioBuffer.length);
+        byte[] audioBuffer = new byte[audioEvent.getBufferSize()];
         bb.get(audioBuffer, 0, audioBuffer.length);
         short[] shorts = new short[audioBuffer.length / 2];
         ByteBuffer.wrap(audioBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-
-        //ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
         waveFile.WriteData(shorts, shorts.length);
         return true;
     }
@@ -38,6 +35,5 @@ public class WaveFileWriter implements AudioProcessor {
     @Override
     public void processingFinished(){
         waveFile.Close();
-        Log.d("Processing Finished", "");
     }
 }

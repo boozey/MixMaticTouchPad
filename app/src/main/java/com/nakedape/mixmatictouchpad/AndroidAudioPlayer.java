@@ -18,23 +18,24 @@ import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 public class AndroidAudioPlayer implements AudioProcessor {
     private AudioTrack audioTrack;
     AndroidAudioPlayer(TarsosDSPAudioFormat audioFormat, int bufferSize){
-        bufferSize = Math.max(bufferSize * 2, 32 * 1024);
+        bufferSize = Math.max(bufferSize, AudioTrack.getMinBufferSize((int)audioFormat.getSampleRate(), AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT));
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 (int)audioFormat.getSampleRate(),
                 AudioFormat.CHANNEL_OUT_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 bufferSize * 2,
                 AudioTrack.MODE_STREAM);
-        audioTrack.play();
     }
     @Override
     public boolean process(AudioEvent audioEvent){
-        short[] shorts = new short[audioEvent.getBufferSize() / 2];
-        ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-        audioTrack.write(shorts, 0, shorts.length);
-        //byte[] bytes = new byte[audioEvent.getBufferSize()];
-        //ByteBuffer.wrap(audioEvent.getByteBuffer()).get(bytes);
-        //audioTrack.write(bytes, 0, bytes.length);
+        if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+            audioTrack.play();
+        //short[] shorts = new short[audioEvent.getBufferSize() / 2];
+        //ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+        //audioTrack.write(shorts, 0, shorts.length);
+        byte[] bytes = new byte[audioEvent.getBufferSize()];
+        ByteBuffer.wrap(audioEvent.getByteBuffer()).get(bytes);
+        audioTrack.write(bytes, 0, bytes.length);
         return true;
     }
 
