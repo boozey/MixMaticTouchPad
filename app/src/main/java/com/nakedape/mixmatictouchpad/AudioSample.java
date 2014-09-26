@@ -238,27 +238,25 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     public boolean WriteSelectionToFile(String source, String writePath){
         InputStream wavStream;
         try {
+            File f = new File(writePath);
+            if (f.isFile())
+                f.delete();
             wavStream = new BufferedInputStream(new FileInputStream(source));
             WaveFile waveFile = new WaveFile();
             waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
             wavStream.skip(44);
-            long offset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8);
-            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8) - offset;
-            wavStream.skip(offset);
-            Log.d("Offset", String.valueOf(offset));
-            Log.d("Length", String.valueOf(length));
+            long startOffset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8);
+            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8) - startOffset;
+            wavStream.skip(startOffset);
             byte[] buffer = new byte[4096];
             int bufferLength;
-            for (long i = offset; i < length + offset; i += buffer.length){
+            for (long i = startOffset; i < length + startOffset; i += buffer.length){
                 bufferLength = wavStream.read(buffer);
                 short[] shorts = new short[buffer.length / 2];
                 ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                 waveFile.WriteData(shorts, shorts.length);
             }
             waveFile.Close();
-            try {
-                wavStream.close();
-            } catch (IOException e) {e.printStackTrace();}
 
 
         } catch (IOException e) {e.printStackTrace();}

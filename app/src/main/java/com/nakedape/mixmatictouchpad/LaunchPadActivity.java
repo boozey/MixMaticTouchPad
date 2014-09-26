@@ -24,6 +24,7 @@ public class LaunchPadActivity extends Activity {
 
     private Context context;
     private HashMap samples;
+    private int numTouchPads;
     private AudioManager am;
     private SoundPool soundPool;
 
@@ -36,9 +37,11 @@ public class LaunchPadActivity extends Activity {
                 startActivityForResult(intent, GET_SAMPLE);
             }
             else {
-                float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-                Sample s = (Sample)samples.get(v.getId());
-                soundPool.play(s.getSoundPoolId(), volume, volume, 1, 0, 1f);
+                if (samples.containsKey(v.getId())) {
+                    float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    Sample s = (Sample) samples.get(v.getId());
+                    soundPool.play(s.getSoundPoolId(), volume, volume, 1, 0, 1f);
+                }
             }
         }
     };
@@ -76,6 +79,7 @@ public class LaunchPadActivity extends Activity {
             }
         }
         samples = new HashMap(id);
+        numTouchPads = id;
 
         // Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -84,10 +88,12 @@ public class LaunchPadActivity extends Activity {
     }
 
     private void LoadSoundPool(){
-        for (int i = 0; i < samples.size(); i++){
+        for (int i = 0; i < numTouchPads; i++){
             if (samples.containsKey(i)) {
                 Sample s = (Sample) samples.get(i);
                 s.setSoundPoolId(soundPool.load(s.getPath(), 10));
+                Log.d("Sample Key", String.valueOf(i));
+                Log.d("Sample Id", String.valueOf(s.getSoundPoolId()));
             }
 
         }
