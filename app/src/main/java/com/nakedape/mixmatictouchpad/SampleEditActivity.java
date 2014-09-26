@@ -256,12 +256,12 @@ public class SampleEditActivity extends Activity {
         if (temp.isFile())
             temp.delete();
         sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
-        //sampleId = soundPool.load(WAV_SAMPLE_PATH, 1);
-        /*
-        Intent result = new Intent("com.example.RESULT_ACTION", Uri.parse("content://result_uri"));
+
+        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(WAV_SAMPLE_PATH));
+        result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
         setResult(Activity.RESULT_OK, result);
         finish();
-        */
+
     }
 
     public void PlayTrimmedWAV(View view){
@@ -298,6 +298,10 @@ public class SampleEditActivity extends Activity {
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "cache.wav");
         if (temp.isFile())
             temp.delete();
+
+        Intent intent = getIntent();
+        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
+
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);

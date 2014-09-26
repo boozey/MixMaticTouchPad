@@ -33,14 +33,16 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Trim"
+        android:text="Trim and Save"
         android:id="@+id/buttonSave"
         android:onClick="Save"
         android:layout_toStartOf="@+id/buttonZoomOut"
-        android:layout_below="@+id/spectralView"
         android:layout_toEndOf="@+id/checkBoxShowBeats"
-        android:layout_toRightOf="@+id/checkBoxShowBeats"
-        style="?android:attr/buttonStyleSmall" />
+        style="?android:attr/buttonStyleSmall"
+        android:layout_below="@+id/buttonZoomIn"
+        android:layout_alignRight="@+id/buttonZoomIn"
+        android:layout_alignEnd="@+id/buttonZoomIn"
+        android:singleLine="true" />
 
     <CheckBox
         android:layout_width="wrap_content"
