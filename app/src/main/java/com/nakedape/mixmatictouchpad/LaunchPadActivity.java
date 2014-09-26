@@ -41,6 +41,7 @@ public class LaunchPadActivity extends Activity {
                     float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                     Sample s = (Sample) samples.get(v.getId());
                     soundPool.play(s.getSoundPoolId(), volume, volume, 1, 0, 1f);
+                    Log.d("Soundpool", String.valueOf(s.getSoundPoolId()));
                 }
             }
         }
@@ -88,6 +89,8 @@ public class LaunchPadActivity extends Activity {
     }
 
     private void LoadSoundPool(){
+        soundPool.release();
+        soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
         for (int i = 0; i < numTouchPads; i++){
             if (samples.containsKey(i)) {
                 Sample s = (Sample) samples.get(i);

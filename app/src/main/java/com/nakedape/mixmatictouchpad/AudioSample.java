@@ -156,7 +156,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             beatsRender.clear();
             for (Line l : temp) {
                 if (l.getX() >= selectStart && l.getX() <= selectEnd) {
-                    beatsRender.add(new Line((l.getX() - selectStart) * zoomFactor, l.getY()));
+                    beatsRender.add(new Line(l.getX(), l.getY()));
                 }
             }
             windowStartTime = selectionStartTime;
