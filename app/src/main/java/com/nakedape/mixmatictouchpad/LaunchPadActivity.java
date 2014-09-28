@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -13,6 +14,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
 
+import java.io.File;
 import java.util.HashMap;
 
 
@@ -48,9 +50,21 @@ public class LaunchPadActivity extends Activity {
     };
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
-        if (requestCode == GET_SAMPLE && resultCode == RESULT_OK){
-            samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(data.getData().getPath()));
-            Log.d("Sample Id/Path", String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + "/" + String.valueOf(data.getData().getPath()));
+        if (requestCode == GET_SAMPLE && resultCode == RESULT_OK) {
+            String path = data.getData().getPath();
+            File f = new File(path);
+            File homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
+            if (!homeDir.isDirectory())
+                homeDir.mkdir();
+            File sampleFile = new File(homeDir, String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
+            if (sampleFile.isFile())
+                sampleFile.delete();
+            boolean fileCopied = f.renameTo(sampleFile);
+            if (fileCopied) {
+                samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(sampleFile.getAbsolutePath()));
+                LoadSoundPool();
+                Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
+            }
         }
     }
 
@@ -122,7 +136,6 @@ public class LaunchPadActivity extends Activity {
             if (isEditMode){
                 isEditMode = false;
                 item.setTitle(R.string.action_edit_mode);
-                LoadSoundPool();
             }
             else {
                 isEditMode = true;

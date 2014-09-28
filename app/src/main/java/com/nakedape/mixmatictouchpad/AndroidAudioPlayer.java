@@ -30,12 +30,12 @@ public class AndroidAudioPlayer implements AudioProcessor {
     public boolean process(AudioEvent audioEvent){
         if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
             audioTrack.play();
-        //short[] shorts = new short[audioEvent.getBufferSize() / 2];
-        //ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-        //audioTrack.write(shorts, 0, shorts.length);
-        byte[] bytes = new byte[audioEvent.getBufferSize()];
-        ByteBuffer.wrap(audioEvent.getByteBuffer()).get(bytes);
-        audioTrack.write(bytes, 0, bytes.length);
+        short[] shorts = new short[audioEvent.getBufferSize() / 2];
+        ByteBuffer.wrap(audioEvent.getByteBuffer()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+        audioTrack.write(shorts, 0, shorts.length);
+        //byte[] bytes = new byte[audioEvent.getBufferSize()];
+        //ByteBuffer.wrap(audioEvent.getByteBuffer()).get(bytes);
+        //audioTrack.write(bytes, 0, bytes.length);
         return true;
     }
 
