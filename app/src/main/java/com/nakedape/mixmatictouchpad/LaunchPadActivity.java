@@ -3,6 +3,7 @@ package com.nakedape.mixmatictouchpad;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Bundle;
@@ -40,10 +41,11 @@ public class LaunchPadActivity extends Activity {
             }
             else {
                 if (samples.containsKey(v.getId())) {
-                    float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    float volume = (float)am.getStreamVolume(AudioManager.STREAM_MUSIC) / (float)am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                     Sample s = (Sample) samples.get(v.getId());
                     soundPool.play(s.getSoundPoolId(), volume, volume, 1, 0, 1f);
                     Log.d("Soundpool", String.valueOf(s.getSoundPoolId()));
+                    Log.d("Soundpool", "Volume: " + String.valueOf(volume));
                 }
             }
         }
@@ -74,10 +76,12 @@ public class LaunchPadActivity extends Activity {
         setContentView(R.layout.activity_launch_pad);
         context = this;
 
-        // Set up touch pads
+        // Set up touch pads and load samples if present
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        File homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
+        samples = new HashMap();
         int id = 0;
         for (int i = 0; i < 6; i++){
             LinearLayout l = new LinearLayout(this);
@@ -86,20 +90,27 @@ public class LaunchPadActivity extends Activity {
             for (int j = 0; j < 4; j++){
                 TouchPad t = new TouchPad(this);
                 t.setId(id);
-                id++;
                 t.setWidth(metrics.widthPixels / 4);
                 t.setHeight((metrics.heightPixels - 150) / 6);
                 t.setOnClickListener(TouchPadClick);
                 l.addView(t);
+                if (homeDir.isDirectory()){
+                    File sample = new File(homeDir, String.valueOf(id) + ".wav");
+                    if (sample.isFile()){
+                        samples.put(id, new Sample(sample.getAbsolutePath()));
+                        t.setBackgroundColor(Color.WHITE);
+                    }
+                }
+                id++;
             }
         }
-        samples = new HashMap(id);
         numTouchPads = id;
 
         // Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-        soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
+        soundPool = new SoundPool(24, AudioManager.STREAM_MUSIC, 0);
+        LoadSoundPool();
     }
 
     private void LoadSoundPool(){
@@ -108,7 +119,7 @@ public class LaunchPadActivity extends Activity {
         for (int i = 0; i < numTouchPads; i++){
             if (samples.containsKey(i)) {
                 Sample s = (Sample) samples.get(i);
-                s.setSoundPoolId(soundPool.load(s.getPath(), 10));
+                s.setSoundPoolId(soundPool.load(s.getPath(), 1));
                 Log.d("Sample Key", String.valueOf(i));
                 Log.d("Sample Id", String.valueOf(s.getSoundPoolId()));
             }
