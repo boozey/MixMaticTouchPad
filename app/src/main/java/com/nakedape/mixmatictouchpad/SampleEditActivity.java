@@ -195,7 +195,7 @@ public class SampleEditActivity extends Activity {
     public void LoadAudioFile(){
         // Allow user to select an audio file
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("audio/mp3");
+        intent.setType("audio/*.mp3");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         if (intent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(intent, REQUEST_MUSIC_GET);

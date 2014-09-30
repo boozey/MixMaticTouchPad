@@ -245,8 +245,8 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             WaveFile waveFile = new WaveFile();
             waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
             wavStream.skip(44);
-            long startOffset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8);
-            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 8) - startOffset;
+            long startOffset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4);
+            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4) - startOffset;
             wavStream.skip(startOffset);
             byte[] buffer = new byte[4096];
             int bufferLength;
