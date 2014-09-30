@@ -148,23 +148,8 @@ public class SampleEditActivity extends Activity {
                 musicStream = contentResolver.openInputStream(fullMusicUri);
 
                 //Load audio file to play
-                Button b = (Button)findViewById(R.id.buttonPlay);
-                b.setEnabled(false);
-                mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                try {
-                    mPlayer.setDataSource(getApplicationContext(), fullMusicUri);
-                    mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                        @Override
-                        public void onPrepared(MediaPlayer mp) {
-                            Button b = (Button)findViewById(R.id.buttonPlay);
-                            b.setEnabled(true);
-                        }
-                    });
-                    mPlayer.prepare();
-                    sampleLength = mPlayer.getDuration() / 1000;
-                } catch (IOException e){
-                    e.printStackTrace();
-                }
+                LoadMediaPlayer(fullMusicUri);
+
                 // Display indeterminate progress dialog
                 dlg = new ProgressDialog(this);
                 if (sampleLength > 0){
@@ -184,6 +169,26 @@ public class SampleEditActivity extends Activity {
             catch (IOException e){
                 e.printStackTrace();
             }
+        }
+    }
+
+    public void LoadMediaPlayer(Uri uri){
+        Button b = (Button)findViewById(R.id.buttonPlay);
+        b.setEnabled(false);
+        mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        try {
+            mPlayer.setDataSource(getApplicationContext(), uri);
+            mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mp) {
+                    Button b = (Button)findViewById(R.id.buttonPlay);
+                    b.setEnabled(true);
+                }
+            });
+            mPlayer.prepare();
+            sampleLength = mPlayer.getDuration() / 1000;
+        } catch (IOException e){
+            e.printStackTrace();
         }
     }
 
@@ -299,9 +304,6 @@ public class SampleEditActivity extends Activity {
         if (temp.isFile())
             temp.delete();
 
-        Intent intent = getIntent();
-        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
-
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
@@ -319,6 +321,47 @@ public class SampleEditActivity extends Activity {
             public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
             }
         });
+
+        // Get data from intent
+        Intent intent = getIntent();
+        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
+        if (intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH) != null) {
+            temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
+        }
+        if (temp.isFile()){ // If a sample is being passed, load it and process
+            File loadedSample = new File(WAV_CACHE_PATH);
+            temp.renameTo(loadedSample);
+            LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
+            // Display determinate progress dialog
+            dlg = new ProgressDialog(context);
+            dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            dlg.setIndeterminate(false);
+            InputStream wavStream;
+            long len = 0;
+            try {
+                File file = new File(WAV_CACHE_PATH);
+                wavStream = new FileInputStream(file);
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                len = bb.getInt();
+                sampleLength = (int)len / 4 / (int)sampleRate;
+                Log.d("Wave duration", String.valueOf(sampleLength));
+                wavStream.close();
+            } catch (IOException e) {e.printStackTrace();}
+
+            if (len > 0)
+                dlg.setMax(sampleLength);
+            else
+                dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
+            dlg.setCancelable(false);
+            dlg.setMessage("Processing Audio");
+            dlg.show();
+            // Process audio
+            new Thread(new LoadAudioThread()).start();
+            new Thread(new AudioProcessUpdate()).start();
+        }
     }
 
     @Override
