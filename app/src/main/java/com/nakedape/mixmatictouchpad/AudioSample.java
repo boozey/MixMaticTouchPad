@@ -42,6 +42,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         beatsData.add(new Line((float)time, (float)getHeight()));
     }
 
+    private String samplePath;
     private List<BeatInfo> beats;
     public double sampleLength;
     private double selectionStartTime = -1, selectionEndTime = -1, windowStartTime, windowEndTime;
@@ -77,6 +78,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
 
     public void LoadAudio(String source){
         try {
+            samplePath = source;
             InputStream wavStream = new BufferedInputStream(new FileInputStream(source));
             //Read the sample rate
             byte[] rateInt = new byte[4];
@@ -206,6 +208,9 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         }catch (FileNotFoundException e){e.printStackTrace();}
     }
 
+    public void TrimToSelection(){
+
+    }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
         UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
         dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);

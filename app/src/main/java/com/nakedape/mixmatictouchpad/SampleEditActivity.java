@@ -269,6 +269,17 @@ public class SampleEditActivity extends Activity {
 
     }
 
+    public void Trim(){
+        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        File temp = new File(WAV_SAMPLE_PATH);
+        if (temp.isFile())
+            temp.delete();
+        sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
+        File cache = new File(WAV_CACHE_PATH);
+        cache.delete();
+        temp.renameTo(cache);
+    }
+
     public void PlayTrimmedWAV(View view){
         float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         soundPool.play(sampleId, volume, volume, 1, 0, 1f);
@@ -393,6 +404,13 @@ public class SampleEditActivity extends Activity {
         }
         else if (id == R.id.action_load_file){
             LoadAudioFile();
+        }
+        else if (id == R.id.action_trim_wav){
+            Trim();
+        }
+        else if (id == R.id.action_show_beats){
+            AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+            sample.setShowBeats(item.isChecked());
         }
         return super.onOptionsItemSelected(item);
     }

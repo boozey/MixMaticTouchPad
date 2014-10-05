@@ -13,7 +13,6 @@
         android:id="@+id/spectralView"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:layout_above="@+id/buttonPlay"
@@ -26,30 +25,6 @@
         android:text="Play"
         android:id="@+id/buttonPlay"
         android:onClick="Play"
-        android:layout_above="@+id/checkBoxShowBeats"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true" />
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Trim and Save"
-        android:id="@+id/buttonSave"
-        android:onClick="Save"
-        android:layout_toStartOf="@+id/buttonZoomOut"
-        android:layout_toEndOf="@+id/checkBoxShowBeats"
-        style="?android:attr/buttonStyleSmall"
-        android:layout_below="@+id/buttonZoomIn"
-        android:layout_alignRight="@+id/buttonZoomIn"
-        android:layout_alignEnd="@+id/buttonZoomIn"
-        android:singleLine="true" />
-
-    <CheckBox
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/show_beats"
-        android:id="@+id/checkBoxShowBeats"
-        android:onClick="ShowBeatsClicked"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true" />
