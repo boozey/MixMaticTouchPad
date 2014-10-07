@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.Environment;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -16,10 +17,12 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -214,8 +217,44 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         }catch (FileNotFoundException e){e.printStackTrace();}
     }
 
-    public void TrimToSelection(){
-
+    public void TrimToSelection(double startTime, double endTime){
+        InputStream wavStream = null;
+        File trimmedSample = null;
+        File sampleFile = new File(samplePath);
+        if (sampleFile.isFile()){
+            File tempFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "temp.wav");
+            if (tempFile.isFile()) tempFile.delete();
+            try {
+                CopyFile(sampleFile, tempFile);
+            } catch (IOException e){e.printStackTrace();}
+            trimmedSample = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "trimmedSample.wav");
+            if (trimmedSample.isFile()) trimmedSample.delete();
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(tempFile));
+                WaveFile waveFile = new WaveFile();
+                waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
+                wavStream.skip(44);
+                long startOffset = (long)(startTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4);
+                long length = (long)(endTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4) - startOffset;
+                wavStream.skip(startOffset);
+                byte[] buffer = new byte[4096];
+                int bufferLength;
+                for (long i = startOffset; i < length + startOffset; i += buffer.length){
+                    bufferLength = wavStream.read(buffer);
+                    short[] shorts = new short[buffer.length / 2];
+                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    waveFile.WriteData(shorts, shorts.length);
+                }
+                waveFile.Close();
+                wavStream.close();
+                tempFile.delete();
+            } catch (IOException e) {e.printStackTrace();}
+            finally {
+                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+            }
+        }
+        sampleFile.delete();
+        trimmedSample.renameTo(sampleFile);
     }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
         UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
@@ -277,10 +316,14 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         return true;
     }
 
-    public double getSelectionStart(){
+    public String GetSamplePath(){
+        return samplePath;
+    }
+
+    public double getSelectionStartTime(){
         return selectionStartTime;
     }
-    public double getSelectionEnd(){
+    public double getSelectionEndTime(){
         return selectionEndTime;
     }
 
@@ -397,6 +440,26 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 paintSelect.setColor(Color.RED);
                 canvas.drawLine((float)(playPos.x - windowStartTime) * dpPerSec, 0, (float)(playPos.x - windowStartTime) * dpPerSec, getHeight(), paintSelect);
             }
+        }
+    }
+
+    /**
+     * copy file from source to destination
+     *
+     * @param src source
+     * @param dst destination
+     * @throws java.io.IOException in case of any problems
+     */
+    private void CopyFile(File src, File dst) throws IOException {
+        FileChannel inChannel = new FileInputStream(src).getChannel();
+        FileChannel outChannel = new FileOutputStream(dst).getChannel();
+        try {
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+        } finally {
+            if (inChannel != null)
+                inChannel.close();
+            if (outChannel != null)
+                outChannel.close();
         }
     }
 

@@ -41,6 +41,12 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void onClick(View v) {
             if (isEditMode) {
+                // Release sound pool resources so that the sample can be edited
+                if (soundPool != null) {
+                    soundPool.autoPause();
+                    soundPool.release();
+                    soundPool = null;
+                }
                 Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                 intent.putExtra(TOUCHPAD_ID, v.getId());
                 if (samples.containsKey(v.getId())){
@@ -126,7 +132,10 @@ public class LaunchPadActivity extends Activity {
     }
 
     private void LoadSoundPool(){
-        soundPool.release();
+        if (soundPool != null) {
+            soundPool.release();
+            soundPool = null;
+        }
         soundPool = new SoundPool(24, AudioManager.STREAM_MUSIC, 0);
         for (int i = 0; i < numTouchPads; i++){
             if (samples.containsKey(i)) {

@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.media.SoundPool;
 import android.net.Uri;
 import android.os.*;
 import android.os.Process;
@@ -26,10 +25,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import javazoom.jl.converter.Converter;
 import javazoom.jl.decoder.Header;
@@ -235,8 +230,8 @@ public class SampleEditActivity extends Activity {
                         b.setText("Pause");
                         audioSample.isPlaying = true;
                         // Start playing from beginning of selection
-                        if (audioSample.getSelectionStart() > 0)
-                            mPlayer.seekTo((int)(audioSample.getSelectionStart() * 1000));
+                        if (audioSample.getSelectionStartTime() > 0)
+                            mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     }
@@ -250,8 +245,8 @@ public class SampleEditActivity extends Activity {
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
                         // Start playing from beginning of selection
-                        if (audioSample.getSelectionStart() > 0)
-                            mPlayer.seekTo((int)(audioSample.getSelectionStart() * 1000));
+                        if (audioSample.getSelectionStartTime() > 0)
+                            mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     } catch (IOException e){
@@ -263,7 +258,7 @@ public class SampleEditActivity extends Activity {
 
     public void TarsosPlay(View view){
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-        sample.Play(WAV_CACHE_PATH, sample.getSelectionStart(), sample.getSelectionEnd());
+        sample.Play(WAV_CACHE_PATH, sample.getSelectionStartTime(), sample.getSelectionEndTime());
     }
 
     public void Save(View view){
@@ -271,9 +266,15 @@ public class SampleEditActivity extends Activity {
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
         if (temp.isFile())
             temp.delete();
-        sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
+        if (mPlayer != null){
+            if (mPlayer.isPlaying()) mPlayer.pause();
+            mPlayer.release();
+            mPlayer = null;
+        }
+        //sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
+        sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
 
-        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(WAV_SAMPLE_PATH));
+        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.GetSamplePath()));//Uri.parse(WAV_SAMPLE_PATH));
         result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
         setResult(Activity.RESULT_OK, result);
         finish();
@@ -533,7 +534,7 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
             audioSample.isPlaying = true;
-            int selectionEnd = (int)Math.round(audioSample.getSelectionEnd() * 1000);
+            int selectionEnd = (int)Math.round(audioSample.getSelectionEndTime() * 1000);
             while (mPlayer.getCurrentPosition() < selectionEnd && mPlayer.isPlaying()){
                 try {
                     Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
