@@ -24,6 +24,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javazoom.jl.converter.Converter;
 import javazoom.jl.decoder.Header;
@@ -48,7 +52,6 @@ public class SampleEditActivity extends Activity {
     private InputStream musicStream;
     private ProgressDialog dlg;
     private Context context;
-    private SoundPool soundPool;
     private int sampleId;
 
     // Media player variables
@@ -280,12 +283,6 @@ public class SampleEditActivity extends Activity {
         temp.renameTo(cache);
     }
 
-    public void PlayTrimmedWAV(View view){
-        float volume = am.getStreamVolume(AudioManager.STREAM_MUSIC) / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        soundPool.play(sampleId, volume, volume, 1, 0, 1f);
-        Log.d("Sound Pool Playing", String.valueOf(sampleId));
-    }
-
     public void ZoomIn(View view){
         AudioSample a = (AudioSample)findViewById(R.id.spectralView);
         a.zoomSelection();
@@ -310,7 +307,7 @@ public class SampleEditActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
         context = this;
-        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";//getExternalCacheDir() + "//temp.wav";
+        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "cache.wav");
         if (temp.isFile())
             temp.delete();
@@ -326,12 +323,6 @@ public class SampleEditActivity extends Activity {
         mPlayer = new MediaPlayer();
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
-        soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
-        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
-            @Override
-            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-            }
-        });
 
         // Get data from intent
         Intent intent = getIntent();
@@ -410,7 +401,11 @@ public class SampleEditActivity extends Activity {
         }
         else if (id == R.id.action_show_beats){
             AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-            sample.setShowBeats(item.isChecked());
+            if (item.isChecked()) item.setChecked(false);
+            else {
+                item.setChecked(true);
+                sample.setShowBeats(item.isChecked());
+            }
         }
         return super.onOptionsItemSelected(item);
     }
@@ -500,7 +495,7 @@ public class SampleEditActivity extends Activity {
             AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
             audioSample.isPlaying = true;
             int selectionEnd = (int)Math.round(audioSample.getSelectionEnd() * 1000);
-            while (mPlayer.getCurrentPosition() < selectionEnd){
+            while (mPlayer.getCurrentPosition() < selectionEnd && mPlayer.isPlaying()){
                 try {
                     Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                     m.arg1 = mPlayer.getCurrentPosition();
@@ -513,6 +508,10 @@ public class SampleEditActivity extends Activity {
             mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
             m.sendToTarget();
+        }
+
+        public Thread getCurrentThread(){
+            return Thread.currentThread();
         }
     }
 }
