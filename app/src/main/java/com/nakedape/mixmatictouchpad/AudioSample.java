@@ -50,7 +50,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     private TarsosDSPAudioFormat audioFormat;
     private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
     private Paint paintBrush = new Paint(), paintSelect = new Paint();
-    private float selectStart = -1, selectEnd = -1;
+    private float selectStart, selectEnd;
     private List<Line> waveFormData = new ArrayList<Line>();
     private List<Line> beatsData = new ArrayList<Line>();
     private List<Line> waveFormRender = new ArrayList<Line>();
@@ -147,7 +147,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             List<Line> temp = new ArrayList<Line>();
             temp.addAll(waveFormRender);
             waveFormRender.clear();
-            float zoomFactor = getWidth() / (selectEnd - selectStart);
             for (Line l : temp) {
                 if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
                     waveFormRender.add(new Line((l.getX()), l.getY()));
@@ -157,7 +156,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             temp.addAll(beatsRender);
             beatsRender.clear();
             for (Line l : temp) {
-                if (l.getX() >= selectStart && l.getX() <= selectEnd) {
+                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
                     beatsRender.add(new Line(l.getX(), l.getY()));
                 }
             }
@@ -281,37 +280,51 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     }
 
     public boolean onTouch(View view, MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            selectStart = event.getX();
-            selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
-            selectEnd = event.getX();
-            selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
-        }
-        else if (event.getAction() == MotionEvent.ACTION_UP) {
-            selectEnd = event.getX();
-
-            // Make sure there is a selection
-            if (Math.abs(selectEnd - selectStart) > 5) {
-                // Make sure start of selection is before end of selection
-                if (selectStart > selectEnd) {
-                    float temp = selectEnd;
-                    selectEnd = selectStart;
-                    selectStart = temp;
-                }
-                // Make sure start/end of selection are with bounds
-                if (selectStart < 0)
-                    selectStart = 0;
-                if (selectEnd > getWidth())
-                    selectEnd = getWidth();
-
-                // Set start time and end time of selection
-                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
+        // If there is already a selection, move whichever is closer - start or end
+        if (Math.abs(selectEnd - selectStart) > 5){
+            double endDist = Math.abs(selectEnd - event.getX());
+            double startDist = Math.abs(selectStart - event.getX());
+            double min = Math.min(endDist, startDist);
+            if (min == endDist){
+                selectEnd = event.getX();
                 selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            }
+            else {
+                selectStart = event.getX();
+                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
             }
         }
         else {
-            selectEnd = event.getX();
-            selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                selectStart = event.getX();
+                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
+                selectEnd = event.getX();
+                selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                selectEnd = event.getX();
+
+                // Make sure there is a selection
+                if (Math.abs(selectEnd - selectStart) > 5) {
+                    // Make sure start of selection is before end of selection
+                    if (selectStart > selectEnd) {
+                        float temp = selectEnd;
+                        selectEnd = selectStart;
+                        selectStart = temp;
+                    }
+                    // Make sure start/end of selection are with bounds
+                    if (selectStart < 0)
+                        selectStart = 0;
+                    if (selectEnd > getWidth())
+                        selectEnd = getWidth();
+
+                    // Set start time and end time of selection
+                    selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
+                    selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+                }
+            } else {
+                selectEnd = event.getX();
+                selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            }
         }
         invalidate();
         return true;

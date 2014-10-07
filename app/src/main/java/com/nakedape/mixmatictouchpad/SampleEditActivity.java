@@ -401,10 +401,13 @@ public class SampleEditActivity extends Activity {
         }
         else if (id == R.id.action_show_beats){
             AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-            if (item.isChecked()) item.setChecked(false);
+            if (item.isChecked()) {
+                item.setChecked(false);
+                sample.setShowBeats(false);
+            }
             else {
                 item.setChecked(true);
-                sample.setShowBeats(item.isChecked());
+                sample.setShowBeats(true);
             }
         }
         return super.onOptionsItemSelected(item);
