@@ -16,6 +16,10 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.HashMap;
 
 
@@ -64,8 +68,11 @@ public class LaunchPadActivity extends Activity {
             File sampleFile = new File(homeDir, String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
             if (sampleFile.isFile()) // Delete it if it already exists
                 sampleFile.delete();
-            boolean fileCopied = f.renameTo(sampleFile); // Copy new sample over
-            if (fileCopied) { // If successful, add it to the sound pool
+            //boolean fileCopied = f.renameTo(sampleFile); // Copy new sample over
+            try {
+                CopyFile(f, sampleFile);
+            } catch (IOException e){e.printStackTrace();}
+            if (sampleFile.isFile()) { // If successful, add it to the sound pool
                 samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(sampleFile.getAbsolutePath()));
                 LoadSoundPool();
                 TouchPad t = (TouchPad)findViewById(data.getIntExtra(TOUCHPAD_ID, 0));
@@ -157,6 +164,26 @@ public class LaunchPadActivity extends Activity {
             }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * copy file from source to destination
+     *
+     * @param src source
+     * @param dst destination
+     * @throws java.io.IOException in case of any problems
+     */
+    private void CopyFile(File src, File dst) throws IOException {
+        FileChannel inChannel = new FileInputStream(src).getChannel();
+        FileChannel outChannel = new FileOutputStream(dst).getChannel();
+        try {
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+        } finally {
+            if (inChannel != null)
+                inChannel.close();
+            if (outChannel != null)
+                outChannel.close();
+        }
     }
 
     public class Sample{

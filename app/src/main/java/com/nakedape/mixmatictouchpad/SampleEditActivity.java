@@ -20,10 +20,12 @@ import android.widget.CheckBox;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -178,6 +180,12 @@ public class SampleEditActivity extends Activity {
     public void LoadMediaPlayer(Uri uri){
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false);
+        if (mPlayer != null){
+            if (mPlayer.isPlaying()) mPlayer.pause();
+            mPlayer.release();
+            mPlayer = null;
+        }
+        mPlayer = new MediaPlayer();
         mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
             mPlayer.setDataSource(getApplicationContext(), uri);
@@ -306,12 +314,18 @@ public class SampleEditActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
+
+        // Store reference to activity context to use inside event handlers
         context = this;
+
+        // Store a reference to the path for the temporary cache of the wav file
         WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";
+        // If the cache file already exists, delete it
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "cache.wav");
         if (temp.isFile())
             temp.delete();
 
+        // Setup audiosample to handle touch events
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
@@ -332,7 +346,9 @@ public class SampleEditActivity extends Activity {
         }
         if (temp.isFile()){ // If a sample is being passed, load it and process
             File loadedSample = new File(WAV_CACHE_PATH);
-            temp.renameTo(loadedSample);
+            try {
+                CopyFile(temp, loadedSample);
+            }catch (IOException e){e.printStackTrace();}
             LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
             // Display determinate progress dialog
             dlg = new ProgressDialog(context);
@@ -411,6 +427,26 @@ public class SampleEditActivity extends Activity {
             }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * copy file from source to destination
+     *
+     * @param src source
+     * @param dst destination
+     * @throws java.io.IOException in case of any problems
+     */
+    private void CopyFile(File src, File dst) throws IOException {
+        FileChannel inChannel = new FileInputStream(src).getChannel();
+        FileChannel outChannel = new FileOutputStream(dst).getChannel();
+        try {
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+        } finally {
+            if (inChannel != null)
+                inChannel.close();
+            if (outChannel != null)
+                outChannel.close();
+        }
     }
 
     // Thread to convert mp3 to wav

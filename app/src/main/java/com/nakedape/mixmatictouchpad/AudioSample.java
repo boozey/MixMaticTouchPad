@@ -77,9 +77,10 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     }
 
     public void LoadAudio(String source){
+        InputStream wavStream = null;
         try {
             samplePath = source;
-            InputStream wavStream = new BufferedInputStream(new FileInputStream(source));
+            wavStream = new BufferedInputStream(new FileInputStream(source));
             //Read the sample rate
             byte[] rateInt = new byte[4];
             wavStream.skip(24);
@@ -121,7 +122,13 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             isLoading = false;
             waveFormRender.addAll(waveFormData);
             beatsRender.addAll(beatsData);
+            wavStream.close();
         }catch (IOException e){e.printStackTrace();}
+        finally {
+            try {
+                if (wavStream != null) wavStream.close();
+            }catch (IOException e){}
+        }
     }
 
     public void setIsLoading(boolean loading){
@@ -240,7 +247,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         return true;
     }
     public boolean WriteSelectionToFile(String source, String writePath){
-        InputStream wavStream;
+        InputStream wavStream = null;
         try {
             File f = new File(writePath);
             if (f.isFile())
@@ -261,9 +268,12 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 waveFile.WriteData(shorts, shorts.length);
             }
             waveFile.Close();
-
+            wavStream.close();
 
         } catch (IOException e) {e.printStackTrace();}
+        finally {
+            try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+        }
         return true;
     }
 
