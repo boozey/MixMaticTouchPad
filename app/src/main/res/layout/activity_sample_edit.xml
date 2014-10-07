@@ -55,22 +55,10 @@
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Play Tarsos"
-        android:id="@+id/button"
-        android:layout_below="@+id/spectralView"
-        android:layout_toRightOf="@+id/buttonPlay"
-        android:layout_toEndOf="@+id/buttonPlay"
-        android:onClick="TarsosPlay" />
-
-    <Button
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
         android:text="@string/save"
         android:id="@+id/buttonSave"
         android:layout_below="@+id/spectralView"
-        android:layout_toRightOf="@+id/button"
-        android:layout_toEndOf="@+id/button"
-        android:onClick="Save" />
+        android:onClick="Save"
+        android:layout_toRightOf="@+id/buttonPlay" />
 
 </RelativeLayout>

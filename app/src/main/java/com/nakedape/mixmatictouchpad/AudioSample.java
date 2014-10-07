@@ -218,26 +218,28 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     }
 
     public void TrimToSelection(double startTime, double endTime){
-        InputStream wavStream = null;
-        File trimmedSample = null;
-        File sampleFile = new File(samplePath);
+        InputStream wavStream = null; // InputStream to stream the wav to trim
+        File trimmedSample = null;  // File to contain the trimmed down sample
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+
+        // If the sample file exists, try to trim it
         if (sampleFile.isFile()){
-            File tempFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "temp.wav");
-            if (tempFile.isFile()) tempFile.delete();
-            try {
-                CopyFile(sampleFile, tempFile);
-            } catch (IOException e){e.printStackTrace();}
             trimmedSample = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "trimmedSample.wav");
             if (trimmedSample.isFile()) trimmedSample.delete();
+
+            // Trim the sample down and write it to file
             try {
-                wavStream = new BufferedInputStream(new FileInputStream(tempFile));
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                // Javazoom class WaveFile is used to write the wav
                 WaveFile waveFile = new WaveFile();
                 waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
-                wavStream.skip(44);
+                // The number of bytes of wav data to trim off the beginning
                 long startOffset = (long)(startTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4);
+                // The number of bytes to copy
                 long length = (long)(endTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4) - startOffset;
+                wavStream.skip(44); // Skip the header
                 wavStream.skip(startOffset);
-                byte[] buffer = new byte[4096];
+                byte[] buffer = new byte[1024 * 16];
                 int bufferLength;
                 for (long i = startOffset; i < length + startOffset; i += buffer.length){
                     bufferLength = wavStream.read(buffer);
@@ -245,16 +247,48 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                     ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                     waveFile.WriteData(shorts, shorts.length);
                 }
-                waveFile.Close();
-                wavStream.close();
-                tempFile.delete();
+                waveFile.Close(); // Complete writing the wave file
+                wavStream.close(); // Close the input stream
             } catch (IOException e) {e.printStackTrace();}
             finally {
                 try {if (wavStream != null) wavStream.close();} catch (IOException e){}
             }
         }
+        // Delete the original wav sample
         sampleFile.delete();
+        // Copy the trimmed wav over to replace the sample
         trimmedSample.renameTo(sampleFile);
+        // Set the new sample length
+        sampleLength = selectionEndTime - selectionStartTime;
+
+        // Copy data over for only the trimmed section
+        List<Line> temp = new ArrayList<Line>();
+        temp.addAll(waveFormData);
+        waveFormData.clear();
+        for (Line l : temp) {
+            if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
+                waveFormData.add(new Line((l.getX() - (float)selectionStartTime), l.getY()));
+            }
+        }
+        waveFormRender.clear();
+        waveFormRender.addAll(waveFormData);
+        temp.clear();
+        temp.addAll(beatsData);
+        beatsData.clear();
+        for (Line l : temp) {
+            if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
+                beatsData.add(new Line(l.getX() - (float)selectionStartTime, l.getY()));
+            }
+        }
+        beatsRender.clear();
+        beatsRender.addAll(beatsData);
+        windowStartTime = 0;
+        windowEndTime = sampleLength;
+        selectionStartTime = 0;
+        selectionEndTime = sampleLength;
+        selectStart = 0;
+        selectEnd = getWidth();
+        invalidate();
     }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
         UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
@@ -340,10 +374,12 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             double min = Math.min(endDist, startDist);
             if (min == endDist){
                 selectEnd = event.getX();
+                if (selectEnd > getWidth()) selectEnd = getWidth();
                 selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
             }
             else {
                 selectStart = event.getX();
+                if (selectStart < 0) selectStart = 0;
                 selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
             }
         }

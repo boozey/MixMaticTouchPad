@@ -198,7 +198,7 @@ public class SampleEditActivity extends Activity {
         }
     }
 
-    public void LoadAudioFile(){
+    public void SelectMp3File(){
         // Allow user to select an audio file
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("audio/*.mp3");
@@ -220,13 +220,12 @@ public class SampleEditActivity extends Activity {
                 Button b = (Button) findViewById(R.id.buttonPlay);
                 AudioSample audioSample = (AudioSample) findViewById(R.id.spectralView);
                 if (mPlayer != null) {
-                    if (mPlayer.isPlaying()){
+                    if (mPlayer.isPlaying()){ // If already playing, pause
                         mPlayer.pause();
                         audioSample.isPlaying = false;
                         b.setText("Play");
                     }
-                    else {
-                        // Start playback.
+                    else { // If not playing, start
                         b.setText("Pause");
                         audioSample.isPlaying = true;
                         // Start playing from beginning of selection
@@ -244,7 +243,6 @@ public class SampleEditActivity extends Activity {
                         audioSample.isPlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
-                        // Start playing from beginning of selection
                         if (audioSample.getSelectionStartTime() > 0)
                             mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
                         mPlayer.start();
@@ -271,10 +269,8 @@ public class SampleEditActivity extends Activity {
             mPlayer.release();
             mPlayer = null;
         }
-        //sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
-        sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
 
-        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.GetSamplePath()));//Uri.parse(WAV_SAMPLE_PATH));
+        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.GetSamplePath()));
         result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
         setResult(Activity.RESULT_OK, result);
         finish();
@@ -282,14 +278,14 @@ public class SampleEditActivity extends Activity {
     }
 
     public void Trim(){
+        if (mPlayer != null) {
+            if (mPlayer.isPlaying()) mPlayer.pause();
+            mPlayer.release();
+            mPlayer = null;
+        }
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-        File temp = new File(WAV_SAMPLE_PATH);
-        if (temp.isFile())
-            temp.delete();
-        sample.WriteSelectionToFile(WAV_CACHE_PATH, WAV_SAMPLE_PATH);
-        File cache = new File(WAV_CACHE_PATH);
-        cache.delete();
-        temp.renameTo(cache);
+        sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
+        LoadMediaPlayer(Uri.parse(sample.GetSamplePath()));
     }
 
     public void ZoomIn(View view){
@@ -411,7 +407,7 @@ public class SampleEditActivity extends Activity {
             return true;
         }
         else if (id == R.id.action_load_file){
-            LoadAudioFile();
+            SelectMp3File();
         }
         else if (id == R.id.action_trim_wav){
             Trim();
@@ -540,7 +536,7 @@ public class SampleEditActivity extends Activity {
                     Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                     m.arg1 = mPlayer.getCurrentPosition();
                     m.sendToTarget();
-                    Thread.sleep(100);
+                    Thread.sleep(25);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

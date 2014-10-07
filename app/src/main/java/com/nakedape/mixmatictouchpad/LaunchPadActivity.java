@@ -80,12 +80,12 @@ public class LaunchPadActivity extends Activity {
             } catch (IOException e){e.printStackTrace();}
             if (sampleFile.isFile()) { // If successful, add it to the sound pool
                 samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(sampleFile.getAbsolutePath()));
-                LoadSoundPool();
                 TouchPad t = (TouchPad)findViewById(data.getIntExtra(TOUCHPAD_ID, 0));
                 t.setBackgroundColor(Color.WHITE);
                 Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
             }
         }
+        LoadSoundPool();
     }
 
     @Override
