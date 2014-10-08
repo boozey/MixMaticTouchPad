@@ -298,11 +298,6 @@ public class SampleEditActivity extends Activity {
         a.zoomExtents();
     }
 
-    public void ShowBeatsClicked(View view){
-        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-        sample.setShowBeats(((CheckBox) view).isChecked());
-    }
-
     private void ChangeBeatThreshold(int level){
 
     }
@@ -530,8 +525,8 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
             audioSample.isPlaying = true;
-            int selectionEnd = (int)Math.round(audioSample.getSelectionEndTime() * 1000);
-            while (mPlayer.getCurrentPosition() < selectionEnd && mPlayer.isPlaying()){
+            //int selectionEnd = (int)Math.round(audioSample.getSelectionEndTime() * 1000);
+            while (mPlayer.getCurrentPosition() < Math.round(audioSample.getSelectionEndTime() * 1000) && mPlayer.isPlaying()){
                 try {
                     Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                     m.arg1 = mPlayer.getCurrentPosition();

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_edit_sample"
+        android:title="@string/action_edit_sample"/>
+    <item android:id="@+id/action_loop_mode"
+        android:title="@string/action_loop_mode"
+        android:checkable="true"/>
+    <item android:id="@+id/action_launch_mode"
+        android:title="@string/action_launch_mode">
+        <menu>
+            <item android:id="@+id/action_launch_mode_trigger"
+                android:title="@string/action_launch_mode_trigger" />
+            <item android:id="@+id/action_launch_mode_gate"
+            android:title="@string/action_launch_mode_gate" />
+        </menu>
+    </item>
+</menu>

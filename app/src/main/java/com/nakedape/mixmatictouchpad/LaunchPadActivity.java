@@ -10,7 +10,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -37,10 +39,61 @@ public class LaunchPadActivity extends Activity {
     private AudioManager am;
     private SoundPool soundPool;
 
-    View.OnClickListener TouchPadClick = new View.OnClickListener() {
+    private int selectedSampleID;
+    private ActionMode mActionMode;
+    private ActionMode.Callback mActionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.launch_pad_context, menu);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            switch (item.getItemId()){
+                case R.id.action_edit_sample:
+                    // Release sound pool resources
+                    if (soundPool != null) {
+                        soundPool.autoPause();
+                        soundPool.release();
+                        soundPool = null;
+                    }
+                    Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
+                    intent.putExtra(TOUCHPAD_ID, selectedSampleID);
+                    if (samples.containsKey(selectedSampleID)){
+                        intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(selectedSampleID) + ".wav");
+                    }
+                    startActivityForResult(intent, GET_SAMPLE);
+                    return true;
+                case R.id.action_loop_mode:
+                    if (item.isChecked())
+                        item.setChecked(false);
+                    else
+                        item.setChecked(true);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            mActionMode = null;
+        }
+    };
+    private View.OnClickListener TouchPadClick = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
             if (isEditMode) {
+                selectedSampleID = v.getId();
+                mActionMode = startActionMode(mActionModeCallback);
+                /*
                 // Release sound pool resources so that the sample can be edited
                 if (soundPool != null) {
                     soundPool.autoPause();
@@ -53,6 +106,7 @@ public class LaunchPadActivity extends Activity {
                     intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(v.getId()) + ".wav");
                 }
                 startActivityForResult(intent, GET_SAMPLE);
+                */
             }
             else {
                 if (samples.containsKey(v.getId())) {
@@ -81,7 +135,7 @@ public class LaunchPadActivity extends Activity {
             if (sampleFile.isFile()) { // If successful, add it to the sound pool
                 samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(sampleFile.getAbsolutePath()));
                 TouchPad t = (TouchPad)findViewById(data.getIntExtra(TOUCHPAD_ID, 0));
-                t.setBackgroundColor(Color.WHITE);
+                t.setBackgroundResource(R.drawable.launch_pad_blue);
                 Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
             }
         }
@@ -116,7 +170,7 @@ public class LaunchPadActivity extends Activity {
                     File sample = new File(homeDir, String.valueOf(id) + ".wav");
                     if (sample.isFile()){
                         samples.put(id, new Sample(sample.getAbsolutePath()));
-                        t.setBackgroundColor(Color.WHITE);
+                        t.setBackgroundResource(R.drawable.launch_pad_blue);
                     }
                 }
                 id++;
@@ -196,13 +250,51 @@ public class LaunchPadActivity extends Activity {
     }
 
     public class Sample{
+        // Public fields
+        public static final String LAUNCHMODE_GATE = "com.nakedape.mixmatictouchpad.launchmodegate";
+        public static final String LAUNCHMODE_TRIGGER = "com.nakedape.mixmatictouchpad.launchmodetrigger";
+
+        // Private fields
         private int id;
         private String path;
+        private boolean loop = false;
+        private String launchMode = LAUNCHMODE_TRIGGER;
+
+        // Constructors
         public Sample(String path){
             this.path = path;
         }
+        public Sample(String path, String launchMode, boolean loopMode){
+            this.path = path;
+            loop = loopMode;
+            if (!setLaunchMode(launchMode))
+                this.launchMode = LAUNCHMODE_TRIGGER;
+        }
+
+        // Public methods
         public void setSoundPoolId(int id){this.id = id;}
         public int getSoundPoolId(){return id;}
         public String getPath(){return path;}
+        public void setLoopMode(boolean loopMode){
+            loop = loopMode;
+        }
+        public boolean getLoopMode(){
+            return loop;
+        }
+        public boolean setLaunchMode(String launchMode){
+            if (launchMode.equals(LAUNCHMODE_GATE)){
+                this.launchMode = LAUNCHMODE_GATE;
+                return true;
+            }
+            else if (launchMode.equals(LAUNCHMODE_TRIGGER)){
+                this.launchMode = LAUNCHMODE_TRIGGER;
+                return true;
+            }
+            else
+                return false;
+        }
+        public String getLaunchMode(){
+            return launchMode;
+        }
     }
 }
