@@ -536,7 +536,7 @@ public class SampleEditActivity extends Activity {
                     Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                     m.arg1 = mPlayer.getCurrentPosition();
                     m.sendToTarget();
-                    Thread.sleep(25);
+                    Thread.sleep(5);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

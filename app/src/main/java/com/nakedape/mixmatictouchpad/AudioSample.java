@@ -235,12 +235,12 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 WaveFile waveFile = new WaveFile();
                 waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
                 // The number of bytes of wav data to trim off the beginning
-                long startOffset = (long)(startTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4);
+                long startOffset = ((long)startTime * audioFormat.getSampleSizeInBits() * (long)audioFormat.getSampleRate() / 4);
                 // The number of bytes to copy
-                long length = (long)(endTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4) - startOffset;
+                long length = ((long)endTime * audioFormat.getSampleSizeInBits() * (long)audioFormat.getSampleRate() / 4) - startOffset;
                 wavStream.skip(44); // Skip the header
                 wavStream.skip(startOffset);
-                byte[] buffer = new byte[1024 * 16];
+                byte[] buffer = new byte[128];
                 int bufferLength;
                 for (long i = startOffset; i < length + startOffset; i += buffer.length){
                     bufferLength = wavStream.read(buffer);
