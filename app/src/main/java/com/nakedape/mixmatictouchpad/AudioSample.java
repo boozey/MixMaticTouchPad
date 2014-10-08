@@ -231,7 +231,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             // Trim the sample down and write it to file
             try {
                 wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
-                // Javazoom class WaveFile is used to write the wav
+                // Javazoom WaveFile class is used to write the wav
                 WaveFile waveFile = new WaveFile();
                 waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
                 // The number of bytes of wav data to trim off the beginning
@@ -240,13 +240,20 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 long length = ((long)endTime * audioFormat.getSampleSizeInBits() * (long)audioFormat.getSampleRate() / 4) - startOffset;
                 wavStream.skip(44); // Skip the header
                 wavStream.skip(startOffset);
-                byte[] buffer = new byte[128];
-                int bufferLength;
-                for (long i = startOffset; i < length + startOffset; i += buffer.length){
-                    bufferLength = wavStream.read(buffer);
+                byte[] buffer = new byte[1024];
+                int i = 0;
+                while (i < length){
+                    if (length - i >= buffer.length) {
+                        wavStream.read(buffer);
+                    }
+                    else { // Write the remaining number of bytes
+                        buffer = new byte[(int)length - i];
+                        wavStream.read(buffer);
+                    }
                     short[] shorts = new short[buffer.length / 2];
                     ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                     waveFile.WriteData(shorts, shorts.length);
+                    i += buffer.length;
                 }
                 waveFile.Close(); // Complete writing the wave file
                 wavStream.close(); // Close the input stream
