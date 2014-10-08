@@ -125,6 +125,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             isLoading = false;
             waveFormRender.addAll(waveFormData);
             beatsRender.addAll(beatsData);
+            audioStream.close();
             wavStream.close();
         }catch (IOException e){e.printStackTrace();}
         finally {
@@ -350,7 +351,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         return true;
     }
 
-    public String GetSamplePath(){
+    public String getSamplePath(){
         return samplePath;
     }
 

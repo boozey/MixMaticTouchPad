@@ -270,7 +270,7 @@ public class SampleEditActivity extends Activity {
             mPlayer = null;
         }
 
-        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.GetSamplePath()));
+        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
         result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
         setResult(Activity.RESULT_OK, result);
         finish();
@@ -285,7 +285,7 @@ public class SampleEditActivity extends Activity {
         }
         AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
-        LoadMediaPlayer(Uri.parse(sample.GetSamplePath()));
+        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
     }
 
     public void ZoomIn(View view){
