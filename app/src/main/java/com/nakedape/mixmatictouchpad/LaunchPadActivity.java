@@ -14,6 +14,7 @@ import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
 
@@ -30,7 +31,7 @@ import java.nio.channels.FileChannel;
 import java.util.HashMap;
 
 
-public class LaunchPadActivity extends Activity {
+public class LaunchPadActivity extends Activity implements AudioTrack.OnPlaybackPositionUpdateListener{
 
     public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
@@ -90,6 +91,28 @@ public class LaunchPadActivity extends Activity {
                         }
                     }
                     return true;
+                case R.id.action_remove_sample:
+                    if (samples.containsKey(selectedSampleID)){
+                        Sample s = (Sample)samples.get(selectedSampleID);
+                        File f = new File(s.getPath());
+                        f.delete();
+                        samples.remove(selectedSampleID);
+                        View v = (View)findViewById(selectedSampleID);
+                        v.setBackgroundResource(R.drawable.launch_pad_empty);
+                    }
+                    return true;
+                case R.id.action_launch_mode_gate:
+                    if (samples.containsKey(selectedSampleID)){
+                        Sample s = (Sample)samples.get(selectedSampleID);
+                        s.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                    }
+                    return true;
+                case R.id.action_launch_mode_trigger:
+                    if (samples.containsKey(selectedSampleID)){
+                        Sample s = (Sample)samples.get(selectedSampleID);
+                        s.setLaunchMode(Sample.LAUNCHMODE_TRIGGER);
+                    }
+                    return true;
                 default:
                     return false;
             }
@@ -98,28 +121,67 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void onDestroyActionMode(ActionMode mode) {
             mActionMode = null;
+            View oldView = findViewById(selectedSampleID);
+            oldView.setSelected(false);
+            isEditMode = false;
         }
     };
-    private View.OnClickListener TouchPadClick = new View.OnClickListener() {
+    private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            if (!isEditMode && samples.containsKey(v.getId())) {
+                Sample s = (Sample)samples.get(v.getId());
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_UP:
+                        switch (s.getLaunchMode()){
+                            case Sample.LAUNCHMODE_GATE:
+                                s.stop();
+                                v.setPressed(false);
+                                break;
+                            default:
+                                break;
+                        }
+                        return true;
+                    case MotionEvent.ACTION_DOWN:
+                        if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                            s.stop();
+                            v.setPressed(false);
+                            return true;
+                        }
+                        else if (s.hasPlayed())
+                            s.reset();
+                        s.play();
+                        v.setPressed(true);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            return false;
+        }
+    };
+    private View.OnClickListener TouchPadClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
             if (isEditMode) {
+                if (mActionMode == null)
+                    mActionMode = startActionMode(mActionModeCallback);
                 View oldView = findViewById(selectedSampleID);
                 oldView.setSelected(false);
                 selectedSampleID = v.getId();
                 v.setSelected(true);
-                    mActionMode = startActionMode(mActionModeCallback);
+                if (samples.containsKey(v.getId())) {
+                    Sample s = (Sample) samples.get(v.getId());
+                    MenuItem item = mActionMode.getMenu().findItem(R.id.action_loop_mode);
+                    item.setChecked(s.getLoopMode());
+                }
+                else{
+                    MenuItem item = mActionMode.getMenu().findItem(R.id.action_loop_mode);
+                    item.setChecked(false);
+                }
             }
             else {
                 selectedSampleID = v.getId();
-                if (samples.containsKey(v.getId())) {
-                    Sample s = (Sample) samples.get(v.getId());
-                    if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
-                        s.stop();
-                    if (s.hasPlayed())
-                        s.reset();
-                    s.play();
-                }
             }
         }
     };
@@ -139,7 +201,8 @@ public class LaunchPadActivity extends Activity {
                 CopyFile(f, sampleFile);
             } catch (IOException e){e.printStackTrace();}
             if (sampleFile.isFile()) { // If successful, add it to the sound pool
-                samples.put(data.getIntExtra(TOUCHPAD_ID, 0), new Sample(sampleFile.getAbsolutePath()));
+                int id = data.getIntExtra(TOUCHPAD_ID, 0);
+                samples.put(id, new Sample(sampleFile.getAbsolutePath(), id));
                 TouchPad t = (TouchPad)findViewById(data.getIntExtra(TOUCHPAD_ID, 0));
                 t.setBackgroundResource(R.drawable.launch_pad_blue);
                 Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
@@ -169,13 +232,19 @@ public class LaunchPadActivity extends Activity {
                 t.setId(id);
                 t.setWidth(metrics.widthPixels / 4);
                 t.setHeight((metrics.heightPixels - 150) / 6);
-                t.setOnClickListener(TouchPadClick);
+                t.setOnTouchListener(TouchPadTouchListener);
+                t.setOnClickListener(TouchPadClickListener);
                 l.addView(t);
                 if (homeDir.isDirectory()){
                     File sample = new File(homeDir, String.valueOf(id) + ".wav");
                     if (sample.isFile()){
-                        samples.put(id, new Sample(sample.getAbsolutePath()));
+                        Sample s = new Sample(sample.getAbsolutePath(), id);
+                        s.setOnPlayFinishedListener(this);
+                        samples.put(id, s);
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
+                    }
+                    else{
+                        t.setBackgroundResource(R.drawable.launch_pad_empty);
                     }
                 }
                 id++;
@@ -205,15 +274,8 @@ public class LaunchPadActivity extends Activity {
             return true;
         }
         else if (id == R.id.action_edit_mode) {
-            if (isEditMode){
-                isEditMode = false;
-                item.setTitle(R.string.action_edit_mode);
-            }
-            else {
-                isEditMode = true;
-                item.setTitle(R.string.action_play_mode);
-                mActionMode = startActionMode(mActionModeCallback);
-            }
+            isEditMode = true;
+            mActionMode = startActionMode(mActionModeCallback);
         }
         else if (id == R.id.action_stop){
             for (int i = 0; i < numTouchPads; i++) {
@@ -225,6 +287,21 @@ public class LaunchPadActivity extends Activity {
 
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onMarkerReached(AudioTrack track){
+        int id = track.getAudioSessionId();
+        View v = findViewById(id);
+        if (v != null) {
+            v.setPressed(false);
+            Sample s = (Sample)samples.get(id);
+            s.resetMarker();
+        }
+
+    }
+    @Override
+    public void onPeriodicNotification(AudioTrack track){
     }
 
     /**
@@ -249,26 +326,27 @@ public class LaunchPadActivity extends Activity {
 
     public class Sample{
         // Public fields
-        public static final String LAUNCHMODE_GATE = "com.nakedape.mixmatictouchpad.launchmodegate";
-        public static final String LAUNCHMODE_TRIGGER = "com.nakedape.mixmatictouchpad.launchmodetrigger";
-        public int playId = -1;
+        public static final int LAUNCHMODE_GATE = 0;
+        public static final int LAUNCHMODE_TRIGGER = 1;
 
         // Private fields
         private int id;
         private String path;
         private boolean loop = false;
         private int loopMode = 0;
-        private String launchMode = LAUNCHMODE_TRIGGER;
+        private int launchMode = LAUNCHMODE_TRIGGER;
         private int sampleByteLength;
         private boolean played = false;
         private AudioTrack audioTrack;
+        private AudioTrack.OnPlaybackPositionUpdateListener listener;
 
         // Constructors
-        public Sample(String path){
+        public Sample(String path, int id){
             this.path = path;
+            this.id = id;
             loadAudioTrack();
         }
-        public Sample(String path, String launchMode, boolean loopMode){
+        public Sample(String path, int launchMode, boolean loopMode){
             this.path = path;
             loop = loopMode;
             if (!setLaunchMode(launchMode))
@@ -277,22 +355,33 @@ public class LaunchPadActivity extends Activity {
         }
 
         // Public methods
-        public void setSoundPoolId(int id){this.id = id;}
-        public int getSoundPoolId(){return id;}
+        public void setViewId(int id){this.id = id;}
+        public int getViewId(){return id;}
         public String getPath(){return path;}
         public void setLoopMode(boolean loop){
             this.loop = loop;
             if (loop) {
                 loopMode = -1;
-                audioTrack.stop();
-                audioTrack.reloadStaticData();
+                if (hasPlayed()) {
+                    audioTrack.stop();
+                    audioTrack.flush();
+                    audioTrack.reloadStaticData();
+                    played = false;
+                }
                 audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
+                audioTrack.setNotificationMarkerPosition(0);
+                audioTrack.setPlaybackPositionUpdateListener(null);
             }
             else {
                 loopMode = 0;
-                audioTrack.stop();
-                audioTrack.reloadStaticData();
+                if (hasPlayed()) {
+                    audioTrack.stop();
+                    audioTrack.flush();
+                    audioTrack.reloadStaticData();
+                    played = false;
+                }
                 audioTrack.setLoopPoints(0, 0, 0);
+                setOnPlayFinishedListener(listener);
             }
         }
         public boolean getLoopMode(){
@@ -301,34 +390,51 @@ public class LaunchPadActivity extends Activity {
         public int getLoopModeInt() {
             return loopMode;
         }
-        public boolean setLaunchMode(String launchMode){
-            if (launchMode.equals(LAUNCHMODE_GATE)){
+        public boolean setLaunchMode(int launchMode){
+            if (launchMode == LAUNCHMODE_GATE){
                 this.launchMode = LAUNCHMODE_GATE;
                 return true;
             }
-            else if (launchMode.equals(LAUNCHMODE_TRIGGER)){
+            else if (launchMode == LAUNCHMODE_TRIGGER){
                 this.launchMode = LAUNCHMODE_TRIGGER;
                 return true;
             }
             else
                 return false;
         }
-        public String getLaunchMode(){
+        public int getLaunchMode(){
             return launchMode;
         }
         public void play(){
             played = true;
+            resetMarker();
             audioTrack.play();
         }
         public void stop(){
+            audioTrack.pause();
             audioTrack.stop();
+            audioTrack.flush();
+            audioTrack.release();
+            loadAudioTrack();
+        }
+        public void pause(){
+            audioTrack.pause();
         }
         public void reset(){
+            audioTrack.flush();
             audioTrack.reloadStaticData();
             played = false;
         }
         public boolean hasPlayed(){
             return played;
+        }
+        public void setOnPlayFinishedListener(AudioTrack.OnPlaybackPositionUpdateListener listener){
+            this.listener = listener;
+            audioTrack.setPlaybackPositionUpdateListener(listener);
+            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
+        }
+        public void resetMarker(){
+            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
         }
 
         // Private methods
@@ -341,7 +447,7 @@ public class LaunchPadActivity extends Activity {
                         AudioFormat.CHANNEL_OUT_STEREO,
                         AudioFormat.ENCODING_PCM_16BIT,
                         sampleByteLength,
-                        AudioTrack.MODE_STATIC);
+                        AudioTrack.MODE_STATIC, id);
                 InputStream stream = null;
                 try {
                     stream = new BufferedInputStream(new FileInputStream(f));
@@ -352,8 +458,18 @@ public class LaunchPadActivity extends Activity {
                     ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                     audioTrack.write(shorts, 0, shorts.length);
                     stream.close();
+                    played = false;
                 } catch (FileNotFoundException e) {e.printStackTrace();}
                 catch (IOException e) {e.printStackTrace();}
+
+                if (listener != null) {
+                    audioTrack.setPlaybackPositionUpdateListener(listener);
+                    resetMarker();
+                }
+
+                if (loop){
+                    setLoopMode(true);
+                }
             }
         }
     }
