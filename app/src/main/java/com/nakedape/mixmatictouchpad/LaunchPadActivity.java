@@ -146,6 +146,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                             s.stop();
                             v.setPressed(false);
+                            Log.d("AudioTrack", "PLAYSTATE_PLAYING");
                             return true;
                         }
                         else if (s.hasPlayed())
@@ -296,7 +297,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         if (v != null) {
             v.setPressed(false);
             Sample s = (Sample)samples.get(id);
-            s.resetMarker();
+            s.stop();
         }
 
     }
@@ -421,6 +422,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             audioTrack.pause();
         }
         public void reset(){
+            if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
+                audioTrack.stop();
             audioTrack.flush();
             audioTrack.reloadStaticData();
             played = false;
@@ -431,10 +434,10 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         public void setOnPlayFinishedListener(AudioTrack.OnPlaybackPositionUpdateListener listener){
             this.listener = listener;
             audioTrack.setPlaybackPositionUpdateListener(listener);
-            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
+            resetMarker();
         }
         public void resetMarker(){
-            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
+            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 1500);
         }
 
         // Private methods
