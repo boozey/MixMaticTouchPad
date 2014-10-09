@@ -3,9 +3,9 @@ package com.nakedape.mixmatictouchpad;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
+import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.SoundPool;
+import android.media.AudioTrack;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.DisplayMetrics;
@@ -17,10 +17,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.HashMap;
 
@@ -37,7 +42,6 @@ public class LaunchPadActivity extends Activity {
     private File homeDir;
     private int numTouchPads;
     private AudioManager am;
-    private SoundPool soundPool;
 
     private int selectedSampleID;
     private ActionMode mActionMode;
@@ -46,6 +50,11 @@ public class LaunchPadActivity extends Activity {
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.launch_pad_context, menu);
+            if (samples.containsKey(selectedSampleID)) {
+                Sample s = (Sample) samples.get(selectedSampleID);
+                MenuItem item = menu.findItem(R.id.action_loop_mode);
+                item.setChecked(s.getLoopMode());
+            }
             return true;
         }
 
@@ -58,12 +67,6 @@ public class LaunchPadActivity extends Activity {
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
             switch (item.getItemId()){
                 case R.id.action_edit_sample:
-                    // Release sound pool resources
-                    if (soundPool != null) {
-                        soundPool.autoPause();
-                        soundPool.release();
-                        soundPool = null;
-                    }
                     Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                     intent.putExtra(TOUCHPAD_ID, selectedSampleID);
                     if (samples.containsKey(selectedSampleID)){
@@ -72,10 +75,20 @@ public class LaunchPadActivity extends Activity {
                     startActivityForResult(intent, GET_SAMPLE);
                     return true;
                 case R.id.action_loop_mode:
-                    if (item.isChecked())
+                    if (item.isChecked()) {
                         item.setChecked(false);
-                    else
+                        if (samples.containsKey(selectedSampleID)) {
+                            Sample s = (Sample)samples.get(selectedSampleID);
+                            s.setLoopMode(false);
+                        }
+                    }
+                    else {
                         item.setChecked(true);
+                        if (samples.containsKey(selectedSampleID)) {
+                            Sample s = (Sample)samples.get(selectedSampleID);
+                            s.setLoopMode(true);
+                        }
+                    }
                     return true;
                 default:
                     return false;
@@ -93,26 +106,16 @@ public class LaunchPadActivity extends Activity {
             if (isEditMode) {
                 selectedSampleID = v.getId();
                 mActionMode = startActionMode(mActionModeCallback);
-                /*
-                // Release sound pool resources so that the sample can be edited
-                if (soundPool != null) {
-                    soundPool.autoPause();
-                    soundPool.release();
-                    soundPool = null;
-                }
-                Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
-                intent.putExtra(TOUCHPAD_ID, v.getId());
-                if (samples.containsKey(v.getId())){
-                    intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(v.getId()) + ".wav");
-                }
-                startActivityForResult(intent, GET_SAMPLE);
-                */
             }
             else {
+                selectedSampleID = v.getId();
                 if (samples.containsKey(v.getId())) {
-                    float volume = (float)am.getStreamVolume(AudioManager.STREAM_MUSIC) / (float)am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                     Sample s = (Sample) samples.get(v.getId());
-                    soundPool.play(s.getSoundPoolId(), volume, volume, 1, 0, 1f);
+                    if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
+                        s.stop();
+                    if (s.hasPlayed())
+                        s.reset();
+                    s.play();
                 }
             }
         }
@@ -139,7 +142,6 @@ public class LaunchPadActivity extends Activity {
                 Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
             }
         }
-        LoadSoundPool();
     }
 
     @Override
@@ -181,23 +183,6 @@ public class LaunchPadActivity extends Activity {
         // Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-        soundPool = new SoundPool(24, AudioManager.STREAM_MUSIC, 0);
-        LoadSoundPool();
-    }
-
-    private void LoadSoundPool(){
-        if (soundPool != null) {
-            soundPool.release();
-            soundPool = null;
-        }
-        soundPool = new SoundPool(24, AudioManager.STREAM_MUSIC, 0);
-        for (int i = 0; i < numTouchPads; i++){
-            if (samples.containsKey(i)) {
-                Sample s = (Sample) samples.get(i);
-                s.setSoundPoolId(soundPool.load(s.getPath(), 1));
-            }
-
-        }
     }
 
     @Override
@@ -216,7 +201,7 @@ public class LaunchPadActivity extends Activity {
         if (id == R.id.action_settings) {
             return true;
         }
-        if (id == R.id.action_edit_mode) {
+        else if (id == R.id.action_edit_mode) {
             if (isEditMode){
                 isEditMode = false;
                 item.setTitle(R.string.action_edit_mode);
@@ -225,6 +210,15 @@ public class LaunchPadActivity extends Activity {
                 isEditMode = true;
                 item.setTitle(R.string.action_play_mode);
             }
+        }
+        else if (id == R.id.action_stop){
+            for (int i = 0; i < numTouchPads; i++) {
+                if (samples.containsKey(i)) {
+                    Sample s = (Sample) samples.get(i);
+                    s.stop();
+                }
+            }
+
         }
         return super.onOptionsItemSelected(item);
     }
@@ -253,33 +247,55 @@ public class LaunchPadActivity extends Activity {
         // Public fields
         public static final String LAUNCHMODE_GATE = "com.nakedape.mixmatictouchpad.launchmodegate";
         public static final String LAUNCHMODE_TRIGGER = "com.nakedape.mixmatictouchpad.launchmodetrigger";
+        public int playId = -1;
 
         // Private fields
         private int id;
         private String path;
         private boolean loop = false;
+        private int loopMode = 0;
         private String launchMode = LAUNCHMODE_TRIGGER;
+        private int sampleByteLength;
+        private boolean played = false;
+        private AudioTrack audioTrack;
 
         // Constructors
         public Sample(String path){
             this.path = path;
+            loadAudioTrack();
         }
         public Sample(String path, String launchMode, boolean loopMode){
             this.path = path;
             loop = loopMode;
             if (!setLaunchMode(launchMode))
                 this.launchMode = LAUNCHMODE_TRIGGER;
+            loadAudioTrack();
         }
 
         // Public methods
         public void setSoundPoolId(int id){this.id = id;}
         public int getSoundPoolId(){return id;}
         public String getPath(){return path;}
-        public void setLoopMode(boolean loopMode){
-            loop = loopMode;
+        public void setLoopMode(boolean loop){
+            this.loop = loop;
+            if (loop) {
+                loopMode = -1;
+                audioTrack.stop();
+                audioTrack.reloadStaticData();
+                audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
+            }
+            else {
+                loopMode = 0;
+                audioTrack.stop();
+                audioTrack.reloadStaticData();
+                audioTrack.setLoopPoints(0, 0, 0);
+            }
         }
         public boolean getLoopMode(){
             return loop;
+        }
+        public int getLoopModeInt() {
+            return loopMode;
         }
         public boolean setLaunchMode(String launchMode){
             if (launchMode.equals(LAUNCHMODE_GATE)){
@@ -295,6 +311,46 @@ public class LaunchPadActivity extends Activity {
         }
         public String getLaunchMode(){
             return launchMode;
+        }
+        public void play(){
+            played = true;
+            audioTrack.play();
+        }
+        public void stop(){
+            audioTrack.stop();
+        }
+        public void reset(){
+            audioTrack.reloadStaticData();
+            played = false;
+        }
+        public boolean hasPlayed(){
+            return played;
+        }
+
+        // Private methods
+        private void loadAudioTrack(){
+            File f = new File(path);
+            if (f.isFile()){
+                sampleByteLength = (int)f.length() - 44;
+                audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                        44100,
+                        AudioFormat.CHANNEL_OUT_STEREO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        sampleByteLength,
+                        AudioTrack.MODE_STATIC);
+                InputStream stream = null;
+                try {
+                    stream = new BufferedInputStream(new FileInputStream(f));
+                    stream.skip(44);
+                    byte[] bytes = new byte[sampleByteLength];
+                    stream.read(bytes);
+                    short[] shorts = new short[bytes.length / 2];
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    audioTrack.write(shorts, 0, shorts.length);
+                    stream.close();
+                } catch (FileNotFoundException e) {e.printStackTrace();}
+                catch (IOException e) {e.printStackTrace();}
+            }
         }
     }
 }

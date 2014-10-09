@@ -5,7 +5,8 @@
         android:title="@string/action_edit_sample"/>
     <item android:id="@+id/action_loop_mode"
         android:title="@string/action_loop_mode"
-        android:checkable="true"/>
+        android:checkable="true"
+        android:showAsAction="never"/>
     <item android:id="@+id/action_launch_mode"
         android:title="@string/action_launch_mode">
         <menu>
