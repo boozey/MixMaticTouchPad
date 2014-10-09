@@ -53,6 +53,8 @@ public class SampleEditActivity extends Activity {
 
     // Media player variables
     private Uri fullMusicUri;
+    private boolean loop;
+    private boolean continuePlaying;
     private MediaPlayer mPlayer;
     private AudioManager am;
     private final AudioManager.OnAudioFocusChangeListener afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
@@ -223,11 +225,13 @@ public class SampleEditActivity extends Activity {
                     if (mPlayer.isPlaying()){ // If already playing, pause
                         mPlayer.pause();
                         audioSample.isPlaying = false;
+                        continuePlaying = false;
                         b.setText("Play");
                     }
                     else { // If not playing, start
                         b.setText("Pause");
                         audioSample.isPlaying = true;
+                        continuePlaying = true;
                         // Start playing from beginning of selection
                         if (audioSample.getSelectionStartTime() > 0)
                             mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
@@ -241,6 +245,7 @@ public class SampleEditActivity extends Activity {
                     try {
                         b.setText("Pause");
                         audioSample.isPlaying = true;
+                        continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
                         if (audioSample.getSelectionStartTime() > 0)
@@ -398,27 +403,39 @@ public class SampleEditActivity extends Activity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
+        switch (id){
+            case R.id.action_settings:
+                return true;
+            case R.id.action_load_file:
+                SelectMp3File();
+                return true;
+            case R.id.action_trim_wav:
+                Trim();
+                return true;
+            case R.id.action_show_beats:
+                AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+                if (item.isChecked()) {
+                    item.setChecked(false);
+                    sample.setShowBeats(false);
+                }
+                else {
+                    item.setChecked(true);
+                    sample.setShowBeats(true);
+                }
+                return true;
+            case R.id.action_loop_selection:
+                if (item.isChecked()){
+                    loop = false;
+                    item.setChecked(false);
+                }
+                else {
+                    loop = true;
+                    item.setChecked(true);
+                }
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
-        else if (id == R.id.action_load_file){
-            SelectMp3File();
-        }
-        else if (id == R.id.action_trim_wav){
-            Trim();
-        }
-        else if (id == R.id.action_show_beats){
-            AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
-            if (item.isChecked()) {
-                item.setChecked(false);
-                sample.setShowBeats(false);
-            }
-            else {
-                item.setChecked(true);
-                sample.setShowBeats(true);
-            }
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     /**
@@ -525,17 +542,19 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
             audioSample.isPlaying = true;
-            //int selectionEnd = (int)Math.round(audioSample.getSelectionEndTime() * 1000);
-            while (mPlayer.getCurrentPosition() < Math.round(audioSample.getSelectionEndTime() * 1000) && mPlayer.isPlaying()){
-                try {
-                    Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
-                    m.arg1 = mPlayer.getCurrentPosition();
-                    m.sendToTarget();
-                    Thread.sleep(5);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+            do {
+                while (mPlayer.getCurrentPosition() < Math.round(audioSample.getSelectionEndTime() * 1000) && mPlayer.isPlaying()) {
+                    try {
+                        Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
+                        m.arg1 = mPlayer.getCurrentPosition();
+                        m.sendToTarget();
+                        Thread.sleep(5);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
+                mPlayer.seekTo((int)Math.round(audioSample.getSelectionStartTime() * 1000));
+            } while (loop && continuePlaying);
             mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
             m.sendToTarget();

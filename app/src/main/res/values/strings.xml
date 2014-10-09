@@ -19,5 +19,6 @@
     <string name="action_launch_mode_trigger">Trigger</string>
     <string name="action_launch_mode_gate">Gate</string>
     <string name="action_remove_sample">Remove sample</string>
+    <string name="action_loop_selection">Loop selection</string>
 
 </resources>

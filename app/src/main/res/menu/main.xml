@@ -3,6 +3,9 @@
     tools:context=".MainActivity" >
     <item android:id="@+id/action_trim_wav"
         android:title="@string/action_trim_wav" />
+    <item android:id="@+id/action_loop_selection"
+        android:title="@string/action_loop_selection"
+        android:checkable="true"/>
     <item android:id="@+id/action_show_beats"
         android:title="@string/action_show_beats"
         android:checkable="true"/>
