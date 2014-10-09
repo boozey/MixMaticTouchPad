@@ -104,8 +104,11 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void onClick(View v) {
             if (isEditMode) {
+                View oldView = findViewById(selectedSampleID);
+                oldView.setSelected(false);
                 selectedSampleID = v.getId();
-                mActionMode = startActionMode(mActionModeCallback);
+                v.setSelected(true);
+                    mActionMode = startActionMode(mActionModeCallback);
             }
             else {
                 selectedSampleID = v.getId();
@@ -209,6 +212,7 @@ public class LaunchPadActivity extends Activity {
             else {
                 isEditMode = true;
                 item.setTitle(R.string.action_play_mode);
+                mActionMode = startActionMode(mActionModeCallback);
             }
         }
         else if (id == R.id.action_stop){
