@@ -63,6 +63,9 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     public boolean isPlaying = false;
     private boolean showBeats = false;
     public boolean isLoading = false;
+    public int color = 0;
+    private String backgroundColor = "#ff000046";
+    private String foregroundColor = "#0000FF";
 
     public AudioSample(Context context) {
         super(context);
@@ -366,7 +369,12 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         return selectionStartTime;
     }
     public double getSelectionEndTime(){
-        return selectionEndTime;
+        if (selectionStartTime == 0 && selectionEndTime == 0)
+        {
+            return sampleLength;
+        }
+        else
+            return selectionEndTime;
     }
 
     public void updatePlayIndicator(double time){
@@ -431,12 +439,21 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         invalidate();
     }
 
+    public void setColor(int colorIndex){
+        color = colorIndex;
+        String[] backgroundColors = getResources().getStringArray(R.array.background_color_values);
+        backgroundColor = backgroundColors[colorIndex];
+        String[] foregroundColors = getResources().getStringArray(R.array.foreground_color_values);
+        foregroundColor = foregroundColors[colorIndex];
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (waveFormRender.size() > 0 ) {
             // Draw background
-            paintBrush.setColor(Color.BLACK);
+            paintBrush.setColor(Color.parseColor(backgroundColor));//paintBrush.setColor(Color.BLACK);
             paintBrush.setStyle(Paint.Style.FILL);
             canvas.drawPaint(paintBrush);
             // Draw waveform
@@ -449,7 +466,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             }
             Log.d("Increment: ", String.valueOf(increment));
             Log.d("Window Length = ", String.valueOf(windowEndTime - windowStartTime));
-            paintBrush.setColor(Color.BLUE);
+            paintBrush.setColor(Color.parseColor(foregroundColor));
             for (int i = 0; i < waveFormRender.size(); i += increment){
                 canvas.drawLine((float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec, axis,
                         (float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec, axis - waveFormRender.get(i).y * getHeight(), paintBrush);
@@ -457,7 +474,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
 
             if (showBeats) {
                 // Draw beat marks
-                paintBrush.setColor(Color.GREEN);
+                paintBrush.setColor(Color.DKGRAY);
                 for (Line line : beatsRender) {
                     canvas.drawLine((float)(line.x - windowStartTime) * dpPerSec, 0, (float)(line.x - windowStartTime) * dpPerSec, line.y, paintBrush);
                 }

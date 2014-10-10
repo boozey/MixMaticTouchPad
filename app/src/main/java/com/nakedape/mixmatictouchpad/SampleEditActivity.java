@@ -1,9 +1,11 @@
 package com.nakedape.mixmatictouchpad;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -277,6 +279,7 @@ public class SampleEditActivity extends Activity {
 
         Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
         result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+        result.putExtra(LaunchPadActivity.COLOR, sample.color);
         setResult(Activity.RESULT_OK, result);
         finish();
 
@@ -338,6 +341,7 @@ public class SampleEditActivity extends Activity {
         // Get data from intent
         Intent intent = getIntent();
         sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
+        sample.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
         if (intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH) != null) {
             temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
         }
@@ -403,6 +407,7 @@ public class SampleEditActivity extends Activity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
+        final AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
         switch (id){
             case R.id.action_settings:
                 return true;
@@ -413,7 +418,6 @@ public class SampleEditActivity extends Activity {
                 Trim();
                 return true;
             case R.id.action_show_beats:
-                AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
                 if (item.isChecked()) {
                     item.setChecked(false);
                     sample.setShowBeats(false);
@@ -432,6 +436,18 @@ public class SampleEditActivity extends Activity {
                     loop = true;
                     item.setChecked(true);
                 }
+                return true;
+            case R.id.action_pick_color:
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                builder.setTitle(R.string.color_dialog_title);
+                builder.setItems(R.array.color_names, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        sample.setColor(which);
+                    }
+                });
+                AlertDialog dialog = builder.create();
+                dialog.show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);

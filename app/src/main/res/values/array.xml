@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="color_names">
+        <item>Blue</item>
+        <item>Red</item>
+        <item>Green</item>
+        <item>Orange</item>
+    </string-array>
+    <string-array name="foreground_color_values" >
+        <item name="Blue">#0000FF</item>
+        <item name="Red">#FF0000</item>
+        <item name="Green">#00FF00</item>
+        <item name="Orange">#ffb900</item>
+    </string-array>
+    <string-array name="background_color_values">
+        <item>#ff000046</item>
+        <item>#ff410000</item>
+        <item>#ff004600</item>
+        <item>#ff462e00</item>
+    </string-array>
+</resources>

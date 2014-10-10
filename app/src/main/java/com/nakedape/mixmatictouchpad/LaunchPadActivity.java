@@ -1,8 +1,11 @@
 package com.nakedape.mixmatictouchpad;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -17,6 +20,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -35,6 +39,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
 
     public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
+    public static String COLOR = "com.nakedape.mixmatictouchpad.color";
     private static int GET_SAMPLE = 0;
     private boolean isEditMode = false;
 
@@ -72,6 +77,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     intent.putExtra(TOUCHPAD_ID, selectedSampleID);
                     if (samples.containsKey(selectedSampleID)){
                         intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(selectedSampleID) + ".wav");
+                        SharedPreferences pref = getPreferences(MODE_PRIVATE);
+                        intent.putExtra(COLOR, pref.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
                     }
                     startActivityForResult(intent, GET_SAMPLE);
                     return true;
@@ -97,8 +104,9 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         File f = new File(s.getPath());
                         f.delete();
                         samples.remove(selectedSampleID);
-                        View v = (View)findViewById(selectedSampleID);
+                        View v = findViewById(selectedSampleID);
                         v.setBackgroundResource(R.drawable.launch_pad_empty);
+                        Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
                     }
                     return true;
                 case R.id.action_launch_mode_gate:
@@ -113,6 +121,40 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         s.setLaunchMode(Sample.LAUNCHMODE_TRIGGER);
                     }
                     return true;
+                case R.id.action_pick_color:
+                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                    builder.setTitle(R.string.color_dialog_title);
+                    builder.setItems(R.array.color_names, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            if (samples.containsKey(selectedSampleID)){
+                                View v = findViewById(selectedSampleID);// Load shared preferences to save color
+                                SharedPreferences pref = getPreferences(MODE_PRIVATE);
+                                SharedPreferences.Editor editor = pref.edit();
+                                switch (which){ // Set and save color
+                                    case 0:
+                                        v.setBackgroundResource(R.drawable.launch_pad_blue);
+                                        editor.putInt(String.valueOf(selectedSampleID) + COLOR, 0);
+                                        break;
+                                    case 1:
+                                        v.setBackgroundResource(R.drawable.launch_pad_red);
+                                        editor.putInt(String.valueOf(selectedSampleID) + COLOR, 1);
+                                        break;
+                                    case 2:
+                                        v.setBackgroundResource(R.drawable.launch_pad_green);
+                                        editor.putInt(String.valueOf(selectedSampleID) + COLOR, 2);
+                                        break;
+                                    case 3:
+                                        v.setBackgroundResource(R.drawable.launch_pad_orange);
+                                        editor.putInt(String.valueOf(selectedSampleID) + COLOR, 3);
+                                        break;
+                                }
+                                editor.apply();
+                            }
+                        }
+                    });
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
                 default:
                     return false;
             }
@@ -197,16 +239,36 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             File sampleFile = new File(homeDir, String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
             if (sampleFile.isFile()) // Delete it if it already exists
                 sampleFile.delete();
-            //boolean fileCopied = f.renameTo(sampleFile); // Copy new sample over
+            // Copy new sample over
             try {
                 CopyFile(f, sampleFile);
             } catch (IOException e){e.printStackTrace();}
-            if (sampleFile.isFile()) { // If successful, add it to the sound pool
+            if (sampleFile.isFile()) { // If successful, prepare touchpad
                 int id = data.getIntExtra(TOUCHPAD_ID, 0);
                 samples.put(id, new Sample(sampleFile.getAbsolutePath(), id));
-                TouchPad t = (TouchPad)findViewById(data.getIntExtra(TOUCHPAD_ID, 0));
-                t.setBackgroundResource(R.drawable.launch_pad_blue);
-                Log.d("Sample Id/Path", String.valueOf(sampleFile.getPath()));
+                TouchPad t = (TouchPad)findViewById(id);
+                // Load shared preferences to save color
+                SharedPreferences pref = getPreferences(MODE_PRIVATE);
+                SharedPreferences.Editor editor = pref.edit();
+                switch (data.getIntExtra(COLOR, 0)){ // Set and save color
+                    case 0:
+                        t.setBackgroundResource(R.drawable.launch_pad_blue);
+                        editor.putInt(String.valueOf(id) + COLOR, 0);
+                        break;
+                    case 1:
+                        t.setBackgroundResource(R.drawable.launch_pad_red);
+                        editor.putInt(String.valueOf(id) + COLOR, 1);
+                        break;
+                    case 2:
+                        t.setBackgroundResource(R.drawable.launch_pad_green);
+                        editor.putInt(String.valueOf(id) + COLOR, 2);
+                        break;
+                    case 3:
+                        t.setBackgroundResource(R.drawable.launch_pad_orange);
+                        editor.putInt(String.valueOf(id) + COLOR, 3);
+                        break;
+                }
+                editor.apply();
             }
         }
     }
@@ -223,6 +285,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         samples = new HashMap();
+        SharedPreferences pref = getPreferences(MODE_PRIVATE);
         int id = 0;
         for (int i = 0; i < 6; i++){
             LinearLayout l = new LinearLayout(this);
@@ -242,7 +305,21 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         Sample s = new Sample(sample.getAbsolutePath(), id);
                         s.setOnPlayFinishedListener(this);
                         samples.put(id, s);
-                        t.setBackgroundResource(R.drawable.launch_pad_blue);
+                        int color = pref.getInt(String.valueOf(id) + COLOR, 0);
+                        switch (color){ // Load and set color
+                            case 0:
+                                t.setBackgroundResource(R.drawable.launch_pad_blue);
+                                break;
+                            case 1:
+                                t.setBackgroundResource(R.drawable.launch_pad_red);
+                                break;
+                            case 2:
+                                t.setBackgroundResource(R.drawable.launch_pad_green);
+                                break;
+                            case 3:
+                                t.setBackgroundResource(R.drawable.launch_pad_orange);
+                                break;
+                        }
                     }
                     else{
                         t.setBackgroundResource(R.drawable.launch_pad_empty);
@@ -290,6 +367,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         return super.onOptionsItemSelected(item);
     }
 
+    // AudioTrack playback update listener overrides used to deselect a touchpad when the sound stops
     @Override
     public void onMarkerReached(AudioTrack track){
         int id = track.getAudioSessionId();

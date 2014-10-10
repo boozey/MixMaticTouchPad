@@ -16,6 +16,8 @@
             android:title="@string/action_launch_mode_gate" />
         </menu>
     </item>
+    <item android:id="@+id/action_pick_color"
+        android:title="@string/action_pick_color" />
     <item android:id="@+id/action_remove_sample"
         android:title="@string/action_remove_sample" />
 </menu>
