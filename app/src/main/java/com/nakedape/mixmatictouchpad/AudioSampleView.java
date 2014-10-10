@@ -40,7 +40,7 @@ import javazoom.jl.converter.WaveFile;
 /**
  * Created by Nathan on 8/31/2014.
  */
-public class AudioSample extends View implements View.OnTouchListener, OnsetHandler {
+public class AudioSampleView extends View implements View.OnTouchListener, OnsetHandler {
     @Override
     public void handleOnset(double time, double salience){
         beats.add(new BeatInfo(time, salience));
@@ -50,7 +50,7 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     private String samplePath;
     private List<BeatInfo> beats;
     public double sampleLength;
-    private double selectionStartTime = -1, selectionEndTime = -1, windowStartTime, windowEndTime;
+    private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
     private double beatThreshold = 0.3;
     private TarsosDSPAudioFormat audioFormat;
     private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
@@ -70,14 +70,14 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     private String backgroundColor = "#ff000046";
     private String foregroundColor = "#0000FF";
 
-    public AudioSample(Context context) {
+    public AudioSampleView(Context context) {
         super(context);
 
     }
-    public AudioSample(Context context, AttributeSet attrs){
+    public AudioSampleView(Context context, AttributeSet attrs){
         super(context, attrs);
     }
-    public AudioSample(Context context, AttributeSet attrs, int defStyle){
+    public AudioSampleView(Context context, AttributeSet attrs, int defStyle){
         super (context, attrs, defStyle);
         setFocusable(true);
         setFocusableInTouchMode(true);
@@ -139,6 +139,31 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 if (wavStream != null) wavStream.close();
             }catch (IOException e){}
         }
+    }
+
+    public AudioSampleData getAudioSampleData(){
+        AudioSampleData data = new AudioSampleData();
+        data.setSamplePath(samplePath);
+        data.setWaveData(waveFormData, beatsData, waveFormRender, beatsRender, beats);
+        data.setTimes(sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime);
+        data.setColor(color, backgroundColor, foregroundColor);
+        return data;
+    }
+    public void setAudioSampleData(AudioSampleData data){
+        samplePath = data.getSamplePath();
+        sampleLength = data.getSampleLength();
+        selectionStartTime = data.getSelectionStartTime();
+        selectionEndTime = data.getSelectionEndTime();
+        windowStartTime = data.getWindowStartTime();
+        windowEndTime = data.getWindowEndTime();
+        waveFormData = data.getWaveFormData();
+        waveFormRender = data.getWaveFormRender();
+        beatsData = data.getBeatsData();
+        beatsRender = data.getBeatsRender();
+        beats = data.getBeats();
+        color = data.getColor();
+        backgroundColor = data.getBackgroundColor();
+        foregroundColor = data.getForegroundColor();
     }
 
     public void setIsLoading(boolean loading){
@@ -509,17 +534,4 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         }
     }
 
-    private class Line{
-        public float x, y;
-        Line(float x, float y){
-            this.x = x;
-            this.y = y;
-        }
-        public float getX(){
-            return x;
-        }
-        public float getY(){
-            return y;
-        }
-    }
 }

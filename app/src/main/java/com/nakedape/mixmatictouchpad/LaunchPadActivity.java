@@ -212,7 +212,6 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                             s.stop();
                             v.setPressed(false);
-                            Log.d("AudioTrack", "PLAYSTATE_PLAYING");
                             return true;
                         }
                         else if (s.hasPlayed())
@@ -380,6 +379,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         numTouchPads = id;
     }
     private void setupLandscape(){
+        getActionBar().hide();
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
@@ -393,7 +393,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 TouchPad t = new TouchPad(this);
                 t.setId(id);
                 t.setWidth(metrics.widthPixels / 6);
-                t.setHeight((metrics.heightPixels - 150) / 4);
+                t.setHeight((metrics.heightPixels - 75) / 4);
                 t.setOnTouchListener(TouchPadTouchListener);
                 t.setOnClickListener(TouchPadClickListener);
                 l.addView(t);

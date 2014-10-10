@@ -17,7 +17,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,7 +44,6 @@ public class SampleEditActivity extends Activity {
     static final int MP3_CONVERSION_COMPLETE = 6;
 
     private String WAV_CACHE_PATH;
-    private String WAV_SAMPLE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//sample.wav";
     private float sampleRate = 44100;
     private int sampleLength;
     private InputStream musicStream;
@@ -84,13 +82,13 @@ public class SampleEditActivity extends Activity {
     Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(Message msg){
-            AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
+            AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             switch (msg.what){
                 case AUDIO_PLAY_PROGRESS:
-                    audioSample.updatePlayIndicator((double)msg.arg1 / 1000);
+                    audioSampleView.updatePlayIndicator((double)msg.arg1 / 1000);
                     break;
                 case AUDIO_PLAY_COMPLETE:
-                    audioSample.isPlaying = false;
+                    audioSampleView.isPlaying = false;
                     Button b = (Button)findViewById(R.id.buttonPlay);
                     b.setText("Play");
                     break;
@@ -99,7 +97,7 @@ public class SampleEditActivity extends Activity {
                     break;
                 case AUDIO_PROCESSING_COMPLETE:
                     dlg.dismiss();
-                    audioSample.updateView();
+                    audioSampleView.updateView();
                     mPlayer.release();
                     mPlayer = null;
                     break;
@@ -222,21 +220,21 @@ public class SampleEditActivity extends Activity {
 
             if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                 Button b = (Button) findViewById(R.id.buttonPlay);
-                AudioSample audioSample = (AudioSample) findViewById(R.id.spectralView);
+                AudioSampleView audioSampleView = (AudioSampleView) findViewById(R.id.spectralView);
                 if (mPlayer != null) {
                     if (mPlayer.isPlaying()){ // If already playing, pause
                         mPlayer.pause();
-                        audioSample.isPlaying = false;
+                        audioSampleView.isPlaying = false;
                         continuePlaying = false;
                         b.setText("Play");
                     }
                     else { // If not playing, start
                         b.setText("Pause");
-                        audioSample.isPlaying = true;
+                        audioSampleView.isPlaying = true;
                         continuePlaying = true;
                         // Start playing from beginning of selection
-                        if (audioSample.getSelectionStartTime() > 0)
-                            mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
+                        if (audioSampleView.getSelectionStartTime() > 0)
+                            mPlayer.seekTo((int)(audioSampleView.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     }
@@ -246,12 +244,12 @@ public class SampleEditActivity extends Activity {
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
                         b.setText("Pause");
-                        audioSample.isPlaying = true;
+                        audioSampleView.isPlaying = true;
                         continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
-                        if (audioSample.getSelectionStartTime() > 0)
-                            mPlayer.seekTo((int)(audioSample.getSelectionStartTime() * 1000));
+                        if (audioSampleView.getSelectionStartTime() > 0)
+                            mPlayer.seekTo((int)(audioSampleView.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     } catch (IOException e){
@@ -262,12 +260,12 @@ public class SampleEditActivity extends Activity {
     }
 
     public void TarsosPlay(View view){
-        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         sample.Play(WAV_CACHE_PATH, sample.getSelectionStartTime(), sample.getSelectionEndTime());
     }
 
     public void Save(View view){
-        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
         if (temp.isFile())
             temp.delete();
@@ -291,18 +289,18 @@ public class SampleEditActivity extends Activity {
             mPlayer.release();
             mPlayer = null;
         }
-        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
         LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
     }
 
     public void ZoomIn(View view){
-        AudioSample a = (AudioSample)findViewById(R.id.spectralView);
+        AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
         a.zoomSelection();
     }
 
     public void ZoomOut(View view){
-        AudioSample a = (AudioSample)findViewById(R.id.spectralView);
+        AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
         a.zoomExtents();
     }
 
@@ -318,15 +316,8 @@ public class SampleEditActivity extends Activity {
         // Store reference to activity context to use inside event handlers
         context = this;
 
-        // Store a reference to the path for the temporary cache of the wav file
-        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "//cache.wav";
-        // If the cache file already exists, delete it
-        File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "cache.wav");
-        if (temp.isFile())
-            temp.delete();
-
-        // Setup audiosample to handle touch events
-        AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        // Setup audiosample view to handle touch events
+        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
         sample.setOnTouchListener(sample);
@@ -337,6 +328,13 @@ public class SampleEditActivity extends Activity {
         mPlayer = new MediaPlayer();
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
+
+        // Store a reference to the path for the temporary cache of the wav file
+        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "/cache.wav";
+        // If the cache file already exists, delete it
+        File temp = new File(WAV_CACHE_PATH);
+        if (temp.isFile())
+            temp.delete();
 
         // Get data from intent
         Intent intent = getIntent();
@@ -407,7 +405,7 @@ public class SampleEditActivity extends Activity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-        final AudioSample sample = (AudioSample)findViewById(R.id.spectralView);
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         switch (id){
             case R.id.action_settings:
                 return true;
@@ -520,7 +518,7 @@ public class SampleEditActivity extends Activity {
         @Override
         public void run() {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSample v = (AudioSample) findViewById(R.id.spectralView);
+            AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
             v.LoadAudio(WAV_CACHE_PATH);
 
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
@@ -533,7 +531,7 @@ public class SampleEditActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSample view = (AudioSample)findViewById(R.id.spectralView);
+            AudioSampleView view = (AudioSampleView)findViewById(R.id.spectralView);
             while (view.dispatcher == null){
                 try {
                     Thread.sleep(100);
@@ -556,10 +554,10 @@ public class SampleEditActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSample audioSample = (AudioSample)findViewById(R.id.spectralView);
-            audioSample.isPlaying = true;
+            AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
+            audioSampleView.isPlaying = true;
             do {
-                while (mPlayer.getCurrentPosition() < Math.round(audioSample.getSelectionEndTime() * 1000) && mPlayer.isPlaying()) {
+                while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000) && mPlayer.isPlaying()) {
                     try {
                         Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                         m.arg1 = mPlayer.getCurrentPosition();
@@ -569,7 +567,7 @@ public class SampleEditActivity extends Activity {
                         e.printStackTrace();
                     }
                 }
-                mPlayer.seekTo((int)Math.round(audioSample.getSelectionStartTime() * 1000));
+                mPlayer.seekTo((int)Math.round(audioSampleView.getSelectionStartTime() * 1000));
             } while (loop && continuePlaying);
             mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
