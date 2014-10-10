@@ -38,8 +38,8 @@ public class AudioSampleData extends Fragment {
         this.sampleLength = sampleLength;
         this.selectionStartTime = selectionStartTime;
         this.selectionEndTime = selectionEndTime;
-        this. windowStartTime = windowStartTime;
-        this.selectionEndTime = windowEndTime;
+        this.windowStartTime = windowStartTime;
+        this.windowEndTime = windowEndTime;
     }
     public double getSampleLength(){return sampleLength;}
     public double getSelectionStartTime() {return selectionStartTime;}

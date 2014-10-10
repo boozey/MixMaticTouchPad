@@ -507,7 +507,12 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                     canvas.drawLine((float)(line.x - windowStartTime) * dpPerSec, 0, (float)(line.x - windowStartTime) * dpPerSec, line.y, paintBrush);
                 }
             }
-
+            /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
+            need to be set in order for the selection to persist*/
+            if (selectStart == 0 && selectionStartTime > 0){
+                selectStart = (float)(getWidth() * (windowEndTime - selectionStartTime) / (windowEndTime - windowStartTime));
+                selectEnd = (float)(getWidth() * (windowEndTime - selectionEndTime) / (windowEndTime - windowStartTime));
+            }
             // Draw selection region
             if (Math.abs(selectEnd - selectStart) > 5) {
                 paintSelect.setColor(Color.argb(127, 65, 65, 65));
@@ -516,10 +521,10 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                 canvas.drawLine(selectStart, 0, selectStart, getHeight(), paintSelect);
                 canvas.drawLine(selectEnd, 0, selectEnd, getHeight(), paintSelect);
                 paintSelect.setColor(Color.YELLOW);
-                canvas.drawCircle(selectStart, 0, 2, paintSelect);
-                canvas.drawCircle(selectStart, getHeight(), 2, paintSelect);
-                canvas.drawCircle(selectEnd, 0, 2, paintSelect);
-                canvas.drawCircle(selectEnd, getHeight(), 2, paintSelect);
+                canvas.drawCircle(selectStart, 0, 5, paintSelect);
+                canvas.drawCircle(selectStart, getHeight(), 5, paintSelect);
+                canvas.drawCircle(selectEnd, 0, 5, paintSelect);
+                canvas.drawCircle(selectEnd, getHeight(), 5, paintSelect);
                 paintSelect.setColor(Color.LTGRAY);
                 canvas.drawText(String.valueOf((int)Math.floor(selectionStartTime/60)) + ":" + String.format("%.2f", selectionStartTime % 60), selectStart, getHeight() - 10, paintSelect);
                 canvas.drawText(String.valueOf((int)Math.floor(selectionEndTime/60)) + ":" + String.format("%.2f", selectionEndTime % 60), selectEnd, getHeight() - 10, paintSelect);

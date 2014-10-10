@@ -341,6 +341,7 @@ public class SampleEditActivity extends Activity {
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
         if (savedData != null){
             sample.loadAudioSampleData(savedData);
+            LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             savedData = new AudioSampleData();
