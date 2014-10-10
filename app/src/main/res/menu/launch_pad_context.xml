@@ -10,10 +10,12 @@
     <item android:id="@+id/action_launch_mode"
         android:title="@string/action_launch_mode">
         <menu>
-            <item android:id="@+id/action_launch_mode_trigger"
-                android:title="@string/action_launch_mode_trigger" />
-            <item android:id="@+id/action_launch_mode_gate"
-            android:title="@string/action_launch_mode_gate" />
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/action_launch_mode_trigger"
+                   android:title="@string/action_launch_mode_trigger" />
+                <item android:id="@+id/action_launch_mode_gate"
+                   android:title="@string/action_launch_mode_gate" />
+            </group>
         </menu>
     </item>
     <item android:id="@+id/action_pick_color"

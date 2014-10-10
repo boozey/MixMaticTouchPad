@@ -3,7 +3,9 @@ package com.nakedape.mixmatictouchpad;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Shader;
 import android.os.Environment;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -52,7 +54,8 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
     private double beatThreshold = 0.3;
     private TarsosDSPAudioFormat audioFormat;
     private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
-    private Paint paintBrush = new Paint(), paintSelect = new Paint();
+    private Paint paintBrush = new Paint(), paintSelect = new Paint(), paintBackground = new Paint();
+    private LinearGradient gradient;
     private float selectStart, selectEnd;
     private List<Line> waveFormData = new ArrayList<Line>();
     private List<Line> beatsData = new ArrayList<Line>();
@@ -391,19 +394,34 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             if (min == endDist){
                 selectEnd = event.getX();
                 if (selectEnd > getWidth()) selectEnd = getWidth();
+                if (selectEnd < 0) selectEnd = 0;
                 selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
             }
             else {
                 selectStart = event.getX();
                 if (selectStart < 0) selectStart = 0;
+                if (selectStart > getWidth()) selectStart = getWidth();
                 selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
             }
         }
         else {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 selectStart = event.getX();
-                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
                 selectEnd = event.getX();
+                // Make sure start of selection is before end of selection
+                if (selectStart > selectEnd) {
+                    float temp = selectEnd;
+                    selectEnd = selectStart;
+                    selectStart = temp;
+                }
+                // Make sure start/end of selection are with bounds
+                if (selectStart < 0) selectStart = 0;
+                if (selectStart > getWidth()) selectStart = getWidth();
+                if (selectEnd > getWidth()) selectEnd = getWidth();
+                if (selectEnd < 0) selectEnd = 0;
+
+                // Set start time and end time of selection
+                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
                 selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
             } else if (event.getAction() == MotionEvent.ACTION_UP) {
                 selectEnd = event.getX();
@@ -417,10 +435,10 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                         selectStart = temp;
                     }
                     // Make sure start/end of selection are with bounds
-                    if (selectStart < 0)
-                        selectStart = 0;
-                    if (selectEnd > getWidth())
-                        selectEnd = getWidth();
+                    if (selectStart < 0) selectStart = 0;
+                    if (selectStart > getWidth()) selectStart = getWidth();
+                    if (selectEnd > getWidth()) selectEnd = getWidth();
+                    if (selectEnd < 0) selectEnd = 0;
 
                     // Set start time and end time of selection
                     selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
@@ -428,6 +446,8 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 }
             } else {
                 selectEnd = event.getX();
+                if (selectEnd > getWidth()) selectEnd = getWidth();
+                if (selectEnd < 0) selectEnd = 0;
                 selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
             }
         }
@@ -453,9 +473,10 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
         super.onDraw(canvas);
         if (waveFormRender.size() > 0 ) {
             // Draw background
-            paintBrush.setColor(Color.parseColor(backgroundColor));//paintBrush.setColor(Color.BLACK);
-            paintBrush.setStyle(Paint.Style.FILL);
-            canvas.drawPaint(paintBrush);
+            paintBackground.setStyle(Paint.Style.FILL);
+            gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
+            paintBackground.setShader(gradient);
+            canvas.drawPaint(paintBackground);
             // Draw waveform
             float axis = getHeight() / 2;
             float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
@@ -464,8 +485,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             if (dpPerSample < 0.1){
                 increment = Math.max(1, Math.round(waveFormRender.size() / getWidth()) / 5);
             }
-            Log.d("Increment: ", String.valueOf(increment));
-            Log.d("Window Length = ", String.valueOf(windowEndTime - windowStartTime));
             paintBrush.setColor(Color.parseColor(foregroundColor));
             for (int i = 0; i < waveFormRender.size(); i += increment){
                 canvas.drawLine((float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec, axis,
@@ -501,26 +520,6 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
                 paintSelect.setColor(Color.RED);
                 canvas.drawLine((float)(playPos.x - windowStartTime) * dpPerSec, 0, (float)(playPos.x - windowStartTime) * dpPerSec, getHeight(), paintSelect);
             }
-        }
-    }
-
-    /**
-     * copy file from source to destination
-     *
-     * @param src source
-     * @param dst destination
-     * @throws java.io.IOException in case of any problems
-     */
-    private void CopyFile(File src, File dst) throws IOException {
-        FileChannel inChannel = new FileInputStream(src).getChannel();
-        FileChannel outChannel = new FileOutputStream(dst).getChannel();
-        try {
-            inChannel.transferTo(0, inChannel.size(), outChannel);
-        } finally {
-            if (inChannel != null)
-                inChannel.close();
-            if (outChannel != null)
-                outChannel.close();
         }
     }
 

@@ -60,6 +60,15 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 Sample s = (Sample) samples.get(selectedSampleID);
                 MenuItem item = menu.findItem(R.id.action_loop_mode);
                 item.setChecked(s.getLoopMode());
+                if (s.getLaunchMode() == Sample.LAUNCHMODE_TRIGGER) {
+                    item = menu.findItem(R.id.action_launch_mode_trigger);
+                    item.setChecked(true);
+                }
+                else {
+                    item = menu.findItem(R.id.action_launch_mode_gate);
+                    item.setChecked(true);
+                }
+
             }
             return true;
         }
@@ -113,12 +122,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     if (samples.containsKey(selectedSampleID)){
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                        item.setChecked(true);
                     }
                     return true;
                 case R.id.action_launch_mode_trigger:
                     if (samples.containsKey(selectedSampleID)){
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setLaunchMode(Sample.LAUNCHMODE_TRIGGER);
+                        item.setChecked(true);
                     }
                     return true;
                 case R.id.action_pick_color:
@@ -215,8 +226,17 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 v.setSelected(true);
                 if (samples.containsKey(v.getId())) {
                     Sample s = (Sample) samples.get(v.getId());
-                    MenuItem item = mActionMode.getMenu().findItem(R.id.action_loop_mode);
+                    Menu menu = mActionMode.getMenu();
+                    MenuItem item = menu.findItem(R.id.action_loop_mode);
                     item.setChecked(s.getLoopMode());
+                    if (s.getLaunchMode() == Sample.LAUNCHMODE_TRIGGER) {
+                        item = menu.findItem(R.id.action_launch_mode_trigger);
+                        item.setChecked(true);
+                    }
+                    else {
+                        item = menu.findItem(R.id.action_launch_mode_gate);
+                        item.setChecked(true);
+                    }
                 }
                 else{
                     MenuItem item = mActionMode.getMenu().findItem(R.id.action_loop_mode);
