@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -40,6 +41,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
     public static String COLOR = "com.nakedape.mixmatictouchpad.color";
+    public static String LOOP = "com.nakedape.mixmatictouchpad.loop";
+    public static String LAUNCHMODE = "com.nakedape.mixmatictouchpad.launchmode";
     private static int GET_SAMPLE = 0;
     private boolean isEditMode = false;
 
@@ -48,6 +51,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private File homeDir;
     private int numTouchPads;
     private AudioManager am;
+    private SharedPreferences pref;
 
     private int selectedSampleID;
     private ActionMode mActionMode;
@@ -80,13 +84,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
 
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            SharedPreferences.Editor prefEditor = pref.edit();
             switch (item.getItemId()){
                 case R.id.action_edit_sample:
                     Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                     intent.putExtra(TOUCHPAD_ID, selectedSampleID);
                     if (samples.containsKey(selectedSampleID)){
                         intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(selectedSampleID) + ".wav");
-                        SharedPreferences pref = getPreferences(MODE_PRIVATE);
                         intent.putExtra(COLOR, pref.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
                     }
                     startActivityForResult(intent, GET_SAMPLE);
@@ -97,6 +101,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         if (samples.containsKey(selectedSampleID)) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(false);
+                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOP, false);
+                            prefEditor.apply();
                         }
                     }
                     else {
@@ -104,6 +110,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         if (samples.containsKey(selectedSampleID)) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(true);
+                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOP, true);
+                            prefEditor.apply();
                         }
                     }
                     return true;
@@ -123,6 +131,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setLaunchMode(Sample.LAUNCHMODE_GATE);
                         item.setChecked(true);
+                        prefEditor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                        prefEditor.apply();
                     }
                     return true;
                 case R.id.action_launch_mode_trigger:
@@ -130,6 +140,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setLaunchMode(Sample.LAUNCHMODE_TRIGGER);
                         item.setChecked(true);
+                        prefEditor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER);
+                        prefEditor.apply();
                     }
                     return true;
                 case R.id.action_pick_color:
@@ -140,7 +152,6 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         public void onClick(DialogInterface dialog, int which) {
                             if (samples.containsKey(selectedSampleID)){
                                 View v = findViewById(selectedSampleID);// Load shared preferences to save color
-                                SharedPreferences pref = getPreferences(MODE_PRIVATE);
                                 SharedPreferences.Editor editor = pref.edit();
                                 switch (which){ // Set and save color
                                     case 0:
@@ -179,6 +190,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             isEditMode = false;
         }
     };
+
+    // Handles touch events in play mode;
     private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -214,6 +227,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             return false;
         }
     };
+
+    // Handles click events in edit mode
     private View.OnClickListener TouchPadClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -248,6 +263,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             }
         }
     };
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
         if (requestCode == GET_SAMPLE && resultCode == RESULT_OK) {
@@ -267,8 +283,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 int id = data.getIntExtra(TOUCHPAD_ID, 0);
                 samples.put(id, new Sample(sampleFile.getAbsolutePath(), id));
                 TouchPad t = (TouchPad)findViewById(id);
-                // Load shared preferences to save color
-                SharedPreferences pref = getPreferences(MODE_PRIVATE);
+                // Load shared preferences editor to save color
                 SharedPreferences.Editor editor = pref.edit();
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
@@ -293,19 +308,31 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         }
     }
 
+    // Activity over rides
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launch_pad);
         context = this;
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
+        pref = getPreferences(MODE_PRIVATE);
 
         // Set up touch pads and load samples if present
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
+            setupPortrait();
+        } else {
+            setupLandscape();
+        }
+
+        // Set up audio
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+    }
+    private void setupPortrait(){
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         samples = new HashMap();
-        SharedPreferences pref = getPreferences(MODE_PRIVATE);
         int id = 0;
         for (int i = 0; i < 6; i++){
             LinearLayout l = new LinearLayout(this);
@@ -319,12 +346,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 t.setOnTouchListener(TouchPadTouchListener);
                 t.setOnClickListener(TouchPadClickListener);
                 l.addView(t);
-                if (homeDir.isDirectory()){
+                if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
                     File sample = new File(homeDir, String.valueOf(id) + ".wav");
-                    if (sample.isFile()){
+                    if (sample.isFile()){ // If the sample exists, load it
                         Sample s = new Sample(sample.getAbsolutePath(), id);
                         s.setOnPlayFinishedListener(this);
                         samples.put(id, s);
+                        s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
+                        s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
                         int color = pref.getInt(String.valueOf(id) + COLOR, 0);
                         switch (color){ // Load and set color
                             case 0:
@@ -349,19 +378,64 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             }
         }
         numTouchPads = id;
-
-        // Set up audio
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
     }
-
+    private void setupLandscape(){
+        LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
+        DisplayMetrics metrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        samples = new HashMap();
+        int id = 0;
+        for (int i = 0; i < 4; i++){
+            LinearLayout l = new LinearLayout(this);
+            l.setOrientation(LinearLayout.HORIZONTAL);
+            mainLayout.addView(l);
+            for (int j = 0; j < 6; j++){
+                TouchPad t = new TouchPad(this);
+                t.setId(id);
+                t.setWidth(metrics.widthPixels / 6);
+                t.setHeight((metrics.heightPixels - 150) / 4);
+                t.setOnTouchListener(TouchPadTouchListener);
+                t.setOnClickListener(TouchPadClickListener);
+                l.addView(t);
+                if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
+                    File sample = new File(homeDir, String.valueOf(id) + ".wav");
+                    if (sample.isFile()){ // If the sample exists, load it
+                        Sample s = new Sample(sample.getAbsolutePath(), id);
+                        s.setOnPlayFinishedListener(this);
+                        samples.put(id, s);
+                        s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
+                        s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        int color = pref.getInt(String.valueOf(id) + COLOR, 0);
+                        switch (color){ // Load and set color
+                            case 0:
+                                t.setBackgroundResource(R.drawable.launch_pad_blue);
+                                break;
+                            case 1:
+                                t.setBackgroundResource(R.drawable.launch_pad_red);
+                                break;
+                            case 2:
+                                t.setBackgroundResource(R.drawable.launch_pad_green);
+                                break;
+                            case 3:
+                                t.setBackgroundResource(R.drawable.launch_pad_orange);
+                                break;
+                        }
+                    }
+                    else{
+                        t.setBackgroundResource(R.drawable.launch_pad_empty);
+                    }
+                }
+                id++;
+            }
+        }
+        numTouchPads = id;
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.touch_pad, menu);
         return true;
     }
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will

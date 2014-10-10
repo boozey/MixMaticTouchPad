@@ -408,51 +408,37 @@ public class AudioSample extends View implements View.OnTouchListener, OnsetHand
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 selectStart = event.getX();
                 selectEnd = event.getX();
-                // Make sure start of selection is before end of selection
-                if (selectStart > selectEnd) {
-                    float temp = selectEnd;
-                    selectEnd = selectStart;
-                    selectStart = temp;
-                }
-                // Make sure start/end of selection are with bounds
-                if (selectStart < 0) selectStart = 0;
-                if (selectStart > getWidth()) selectStart = getWidth();
-                if (selectEnd > getWidth()) selectEnd = getWidth();
-                if (selectEnd < 0) selectEnd = 0;
-
-                // Set start time and end time of selection
-                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
-                selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+                fixSelection();
             } else if (event.getAction() == MotionEvent.ACTION_UP) {
                 selectEnd = event.getX();
-
                 // Make sure there is a selection
                 if (Math.abs(selectEnd - selectStart) > 5) {
-                    // Make sure start of selection is before end of selection
-                    if (selectStart > selectEnd) {
-                        float temp = selectEnd;
-                        selectEnd = selectStart;
-                        selectStart = temp;
-                    }
-                    // Make sure start/end of selection are with bounds
-                    if (selectStart < 0) selectStart = 0;
-                    if (selectStart > getWidth()) selectStart = getWidth();
-                    if (selectEnd > getWidth()) selectEnd = getWidth();
-                    if (selectEnd < 0) selectEnd = 0;
-
-                    // Set start time and end time of selection
-                    selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
-                    selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+                    fixSelection();
                 }
             } else {
                 selectEnd = event.getX();
-                if (selectEnd > getWidth()) selectEnd = getWidth();
-                if (selectEnd < 0) selectEnd = 0;
-                selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+                fixSelection();
             }
         }
         invalidate();
         return true;
+    }
+    private void fixSelection(){
+        // Make sure start of selection is before end of selection
+        if (selectStart > selectEnd) {
+            float temp = selectEnd;
+            selectEnd = selectStart;
+            selectStart = temp;
+        }
+        // Make sure start/end of selection are with bounds
+        if (selectStart < 0) selectStart = 0;
+        if (selectStart > getWidth()) selectStart = getWidth();
+        if (selectEnd > getWidth()) selectEnd = getWidth();
+        if (selectEnd < 0) selectEnd = 0;
+
+        // Set start time and end time of selection
+        selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
+        selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
     }
 
     public void updateView(){
