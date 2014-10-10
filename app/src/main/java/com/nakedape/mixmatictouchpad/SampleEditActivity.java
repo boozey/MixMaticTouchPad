@@ -2,6 +2,7 @@ package com.nakedape.mixmatictouchpad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.FragmentManager;
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -50,6 +51,7 @@ public class SampleEditActivity extends Activity {
     private ProgressDialog dlg;
     private Context context;
     private int sampleId;
+    private AudioSampleData savedData;
 
     // Media player variables
     private Uri fullMusicUri;
@@ -315,6 +317,8 @@ public class SampleEditActivity extends Activity {
 
         // Store reference to activity context to use inside event handlers
         context = this;
+        // Store a reference to the path for the temporary cache of the wav file
+        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "/cache.wav";
 
         // Setup audiosample view to handle touch events
         AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
@@ -329,20 +333,35 @@ public class SampleEditActivity extends Activity {
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false); //Disabled until a file is loaded
 
-        // Store a reference to the path for the temporary cache of the wav file
-        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "/cache.wav";
-        // If the cache file already exists, delete it
-        File temp = new File(WAV_CACHE_PATH);
-        if (temp.isFile())
-            temp.delete();
-
         // Get data from intent
         Intent intent = getIntent();
         sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
-        sample.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
-        if (intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH) != null) {
-            temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
+        // find the retained fragment on activity restarts
+        FragmentManager fm = getFragmentManager();
+        savedData = (AudioSampleData) fm.findFragmentByTag("data");
+        if (savedData != null){
+            sample.loadAudioSampleData(savedData);
         }
+        else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            LoadSampleFromIntent(intent);
+        }
+        else{
+            // If the cache file already exists from a previous edit, delete it
+            File temp = new File(WAV_CACHE_PATH);
+            if (temp.isFile())
+                temp.delete();
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            SelectMp3File();
+        }
+    }
+
+    private void LoadSampleFromIntent(Intent intent){
+        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        sample.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
+        File temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
         if (temp.isFile()){ // If a sample is being passed, load it and process
             File loadedSample = new File(WAV_CACHE_PATH);
             try {
@@ -379,6 +398,7 @@ public class SampleEditActivity extends Activity {
             new Thread(new LoadAudioThread()).start();
             new Thread(new AudioProcessUpdate()).start();
         }
+
     }
 
     @Override
@@ -389,6 +409,8 @@ public class SampleEditActivity extends Activity {
             mPlayer.release();
             mPlayer = null;
         }
+        AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+        sampleView.saveAudioSampleData(savedData);
         super.onDestroy();
     }
 
