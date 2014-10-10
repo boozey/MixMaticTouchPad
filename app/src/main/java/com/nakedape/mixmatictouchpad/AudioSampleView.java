@@ -510,8 +510,8 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
             need to be set in order for the selection to persist*/
             if (selectStart == 0 && selectionStartTime > 0){
-                selectStart = (float)(getWidth() * (windowEndTime - selectionStartTime) / (windowEndTime - windowStartTime));
-                selectEnd = (float)(getWidth() * (windowEndTime - selectionEndTime) / (windowEndTime - windowStartTime));
+                selectStart = (float)(getWidth() * (selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime));
+                selectEnd = (float)(getWidth() * (selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime));
             }
             // Draw selection region
             if (Math.abs(selectEnd - selectStart) > 5) {

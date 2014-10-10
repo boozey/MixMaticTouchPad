@@ -341,6 +341,7 @@ public class SampleEditActivity extends Activity {
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
         if (savedData != null){
             sample.loadAudioSampleData(savedData);
+            loop = savedData.getLoop();
             LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
@@ -412,6 +413,7 @@ public class SampleEditActivity extends Activity {
         }
         AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
         sampleView.saveAudioSampleData(savedData);
+        savedData.setLoop(loop);
         super.onDestroy();
     }
 

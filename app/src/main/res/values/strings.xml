@@ -14,6 +14,8 @@
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_show_beats">Show beats</string>
     <string name="action_edit_sample">Edit sample</string>
+    <string name="action_load_sample">Load sample</string>
+    <string name="action_load_sample_slice">Load sample to slice</string>
     <string name="action_loop_mode">Loop</string>
     <string name="action_launch_mode">Launch mode</string>
     <string name="action_launch_mode_trigger">Trigger</string>
@@ -22,5 +24,6 @@
     <string name="action_loop_selection">Loop selection</string>
     <string name="action_pick_color">Change color</string>
     <string name="color_dialog_title">Pick a color</string>
+    <string name="slice_multi_select">Select pads to fill</string>
 
 </resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_load_sample_mode"
+        android:title="@string/action_load_sample">
+        <menu>
+            <item android:id="@+id/action_load_sample"
+                android:title="@string/action_load_sample"/>
+            <item android:id="@+id/action_multi_select"
+                android:title="@string/action_load_sample_slice"/>
+        </menu>
+    </item>
+</menu>

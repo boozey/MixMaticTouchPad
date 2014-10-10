@@ -13,7 +13,6 @@ import android.media.AudioTrack;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -33,6 +32,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 
@@ -54,12 +54,67 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private SharedPreferences pref;
 
     private int selectedSampleID;
-    private ActionMode mActionMode;
-    private ActionMode.Callback mActionModeCallback = new ActionMode.Callback() {
+    private boolean multiSelect = false;
+    private ArrayList<String> selections;
+    private ActionMode launchPadActionMode;
+    private ActionMode emptyPadActionMode;
+    private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.launch_pad_empty_context, menu);
+            isEditMode = true;
+            View newView = findViewById(selectedSampleID);
+            newView.setSelected(true);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            switch (item.getItemId()){
+                case R.id.action_load_sample:
+                    Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
+                    intent.putExtra(TOUCHPAD_ID, selectedSampleID);
+                    startActivityForResult(intent, GET_SAMPLE);
+                    return true;
+                case R.id.action_multi_select:
+                    multiSelect = true;
+                    selections = new ArrayList<String>();
+                    Toast.makeText(context, R.string.slice_multi_select, Toast.LENGTH_SHORT).show();
+                    return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            emptyPadActionMode = null;
+            isEditMode = false;
+            multiSelect = false;
+            View oldView = findViewById(selectedSampleID);
+            oldView.setSelected(false);
+            if (selections != null) {
+                for (String s : selections) {
+                    oldView = findViewById(Integer.parseInt(s));
+                    oldView.setSelected(false);
+                }
+                selections = null;
+            }
+        }
+    };
+    private ActionMode.Callback launchPadActionModeCallback = new ActionMode.Callback() {
         @Override
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.launch_pad_context, menu);
+            isEditMode = true;
+            View oldView = findViewById(selectedSampleID);
+            oldView.setSelected(true);
             if (samples.containsKey(selectedSampleID)) {
                 Sample s = (Sample) samples.get(selectedSampleID);
                 MenuItem item = menu.findItem(R.id.action_loop_mode);
@@ -178,13 +233,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     AlertDialog dialog = builder.create();
                     dialog.show();
                 default:
-                    return false;
+                    return true;
             }
         }
 
         @Override
         public void onDestroyActionMode(ActionMode mode) {
-            mActionMode = null;
+            launchPadActionMode = null;
             View oldView = findViewById(selectedSampleID);
             oldView.setSelected(false);
             isEditMode = false;
@@ -231,16 +286,18 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private View.OnClickListener TouchPadClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            if (isEditMode) {
-                if (mActionMode == null)
-                    mActionMode = startActionMode(mActionModeCallback);
+            if (isEditMode && !multiSelect) {
                 View oldView = findViewById(selectedSampleID);
                 oldView.setSelected(false);
                 selectedSampleID = v.getId();
                 v.setSelected(true);
                 if (samples.containsKey(v.getId())) {
+                    if (emptyPadActionMode != null)
+                        emptyPadActionMode = null;
+                    if (launchPadActionMode == null)
+                        launchPadActionMode = startActionMode(launchPadActionModeCallback);
                     Sample s = (Sample) samples.get(v.getId());
-                    Menu menu = mActionMode.getMenu();
+                    Menu menu = launchPadActionMode.getMenu();
                     MenuItem item = menu.findItem(R.id.action_loop_mode);
                     item.setChecked(s.getLoopMode());
                     if (s.getLaunchMode() == Sample.LAUNCHMODE_TRIGGER) {
@@ -253,8 +310,25 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     }
                 }
                 else{
-                    MenuItem item = mActionMode.getMenu().findItem(R.id.action_loop_mode);
-                    item.setChecked(false);
+                    if (launchPadActionMode != null)
+                        launchPadActionMode = null;
+                    if (emptyPadActionMode == null)
+                        emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
+                }
+            }
+            else if (multiSelect){
+                if (!samples.containsKey(v.getId())) {
+                    if (v.isSelected()) {
+                        v.setSelected(false);
+                        selections.remove(String.valueOf(v.getId()));
+                    } else {
+                        v.setSelected(true);
+                        selections.add(String.valueOf(v.getId()));
+                    }
+                }
+                else {
+                    multiSelect = false;
+                    onClick(v);
                 }
             }
             else {
@@ -447,7 +521,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         }
         else if (id == R.id.action_edit_mode) {
             isEditMode = true;
-            mActionMode = startActionMode(mActionModeCallback);
+            View v = findViewById(0);
+            v.callOnClick();
         }
         else if (id == R.id.action_stop){
             for (int i = 0; i < numTouchPads; i++) {

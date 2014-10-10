@@ -24,6 +24,8 @@ public class AudioSampleData extends Fragment {
     private String backgroundColor;
     private String foregroundColor;
 
+    private boolean loop;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,5 +70,8 @@ public class AudioSampleData extends Fragment {
     public int getColor() {return color;}
     public String getBackgroundColor() {return backgroundColor;}
     public String getForegroundColor() {return foregroundColor;}
+
+    public void setLoop(boolean loop){this.loop = loop;}
+    public boolean getLoop() {return loop;}
 
 }
