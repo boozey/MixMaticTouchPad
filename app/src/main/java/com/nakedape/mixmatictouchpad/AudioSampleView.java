@@ -327,6 +327,62 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         selectEnd = getWidth();
         invalidate();
     }
+    public String[] Slice(int numSlices){
+        String[] paths = new String[numSlices];
+        double sliceLength = sampleLength / numSlices;
+        double startTime = 0, endTime = sliceLength;
+        for (int i = 0; i < numSlices; i++){
+            paths[i] = getSlice(i, startTime, endTime);
+            startTime += sliceLength;
+            endTime += sliceLength;
+        }
+        File sampleFile = new File(samplePath);
+        sampleFile.delete();
+        return paths;
+    }
+    private String getSlice(int sliceIndex, double startTime, double endTime){
+        InputStream wavStream = null; // InputStream to stream the wav to trim
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+        File sliceFile = new File(sampleFile.getParent(), String.valueOf(sliceIndex) + ".wav");  // File to contain the trimmed down sample
+        // If the sample file exists, try to trim it
+        if (sampleFile.isFile()){
+            if (sliceFile.isFile()) sliceFile.delete();
+            // Trim the sample down and write it to file
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                // Javazoom WaveFile class is used to write the wav
+                WaveFile waveFile = new WaveFile();
+                waveFile.OpenForWrite(sliceFile.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
+                // The number of bytes of wav data to trim off the beginning
+                long startOffset = (long)(startTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4;
+                // The number of bytes to copy
+                long length = ((long)(endTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4) - startOffset;
+                wavStream.skip(44); // Skip the header
+                wavStream.skip(startOffset);
+                byte[] buffer = new byte[1024];
+                int i = 0;
+                while (i < length){
+                    if (length - i >= buffer.length) {
+                        wavStream.read(buffer);
+                    }
+                    else { // Write the remaining number of bytes
+                        buffer = new byte[(int)length - i];
+                        wavStream.read(buffer);
+                    }
+                    short[] shorts = new short[buffer.length / 2];
+                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    waveFile.WriteData(shorts, shorts.length);
+                    i += buffer.length;
+                }
+                waveFile.Close(); // Complete writing the wave file
+                wavStream.close(); // Close the input stream
+            } catch (IOException e) {e.printStackTrace();}
+            finally {
+                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+            }
+        }
+        return sliceFile.getAbsolutePath();
+    }
     public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
         UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
         dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
@@ -356,45 +412,17 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         return true;
     }
-    public boolean WriteSelectionToFile(String source, String writePath){
-        InputStream wavStream = null;
-        try {
-            File f = new File(writePath);
-            if (f.isFile())
-                f.delete();
-            wavStream = new BufferedInputStream(new FileInputStream(source));
-            WaveFile waveFile = new WaveFile();
-            waveFile.OpenForWrite(writePath, (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
-            wavStream.skip(44);
-            long startOffset = (long)(selectionStartTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4);
-            long length = (long)(selectionEndTime * audioFormat.getSampleSizeInBits() * audioFormat.getSampleRate() / 4) - startOffset;
-            wavStream.skip(startOffset);
-            byte[] buffer = new byte[4096];
-            int bufferLength;
-            for (long i = startOffset; i < length + startOffset; i += buffer.length){
-                bufferLength = wavStream.read(buffer);
-                short[] shorts = new short[buffer.length / 2];
-                ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                waveFile.WriteData(shorts, shorts.length);
-            }
-            waveFile.Close();
-            wavStream.close();
-
-        } catch (IOException e) {e.printStackTrace();}
-        finally {
-            try {if (wavStream != null) wavStream.close();} catch (IOException e){}
-        }
-        return true;
-    }
 
     public String getSamplePath(){
         return samplePath;
     }
 
     public double getSelectionStartTime(){
+        fixSelection();
         return selectionStartTime;
     }
     public double getSelectionEndTime(){
+        fixSelection();
         if (selectionStartTime == 0 && selectionEndTime == 0)
         {
             return sampleLength;

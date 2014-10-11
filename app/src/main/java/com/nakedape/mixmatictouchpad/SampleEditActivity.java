@@ -51,6 +51,7 @@ public class SampleEditActivity extends Activity {
     private ProgressDialog dlg;
     private Context context;
     private int sampleId;
+    private int numSlices = 1;
     private AudioSampleData savedData;
 
     // Media player variables
@@ -276,12 +277,22 @@ public class SampleEditActivity extends Activity {
             mPlayer.release();
             mPlayer = null;
         }
-
-        Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
-        result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
-        result.putExtra(LaunchPadActivity.COLOR, sample.color);
-        setResult(Activity.RESULT_OK, result);
-        finish();
+        if (numSlices > 1){
+            String[] slicePaths = sample.Slice(numSlices);
+            Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION");
+            result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
+            result.putExtra(LaunchPadActivity.COLOR, sample.color);
+            result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
+            setResult(Activity.RESULT_OK, result);
+            finish();
+        }
+        else {
+            Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
+            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+            result.putExtra(LaunchPadActivity.COLOR, sample.color);
+            setResult(Activity.RESULT_OK, result);
+            finish();
+        }
 
     }
 
@@ -348,6 +359,18 @@ public class SampleEditActivity extends Activity {
             savedData = new AudioSampleData();
             fm.beginTransaction().add(savedData, "data").commit();
             LoadSampleFromIntent(intent);
+        }
+        else if (intent.hasExtra(LaunchPadActivity.NUM_SLICES)){
+            numSlices = intent.getIntExtra(LaunchPadActivity.NUM_SLICES, 1);
+            // If the cache file already exists from a previous edit, delete it
+            File temp = new File(WAV_CACHE_PATH);
+            if (temp.isFile())
+                temp.delete();
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            b = (Button)findViewById(R.id.buttonSave);
+            b.setText("Slice");
+            SelectMp3File();
         }
         else{
             // If the cache file already exists from a previous edit, delete it

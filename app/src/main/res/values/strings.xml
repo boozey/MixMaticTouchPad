@@ -25,5 +25,6 @@
     <string name="action_pick_color">Change color</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="slice_multi_select">Select pads to fill</string>
+    <string name="slice_selection_error">Please select at least one pad</string>
 
 </resources>
