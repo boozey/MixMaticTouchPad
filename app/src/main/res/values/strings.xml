@@ -2,12 +2,13 @@
 <resources>
 
     <string name="app_name">Mixmatic Launch Pad</string>
-    <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_launch_pad">Mixmatic Launch Pad</string>
     <string name="action_edit_mode">Enable edit mode</string>
     <string name="action_play_mode">Exit edit mode</string>
     <string name="save">Save</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
     <string name="load_audio_file">Load mp3</string>
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
@@ -21,10 +22,12 @@
     <string name="action_launch_mode_trigger">Trigger</string>
     <string name="action_launch_mode_gate">Gate</string>
     <string name="action_remove_sample">Remove sample</string>
+    <string name="warning_remove_sample">Remove sample?</string>
     <string name="action_loop_selection">Loop selection</string>
     <string name="action_pick_color">Change color</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="slice_multi_select">Select pads to fill</string>
     <string name="slice_selection_error">Please select at least one pad</string>
+    <string name="slice_size_warning" formatted="false">Slice into %d slices that are each %.3f seconds in length?</string>
 
 </resources>

@@ -18,11 +18,11 @@ import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 public class AndroidAudioPlayer implements AudioProcessor {
     private AudioTrack audioTrack;
     AndroidAudioPlayer(TarsosDSPAudioFormat audioFormat, int bufferSize){
-        bufferSize = Math.max(bufferSize, AudioTrack.getMinBufferSize((int)audioFormat.getSampleRate(), AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT));
+        bufferSize = Math.max(bufferSize, AudioTrack.getMinBufferSize((int)audioFormat.getSampleRate(), AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_8BIT));
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 (int)audioFormat.getSampleRate(),
                 AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
+                AudioFormat.ENCODING_PCM_8BIT,
                 bufferSize * 2,
                 AudioTrack.MODE_STREAM);
     }

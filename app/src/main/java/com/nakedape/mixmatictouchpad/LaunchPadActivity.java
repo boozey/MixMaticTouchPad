@@ -2,6 +2,7 @@ package com.nakedape.mixmatictouchpad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -51,11 +52,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private boolean isEditMode = false;
 
     private Context context;
-    private HashMap samples;
+    private HashMap<Integer, Sample> samples;
     private File homeDir;
     private int numTouchPads;
     private AudioManager am;
     private SharedPreferences pref;
+    private LaunchPadData savedData;
+    private boolean savedDataLoaded = false;
 
     private int selectedSampleID;
     private boolean multiSelect = false;
@@ -195,13 +198,28 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     return true;
                 case R.id.action_remove_sample:
                     if (samples.containsKey(selectedSampleID)){
-                        Sample s = (Sample)samples.get(selectedSampleID);
-                        File f = new File(s.getPath());
-                        f.delete();
-                        samples.remove(selectedSampleID);
-                        View v = findViewById(selectedSampleID);
-                        v.setBackgroundResource(R.drawable.launch_pad_empty);
-                        Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setMessage(getString(R.string.warning_remove_sample));
+                        builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Sample s = (Sample)samples.get(selectedSampleID);
+                                File f = new File(s.getPath());
+                                f.delete();
+                                samples.remove(selectedSampleID);
+                                View v = findViewById(selectedSampleID);
+                                v.setBackgroundResource(R.drawable.launch_pad_empty);
+                                Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                        builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        });
+                        AlertDialog dialog = builder.create();
+                        dialog.show();
                     }
                     return true;
                 case R.id.action_launch_mode_gate:
@@ -454,7 +472,18 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
         pref = getPreferences(MODE_PRIVATE);
 
-        // Set up touch pads and load samples if present
+        // find the retained fragment on activity restarts
+        FragmentManager fm = getFragmentManager();
+        savedData = (LaunchPadData) fm.findFragmentByTag("data");
+        if (savedData != null){
+            samples = savedData.getSamples();
+            savedDataLoaded = true;
+        }
+        else{
+            savedData = new LaunchPadData();
+            fm.beginTransaction().add(savedData, "data").commit();
+        }
+        // Set up touch pads and load samples
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
             setupPortrait();
         } else {
@@ -469,13 +498,16 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        samples = new HashMap();
+        if (!savedDataLoaded)
+            samples = new HashMap<Integer, Sample>();
         int id = 0;
         for (int i = 0; i < 6; i++){
             LinearLayout l = new LinearLayout(this);
             l.setOrientation(LinearLayout.HORIZONTAL);
             mainLayout.addView(l);
             for (int j = 0; j < 4; j++){
+                if (id == 6)
+                    id = 35;
                 TouchPad t = new TouchPad(this);
                 t.setId(id);
                 t.setWidth(metrics.widthPixels / 4);
@@ -486,11 +518,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
                     File sample = new File(homeDir, String.valueOf(id) + ".wav");
                     if (sample.isFile()){ // If the sample exists, load it
-                        Sample s = new Sample(sample.getAbsolutePath(), id);
-                        s.setOnPlayFinishedListener(this);
-                        samples.put(id, s);
-                        s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
-                        s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        if (!savedDataLoaded) {
+                            Sample s = new Sample(sample.getAbsolutePath(), id);
+                            s.setOnPlayFinishedListener(this);
+                            samples.put(id, s);
+                            s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        }
                         int color = pref.getInt(String.valueOf(id) + COLOR, 0);
                         switch (color){ // Load and set color
                             case 0:
@@ -511,6 +545,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         t.setBackgroundResource(R.drawable.launch_pad_empty);
                     }
                 }
+                if (id == 35)
+                    id = 6;
                 id++;
             }
         }
@@ -519,15 +555,21 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private void setupLandscape(){
         getActionBar().hide();
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
+        LinearLayout padLayout = new LinearLayout(this);
+        padLayout.setOrientation(LinearLayout.HORIZONTAL);
+        mainLayout.addView(padLayout);
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        samples = new HashMap();
+        if (!savedDataLoaded)
+            samples = new HashMap<Integer, Sample>();
         int id = 0;
-        for (int i = 0; i < 4; i++){
+        for (int i = 0; i < 6; i++){
             LinearLayout l = new LinearLayout(this);
-            l.setOrientation(LinearLayout.HORIZONTAL);
-            mainLayout.addView(l);
-            for (int j = 0; j < 6; j++){
+            l.setOrientation(LinearLayout.VERTICAL);
+            padLayout.addView(l);
+            for (int j = 0; j < 4; j++){
+                if (id == 6)
+                    id = 35;
                 TouchPad t = new TouchPad(this);
                 t.setId(id);
                 t.setWidth(metrics.widthPixels / 6);
@@ -538,11 +580,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
                     File sample = new File(homeDir, String.valueOf(id) + ".wav");
                     if (sample.isFile()){ // If the sample exists, load it
-                        Sample s = new Sample(sample.getAbsolutePath(), id);
-                        s.setOnPlayFinishedListener(this);
-                        samples.put(id, s);
-                        s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
-                        s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        if (!savedDataLoaded) {
+                            Sample s = new Sample(sample.getAbsolutePath(), id);
+                            s.setOnPlayFinishedListener(this);
+                            samples.put(id, s);
+                            s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        }
                         int color = pref.getInt(String.valueOf(id) + COLOR, 0);
                         switch (color){ // Load and set color
                             case 0:
@@ -563,6 +607,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         t.setBackgroundResource(R.drawable.launch_pad_empty);
                     }
                 }
+                if (id == 35)
+                    id = 6;
                 id++;
             }
         }
@@ -598,6 +644,11 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
 
         }
         return super.onOptionsItemSelected(item);
+    }
+    @Override
+    protected void onDestroy(){
+        savedData.setSamples(samples);
+        super.onDestroy();
     }
 
     // AudioTrack playback update listener overrides used to deselect a touchpad when the sound stops
@@ -647,6 +698,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         private boolean loop = false;
         private int loopMode = 0;
         private int launchMode = LAUNCHMODE_TRIGGER;
+        private File sampleFile;
         private int sampleByteLength;
         private boolean played = false;
         private AudioTrack audioTrack;
@@ -656,7 +708,11 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         public Sample(String path, int id){
             this.path = path;
             this.id = id;
-            loadAudioTrack();
+            sampleFile = new File(path);
+            if (sampleFile.isFile()){
+                sampleByteLength = (int)sampleFile.length() - 44;
+                loadAudioTrack();
+            }
         }
         public Sample(String path, int launchMode, boolean loopMode){
             this.path = path;
@@ -680,6 +736,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     audioTrack.reloadStaticData();
                     played = false;
                 }
+                if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED)
+                    loadAudioTrack();
                 audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
                 audioTrack.setNotificationMarkerPosition(0);
                 audioTrack.setPlaybackPositionUpdateListener(null);
@@ -724,6 +782,10 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             resetMarker();
             if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED)
                 audioTrack.play();
+            else {
+                Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
+                loadAudioTrack();
+            }
         }
         public void stop(){
             try {
@@ -741,13 +803,8 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
                 audioTrack.stop();
             audioTrack.flush();
-            try {
-                audioTrack.reloadStaticData();
-            } catch (IllegalStateException e) {
-                audioTrack.release();
-                loadAudioTrack();
-            }
-            played = false;
+            audioTrack.release();
+            loadAudioTrack();
         }
         public boolean hasPlayed(){
             return played;
@@ -758,42 +815,41 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             resetMarker();
         }
         public void resetMarker(){
-            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 1500);
+            audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
         }
 
         // Private methods
-        private void loadAudioTrack(){
-            File f = new File(path);
-            if (f.isFile()){
-                sampleByteLength = (int)f.length() - 44;
-                audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
-                        44100,
-                        AudioFormat.CHANNEL_OUT_STEREO,
-                        AudioFormat.ENCODING_PCM_16BIT,
-                        sampleByteLength,
-                        AudioTrack.MODE_STATIC, id);
-                InputStream stream = null;
-                try {
-                    stream = new BufferedInputStream(new FileInputStream(f));
-                    stream.skip(44);
-                    byte[] bytes = new byte[sampleByteLength];
-                    stream.read(bytes);
-                    short[] shorts = new short[bytes.length / 2];
-                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                    audioTrack.write(shorts, 0, shorts.length);
-                    stream.close();
-                    played = false;
-                } catch (FileNotFoundException e) {e.printStackTrace();}
-                catch (IOException e) {e.printStackTrace();}
+        private void loadAudioTrack() {
+            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                    44100,
+                    AudioFormat.CHANNEL_OUT_STEREO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    sampleByteLength,
+                    AudioTrack.MODE_STATIC, id);
+            InputStream stream = null;
+            try {
+                stream = new BufferedInputStream(new FileInputStream(sampleFile));
+                stream.skip(44);
+                byte[] bytes = new byte[sampleByteLength];
+                stream.read(bytes);
+                short[] shorts = new short[bytes.length / 2];
+                ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                audioTrack.write(shorts, 0, shorts.length);
+                stream.close();
+                played = false;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-                if (listener != null) {
-                    audioTrack.setPlaybackPositionUpdateListener(listener);
-                    resetMarker();
-                }
+            if (listener != null) {
+                audioTrack.setPlaybackPositionUpdateListener(listener);
+                resetMarker();
+            }
 
-                if (loop){
-                    setLoopMode(true);
-                }
+            if (loop) {
+                setLoopMode(true);
             }
         }
     }

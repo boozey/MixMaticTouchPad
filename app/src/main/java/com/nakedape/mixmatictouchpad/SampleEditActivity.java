@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
+import java.util.Locale;
 
 import javazoom.jl.converter.Converter;
 import javazoom.jl.decoder.Header;
@@ -48,7 +49,18 @@ public class SampleEditActivity extends Activity {
     private float sampleRate = 44100;
     private int sampleLength;
     private InputStream musicStream;
+    private Thread mp3ConvertThread;
     private ProgressDialog dlg;
+    private boolean dlgCanceled;
+    private DialogInterface.OnCancelListener dlgCancelListener = new DialogInterface.OnCancelListener() {
+        @Override
+        public void onCancel(DialogInterface dialog) {
+            dlgCanceled = true;
+            if (mp3ConvertThread != null){
+                mp3ConvertThread.interrupt();
+            }
+        }
+    };
     private Context context;
     private int sampleId;
     private int numSlices = 1;
@@ -131,7 +143,10 @@ public class SampleEditActivity extends Activity {
                         dlg.setMax(sampleLength);
                     else
                         dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
-                    dlg.setCancelable(false);
+                    dlg.setCancelable(true);
+                    dlg.setCanceledOnTouchOutside(false);
+                    dlgCanceled = false;
+                    dlg.setOnCancelListener(dlgCancelListener);
                     dlg.setMessage("Processing Audio");
                     dlg.show();
                     // Process audio
@@ -166,10 +181,14 @@ public class SampleEditActivity extends Activity {
                     dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                     dlg.setIndeterminate(true);
                 }
-                dlg.setCancelable(false);
+                dlg.setCancelable(true);
+                dlg.setCanceledOnTouchOutside(false);
+                dlgCanceled = false;
+                dlg.setOnCancelListener(dlgCancelListener);
                 dlg.setMessage("Converting MP3 to wav");
                 dlg.show();
-                new Thread(new ConvertMp3Thread()).start();
+                mp3ConvertThread = new Thread(new ConvertMp3Thread());
+                mp3ConvertThread.start();
             }
             catch (IOException e){
                 e.printStackTrace();
@@ -264,11 +283,11 @@ public class SampleEditActivity extends Activity {
 
     public void TarsosPlay(View view){
         AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        sample.Play(WAV_CACHE_PATH, sample.getSelectionStartTime(), sample.getSelectionEndTime());
+        sample.Play(sample.getSelectionStartTime(), sample.getSelectionEndTime());
     }
 
     public void Save(View view){
-        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
         if (temp.isFile())
             temp.delete();
@@ -277,14 +296,29 @@ public class SampleEditActivity extends Activity {
             mPlayer.release();
             mPlayer = null;
         }
-        if (numSlices > 1){
-            String[] slicePaths = sample.Slice(numSlices);
-            Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION");
-            result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
-            result.putExtra(LaunchPadActivity.COLOR, sample.color);
-            result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
-            setResult(Activity.RESULT_OK, result);
-            finish();
+        if (numSlices > 1) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setMessage(getString(R.string.slice_size_warning, numSlices, sample.sampleLength / numSlices));
+            builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    String[] slicePaths = sample.Slice(numSlices);
+                    Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION");
+                    result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
+                    result.putExtra(LaunchPadActivity.COLOR, sample.color);
+                    result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
+                    setResult(Activity.RESULT_OK, result);
+                    finish();
+                }
+            });
+            builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
         }
         else {
             Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
@@ -495,6 +529,9 @@ public class SampleEditActivity extends Activity {
                 AlertDialog dialog = builder.create();
                 dialog.show();
                 return true;
+            case R.id.action_play_tarsos:
+                sample.Play(sample.getSelectionStartTime(), sample.getSelectionEndTime());
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -585,7 +622,7 @@ public class SampleEditActivity extends Activity {
                     Thread.sleep(100);
                 }catch (InterruptedException e){e.printStackTrace();}
             }
-            double l = mPlayer.getDuration() / 1000;
+            double duration = mPlayer.getDuration() / 1000;
             do {
                 Message m = mHandler.obtainMessage(AUDIO_PROCESSING_UPDATE);
                 m.arg1 = Math.round(view.dispatcher.secondsProcessed());
@@ -593,7 +630,10 @@ public class SampleEditActivity extends Activity {
                 try {
                     Thread.sleep(100);
                 }catch (InterruptedException e){e.printStackTrace();}
-            } while (view.dispatcher.secondsProcessed() < l);
+            } while (view.dispatcher.secondsProcessed() < duration && !dlgCanceled);
+            if (dlgCanceled){
+                view.dispatcher.stop();
+            }
         }
     }
 

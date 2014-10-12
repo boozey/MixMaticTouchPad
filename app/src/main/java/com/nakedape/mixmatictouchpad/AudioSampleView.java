@@ -219,10 +219,10 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         invalidate();
     }
 
-    public void Play(String source, double startTime, final double endTime){
+    public void Play(double startTime, final double endTime){
         InputStream wavStream;
         try {
-            wavStream = new BufferedInputStream(new FileInputStream(source));
+            wavStream = new BufferedInputStream(new FileInputStream(samplePath));
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
             bufferSize = 1024 * 64; //32KB buffer = AudioTrack minimum buffer * 2
             overLap = 0;
