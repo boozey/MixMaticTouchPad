@@ -8,5 +8,5 @@
         android:orderInCategory="100"
         android:showAsAction="never" />
     <item android:id="@+id/action_stop"
-        android:title="Stop Audio"/>
+        android:title="@string/action_stop"/>
 </menu>

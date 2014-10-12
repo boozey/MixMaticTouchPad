@@ -11,6 +11,8 @@ import java.util.HashMap;
 public class LaunchPadData extends Fragment {
 
     private HashMap samples;
+    private long counter;
+    private boolean isPlaying;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -21,4 +23,8 @@ public class LaunchPadData extends Fragment {
 
     public void setSamples(HashMap samples){this.samples = samples;}
     public HashMap getSamples() {return samples;}
+    public void setCounter(long counter) {this.counter = counter;}
+    public long getCounter() {return counter;}
+    public void setPlaying(boolean isPlaying) {this.isPlaying = isPlaying;}
+    public boolean isPlaying() {return isPlaying;}
 }

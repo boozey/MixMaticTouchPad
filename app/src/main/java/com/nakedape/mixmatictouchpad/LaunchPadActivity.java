@@ -13,6 +13,10 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
@@ -22,6 +26,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedInputStream;
@@ -36,6 +41,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 
 
 public class LaunchPadActivity extends Activity implements AudioTrack.OnPlaybackPositionUpdateListener{
@@ -49,12 +55,30 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     public static String SLICE_PATHS = "com.nakedape.mixmatictouchpad.slicepaths";
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
+    private static final int COUNTER_UPDATE = 3;
+
     private boolean isEditMode = false;
+    private boolean isPlaying = false;
+    private TextView counterTextView;
+    private long counter;
+    private Handler counterHandler = new Handler(Looper.getMainLooper()){
+        @Override
+        public void handleMessage(Message msg){
+            switch (msg.what){
+                case COUNTER_UPDATE:
+                    double sec = (double)counter / 1000;
+                    int min = (int)Math.floor(sec / 60);
+                    counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
+                    break;
+            }
+        }
+    };
 
     private Context context;
     private HashMap<Integer, Sample> samples;
     private File homeDir;
     private int numTouchPads;
+    private int bpm = 120;
     private AudioManager am;
     private SharedPreferences pref;
     private LaunchPadData savedData;
@@ -292,7 +316,11 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             if (!isEditMode && samples.containsKey(v.getId())) {
-                Sample s = (Sample)samples.get(v.getId());
+                if (!isPlaying){
+                    isPlaying = true;
+                    new Thread(new CounterThread()).start();
+                }
+                Sample s = samples.get(v.getId());
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_UP:
                         switch (s.getLaunchMode()){
@@ -471,12 +499,17 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         context = this;
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
         pref = getPreferences(MODE_PRIVATE);
+        counterTextView = (TextView)findViewById(R.id.textViewCounter);
 
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
         savedData = (LaunchPadData) fm.findFragmentByTag("data");
         if (savedData != null){
             samples = savedData.getSamples();
+            counter = savedData.getCounter();
+            double sec = (double)counter / 1000;
+            int min = (int)Math.floor(sec / 60);
+            counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
             savedDataLoaded = true;
         }
         else{
@@ -614,6 +647,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         }
         numTouchPads = id;
     }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -635,6 +669,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             v.callOnClick();
         }
         else if (id == R.id.action_stop){
+            isPlaying = false;
             for (int i = 0; i < numTouchPads; i++) {
                 if (samples.containsKey(i)) {
                     Sample s = (Sample) samples.get(i);
@@ -647,7 +682,9 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     }
     @Override
     protected void onDestroy(){
+        isPlaying = false;
         savedData.setSamples(samples);
+        savedData.setCounter(counter);
         super.onDestroy();
     }
 
@@ -665,6 +702,22 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     }
     @Override
     public void onPeriodicNotification(AudioTrack track){
+    }
+
+    // Counter thread keeps track of time
+    private class CounterThread implements Runnable {
+        @Override
+        public void run(){
+            long startMillis = SystemClock.elapsedRealtime();
+            do {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {}
+                counter = SystemClock.elapsedRealtime() - startMillis;
+                Message msg = counterHandler.obtainMessage(COUNTER_UPDATE);
+                msg.sendToTarget();
+            } while (isPlaying);
+        }
     }
 
     /**
@@ -788,13 +841,16 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             }
         }
         public void stop(){
-            try {
-                audioTrack.pause();
-                audioTrack.stop();
-                audioTrack.flush();
-                audioTrack.release();
-            } catch (IllegalStateException e){}
-            loadAudioTrack();
+            if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                try {
+                    audioTrack.pause();
+                    audioTrack.stop();
+                    audioTrack.flush();
+                    audioTrack.release();
+                } catch (IllegalStateException e) {
+                }
+                loadAudioTrack();
+            }
         }
         public void pause(){
             audioTrack.pause();

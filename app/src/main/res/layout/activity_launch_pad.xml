@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="120 BPM    00 : 00"
-        android:id="@+id/textView"
+        android:id="@+id/textViewCounter"
         android:layout_gravity="center_horizontal" />
 
 </LinearLayout>
