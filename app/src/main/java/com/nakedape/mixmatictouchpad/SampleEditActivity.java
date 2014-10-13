@@ -8,11 +8,13 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.*;
 import android.os.Process;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -27,7 +29,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
-import java.util.Locale;
 
 import javazoom.jl.converter.Converter;
 import javazoom.jl.decoder.Header;
@@ -46,6 +47,7 @@ public class SampleEditActivity extends Activity {
     static final int MP3_CONVERSION_COMPLETE = 6;
 
     private String WAV_CACHE_PATH;
+    private SharedPreferences pref;
     private float sampleRate = 44100;
     private int sampleLength;
     private InputStream musicStream;
@@ -360,6 +362,8 @@ public class SampleEditActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
 
+        PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
+        pref = PreferenceManager.getDefaultSharedPreferences(this);
         // Store reference to activity context to use inside event handlers
         context = this;
         // Store a reference to the path for the temporary cache of the wav file
@@ -477,7 +481,7 @@ public class SampleEditActivity extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.sample_edit, menu);
         return true;
     }
 
@@ -490,6 +494,8 @@ public class SampleEditActivity extends Activity {
         final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         switch (id){
             case R.id.action_settings:
+                Intent intent = new Intent(EditPreferencesActivity.SAMPLE_EDIT_PREFS, null, context, EditPreferencesActivity.class);
+                startActivity(intent);
                 return true;
             case R.id.action_load_file:
                 SelectMp3File();
@@ -604,8 +610,10 @@ public class SampleEditActivity extends Activity {
         public void run() {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
+            double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
+            Log.d("Beat Threshold", String.valueOf(beatThreshold));
+            v.setBeatThreshold(beatThreshold);
             v.LoadAudio(WAV_CACHE_PATH);
-
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();
         }

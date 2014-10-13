@@ -11,12 +11,7 @@ import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.os.SystemClock;
+import android.os.*;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
@@ -61,14 +56,18 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private boolean isPlaying = false;
     private TextView counterTextView;
     private long counter;
+    private int bpm = 120;
+    private int timeSignature = 4;
     private Handler counterHandler = new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(Message msg){
             switch (msg.what){
                 case COUNTER_UPDATE:
+                    double beatsPerSec = (double)bpm / 60;
                     double sec = (double)counter / 1000;
-                    int min = (int)Math.floor(sec / 60);
-                    counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
+                    double beats = sec * beatsPerSec;
+                    int bars = (int)Math.floor(beats / timeSignature);
+                    counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
                     break;
             }
         }
@@ -78,7 +77,6 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private HashMap<Integer, Sample> samples;
     private File homeDir;
     private int numTouchPads;
-    private int bpm = 120;
     private AudioManager am;
     private SharedPreferences pref;
     private LaunchPadData savedData;
@@ -461,12 +459,13 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 } catch (IOException e){e.printStackTrace();}
                 if (sliceFile.isFile()) { // If successful, prepare touchpad
                     int id = Integer.parseInt(selections.get(i));
-                    Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
-                    sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
-                    samples.put(id, sample);
-                    TouchPad t = (TouchPad) findViewById(id);
                     // Load shared preferences editor to save color
                     SharedPreferences.Editor editor = pref.edit();
+                    Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
+                    sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                    editor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                    samples.put(id, sample);
+                    TouchPad t = (TouchPad) findViewById(id);
                     switch (data.getIntExtra(COLOR, 0)) { // Set and save color
                         case 0:
                             t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -661,10 +660,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         if (id == R.id.action_settings) {
+            isPlaying = false;
+            Intent intent = new Intent(EditPreferencesActivity.LAUNCHPAD_PREFS, null, context, EditPreferencesActivity.class);
+            startActivity(intent);
             return true;
         }
         else if (id == R.id.action_edit_mode) {
             isEditMode = true;
+            isPlaying = false;
             View v = findViewById(0);
             v.callOnClick();
         }
@@ -708,6 +711,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
     private class CounterThread implements Runnable {
         @Override
         public void run(){
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             long startMillis = SystemClock.elapsedRealtime();
             do {
                 try {

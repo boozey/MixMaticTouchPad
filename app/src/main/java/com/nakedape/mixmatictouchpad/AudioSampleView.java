@@ -179,6 +179,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
     public boolean ShowBeats(){
         return showBeats;
     }
+    public void setBeatThreshold(double beatThreshold) {this.beatThreshold = beatThreshold;}
 
     public void zoomSelection(){
         // Make sure there is a selection

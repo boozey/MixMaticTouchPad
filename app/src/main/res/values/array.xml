@@ -18,4 +18,14 @@
         <item>#ff004600</item>
         <item>#ff462e00</item>
     </string-array>
+    <string-array name="time_signatures">
+        <item>Two (2/4)</item>
+        <item>Three (3/4)</item>
+        <item>Four (4/4)</item>
+    </string-array>
+    <string-array name="time_signature_values">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
 </resources>

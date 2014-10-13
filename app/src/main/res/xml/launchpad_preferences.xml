@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <com.nakedape.mixmatictouchpad.NumberPickerPreference android:key="pref_bpm"
+        android:title="@string/pref_bpm"
+        android:persistent="true"
+        android:defaultValue="120"/>
+
+    <ListPreference android:key="pref_time_signature"
+        android:title="@string/pref_time_signature"
+        android:entries="@array/time_signatures"
+        android:entryValues="@array/time_signature_values"
+        android:defaultValue="4"/>
+</PreferenceScreen>

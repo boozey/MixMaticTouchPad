@@ -1637,7 +1637,7 @@ private void compute_pcm_samples(Obuffer buffer)
 	 * @param blockSize		The size of the blocks to split the array
 	 *						into. This must be an exact divisor of
 	 *						the length of the array, or some data
-	 *						will be lost from the main array.
+	 *						will be lost from the sample_edit array.
 	 * 
 	 * @return	An array of arrays in which each element in the returned
 	 *			array will be of length <code>blockSize</code>.

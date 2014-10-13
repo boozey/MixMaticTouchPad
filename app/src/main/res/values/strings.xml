@@ -12,6 +12,7 @@
     <string name="load_audio_file">Load mp3</string>
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
+
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_show_beats">Show beats</string>
     <string name="action_edit_sample">Edit sample</string>
@@ -23,12 +24,18 @@
     <string name="action_launch_mode_gate">Gate</string>
     <string name="action_remove_sample">Remove sample</string>
     <string name="action_stop">Stop</string>
-    <string name="warning_remove_sample">Remove sample?</string>
     <string name="action_loop_selection">Loop selection</string>
     <string name="action_pick_color">Change color</string>
+    <string name="warning_remove_sample">Remove sample?</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="slice_multi_select">Select pads to fill</string>
     <string name="slice_selection_error">Please select at least one pad</string>
     <string name="slice_size_warning" formatted="false">Slice into %d slices that are each %.3f seconds in length?</string>
+
+    <string name="pref_beat_threshold">Beat detection threshold</string>
+    <string name="title_activity_sample_edit_preferences">Preferences</string>
+
+    <string name="pref_bpm">Beats per minute</string>
+    <string name="pref_time_signature">Time signature</string>
 
 </resources>
