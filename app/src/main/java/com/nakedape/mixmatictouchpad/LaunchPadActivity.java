@@ -12,6 +12,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.*;
+import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
@@ -63,22 +64,26 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         public void handleMessage(Message msg){
             switch (msg.what){
                 case COUNTER_UPDATE:
-                    double beatsPerSec = (double)bpm / 60;
-                    double sec = (double)counter / 1000;
-                    double beats = sec * beatsPerSec;
-                    int bars = (int)Math.floor(beats / timeSignature);
-                    counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
+                    updateCounterMessage();
                     break;
             }
         }
     };
+    private void updateCounterMessage(){
+        double beatsPerSec = (double)bpm / 60;
+        double sec = (double)counter / 1000;
+        double beats = sec * beatsPerSec;
+        int bars = (int)Math.floor(beats / timeSignature);
+        counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
+    }
 
     private Context context;
     private HashMap<Integer, Sample> samples;
     private File homeDir;
     private int numTouchPads;
     private AudioManager am;
-    private SharedPreferences pref;
+    private SharedPreferences launchPadprefs; // Stores setting for each launchpad
+    private SharedPreferences activityPrefs; // Stores app wide preferences
     private LaunchPadData savedData;
     private boolean savedDataLoaded = false;
 
@@ -187,14 +192,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
 
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            SharedPreferences.Editor prefEditor = pref.edit();
+            SharedPreferences.Editor prefEditor = launchPadprefs.edit();
             switch (item.getItemId()){
                 case R.id.action_edit_sample:
                     Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                     intent.putExtra(TOUCHPAD_ID, selectedSampleID);
                     if (samples.containsKey(selectedSampleID)){
                         intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + String.valueOf(selectedSampleID) + ".wav");
-                        intent.putExtra(COLOR, pref.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
+                        intent.putExtra(COLOR, launchPadprefs.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
                     }
                     startActivityForResult(intent, GET_SAMPLE);
                     return true;
@@ -270,7 +275,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                         public void onClick(DialogInterface dialog, int which) {
                             if (samples.containsKey(selectedSampleID)){
                                 View v = findViewById(selectedSampleID);// Load shared preferences to save color
-                                SharedPreferences.Editor editor = pref.edit();
+                                SharedPreferences.Editor editor = launchPadprefs.edit();
                                 switch (which){ // Set and save color
                                     case 0:
                                         v.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -424,7 +429,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 samples.put(id, new Sample(sampleFile.getAbsolutePath(), id));
                 TouchPad t = (TouchPad)findViewById(id);
                 // Load shared preferences editor to save color
-                SharedPreferences.Editor editor = pref.edit();
+                SharedPreferences.Editor editor = launchPadprefs.edit();
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -460,7 +465,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                 if (sliceFile.isFile()) { // If successful, prepare touchpad
                     int id = Integer.parseInt(selections.get(i));
                     // Load shared preferences editor to save color
-                    SharedPreferences.Editor editor = pref.edit();
+                    SharedPreferences.Editor editor = launchPadprefs.edit();
                     Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
@@ -497,8 +502,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         setContentView(R.layout.activity_launch_pad);
         context = this;
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
-        pref = getPreferences(MODE_PRIVATE);
+        launchPadprefs = getPreferences(MODE_PRIVATE);
+
+        PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
+        activityPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         counterTextView = (TextView)findViewById(R.id.textViewCounter);
+        bpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+        timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+        updateCounterMessage();
 
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
@@ -554,10 +565,10 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                             Sample s = new Sample(sample.getAbsolutePath(), id);
                             s.setOnPlayFinishedListener(this);
                             samples.put(id, s);
-                            s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
-                            s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
                         }
-                        int color = pref.getInt(String.valueOf(id) + COLOR, 0);
+                        int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
                         switch (color){ // Load and set color
                             case 0:
                                 t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -616,10 +627,10 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                             Sample s = new Sample(sample.getAbsolutePath(), id);
                             s.setOnPlayFinishedListener(this);
                             samples.put(id, s);
-                            s.setLoopMode(pref.getBoolean(String.valueOf(id) + LOOP, false));
-                            s.setLaunchMode(pref.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
                         }
-                        int color = pref.getInt(String.valueOf(id) + COLOR, 0);
+                        int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
                         switch (color){ // Load and set color
                             case 0:
                                 t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -682,6 +693,20 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
 
         }
         return super.onOptionsItemSelected(item);
+    }
+    @Override
+    public void onResume(){
+        super.onResume();
+        int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+        int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+
+        if (newBpm != bpm || newTimeSignature != timeSignature) {
+            counter = 0;
+            bpm = newBpm;
+            timeSignature = newTimeSignature;
+        }
+
+        updateCounterMessage();
     }
     @Override
     protected void onDestroy(){

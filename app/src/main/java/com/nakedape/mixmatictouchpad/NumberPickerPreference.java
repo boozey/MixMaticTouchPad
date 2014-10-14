@@ -7,6 +7,7 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 /**
  * Created by Nathan on 10/12/2014.
@@ -32,11 +33,30 @@ public class NumberPickerPreference extends DialogPreference {
 
     @Override
      protected View onCreateDialogView() {
-        View view = super.onCreateDialogView();
+        final View view = super.onCreateDialogView();
 
         seekBar = (SeekBar)view.findViewById(R.id.seekBar);
         seekBar.setMax(max);
         seekBar.setProgress(mCurrentValue);
+        TextView text = (TextView)view.findViewById(R.id.textView);
+        text.setText("Value: " + String.valueOf(mCurrentValue));
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                TextView text = (TextView)view.findViewById(R.id.textView);
+                text.setText("Value: " + String.valueOf(progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
 
         return view;
     }

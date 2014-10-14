@@ -140,6 +140,48 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             }catch (IOException e){}
         }
     }
+    public void createWaveForm(String source){
+        InputStream wavStream = null;
+        samplePath = source;
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+        // If the sample file exists, try to genereate the waveform
+        if (sampleFile.isFile()) {// Trim the sample down and write it to file
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                long length = sampleFile.length() - 44;
+                // Javazoom WaveFile class is used to write the wav
+                wavStream.skip(44); // Skip the header
+                byte[] buffer = new byte[1024];
+                int i = 0;
+                while (i < length){
+                    if (length - i >= buffer.length) {
+                        wavStream.read(buffer);
+                    }
+                    else { // Write the remaining number of bytes
+                        buffer = new byte[(int)length - i];
+                        wavStream.read(buffer);
+                    }
+                    short[] shorts = new short[buffer.length / 2];
+                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    float total = 0;
+                    for (short s : shorts){
+                        total += s;
+                    }
+                    i += buffer.length;
+                    waveFormData.add(new Line((float)i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
+                }
+                sampleLength = length / 44100 / 4;
+                windowStartTime = 0;
+                windowEndTime = sampleLength;
+                isLoading = false;
+                waveFormRender.addAll(waveFormData);
+            } catch (IOException e) {e.printStackTrace();}
+            finally {
+                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+            }
+
+        }
+    }
 
     public void saveAudioSampleData(AudioSampleData data){
         data.setSamplePath(samplePath);

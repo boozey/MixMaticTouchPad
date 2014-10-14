@@ -4,12 +4,19 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
 import android.app.ProgressDialog;
+import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.AssetFileDescriptor;
+import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioTrack;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.*;
@@ -22,6 +29,7 @@ import android.view.View;
 import android.widget.Button;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -31,6 +39,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 
 import javazoom.jl.converter.Converter;
+import javazoom.jl.converter.WaveFile;
 import javazoom.jl.decoder.Header;
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.decoder.Obuffer;
@@ -189,7 +198,7 @@ public class SampleEditActivity extends Activity {
                 dlg.setOnCancelListener(dlgCancelListener);
                 dlg.setMessage("Converting MP3 to wav");
                 dlg.show();
-                mp3ConvertThread = new Thread(new ConvertMp3Thread());
+                mp3ConvertThread = new Thread(new DecodeAudioThread());//new Thread(new ConvertMp3Thread());
                 mp3ConvertThread.start();
             }
             catch (IOException e){
@@ -459,7 +468,7 @@ public class SampleEditActivity extends Activity {
             dlg.show();
             // Process audio
             new Thread(new LoadAudioThread()).start();
-            new Thread(new AudioProcessUpdate()).start();
+            //new Thread(new AudioProcessUpdate()).start();
         }
 
     }
@@ -604,6 +613,113 @@ public class SampleEditActivity extends Activity {
         }
     }
 
+    public class DecodeAudioThread implements Runnable {
+        MediaExtractor extractor = new MediaExtractor();
+        MediaCodec codec;
+        long TIMEOUT_US = 1000;
+        ByteBuffer[] codecInputBuffers;
+        ByteBuffer[] codecOutputBuffers;
+        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+        Uri sourceUri = fullMusicUri;
+        WaveFile waveFile = new WaveFile();
+        AudioTrack audioTrack;
+
+        @Override
+        public void run() {
+            ContentResolver contentResolver = context.getContentResolver();
+            try {
+                AssetFileDescriptor fd = contentResolver.openAssetFileDescriptor(sourceUri, "r");
+                extractor.setDataSource(fd.getFileDescriptor());
+                fd.close();
+            } catch (IOException e) {e.printStackTrace();}
+            MediaFormat format = extractor.getTrackFormat(0);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            File temp = new File(WAV_CACHE_PATH);
+            if (temp.isFile())
+                temp.delete();
+            waveFile.OpenForWrite(WAV_CACHE_PATH,
+                    format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
+                    (short)(8 * format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)),
+                    (short)format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+            // create our AudioTrack instance
+            audioTrack = new AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    (int)sampleRate,
+                    AudioFormat.CHANNEL_OUT_STEREO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    AudioTrack.getMinBufferSize (
+                            (int)sampleRate,
+                            AudioFormat.CHANNEL_OUT_STEREO,
+                            AudioFormat.ENCODING_PCM_16BIT),
+                    AudioTrack.MODE_STREAM);
+            audioTrack.play();
+            codec = MediaCodec.createDecoderByType(mime);
+            codec.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
+            codec.start();
+            codecInputBuffers = codec.getInputBuffers();
+            codecOutputBuffers = codec.getOutputBuffers();
+            extractor.selectTrack(0);
+            boolean sawInputEOS = false;
+            boolean sawOutputEOS = false;
+            do {
+                // Load input buffer
+                int inputBufIndex = codec.dequeueInputBuffer(TIMEOUT_US);
+                if (inputBufIndex >= 0) {
+                    ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
+
+                    int sampleSize = extractor.readSampleData(dstBuf, 0);
+                    long presentationTimeUs = 0;
+                    if (sampleSize < 0) {
+                        sawInputEOS = true;
+                        sampleSize = 0;
+                    } else {
+                        presentationTimeUs = extractor.getSampleTime();
+                    }
+
+                    codec.queueInputBuffer(inputBufIndex,
+                            0, //offset
+                            sampleSize,
+                            presentationTimeUs,
+                            sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                    if (!sawInputEOS) {
+                        extractor.advance();
+                    }
+                    // Process output buffer
+                    final int res = codec.dequeueOutputBuffer(info, TIMEOUT_US);
+                    if (res >= 0) {
+                        int outputBufIndex = res;
+                        ByteBuffer buf = codecOutputBuffers[outputBufIndex];
+
+                        final byte[] chunk = new byte[info.size];
+                        buf.get(chunk); // Read the buffer all at once
+                        buf.clear(); // ** MUST DO!!! OTHERWISE THE NEXT TIME YOU GET THIS SAME BUFFER BAD THINGS WILL HAPPEN
+
+                        if (chunk.length > 0) {
+                            short[] shorts = new short[chunk.length / 2];
+                            ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                            waveFile.WriteData(shorts, shorts.length);
+                            //audioTrack.write(chunk, 0, chunk.length);
+
+                        }
+                        codec.releaseOutputBuffer(outputBufIndex, false /* render */);
+
+                        if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                            sawOutputEOS = true;
+                        }
+                    } else if (res == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                        codecOutputBuffers = codec.getOutputBuffers();
+                    }
+                }
+            }while (!sawInputEOS);
+            waveFile.Close();
+            codec.stop();
+            codec.release();
+            codec = null;
+            Message m = mHandler.obtainMessage(MP3_CONVERSION_COMPLETE);
+            m.sendToTarget();
+        }
+    }
+
     // Thread to process audio
     public class LoadAudioThread implements Runnable{
         @Override
@@ -613,7 +729,8 @@ public class SampleEditActivity extends Activity {
             double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
             Log.d("Beat Threshold", String.valueOf(beatThreshold));
             v.setBeatThreshold(beatThreshold);
-            v.LoadAudio(WAV_CACHE_PATH);
+            //v.LoadAudio(WAV_CACHE_PATH);
+            v.createWaveForm(WAV_CACHE_PATH);
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();
         }

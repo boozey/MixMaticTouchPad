@@ -15,8 +15,8 @@ import android.preference.PreferenceFragment;
  */
 public class LaunchPadPreferencesFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private static final String PREF_BPM = "pref_bpm";
-    private static final String PREF_TIME_SIG = "pref_time_signature";
+    public static final String PREF_BPM = "pref_bpm";
+    public static final String PREF_TIME_SIG = "pref_time_signature";
 
     private SharedPreferences sharedPrefs;
 
