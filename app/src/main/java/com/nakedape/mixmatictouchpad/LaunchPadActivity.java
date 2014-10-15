@@ -42,6 +42,8 @@ import java.util.Locale;
 
 public class LaunchPadActivity extends Activity implements AudioTrack.OnPlaybackPositionUpdateListener{
 
+    private static final String LOG_TAG = "MixMatic Launch Pad Activity";
+
     public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
     public static String COLOR = "com.nakedape.mixmatictouchpad.color";
@@ -237,6 +239,9 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                                 View v = findViewById(selectedSampleID);
                                 v.setBackgroundResource(R.drawable.launch_pad_empty);
                                 Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
+                                emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
+                                launchPadActionMode = null;
+
                             }
                         });
                         builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
@@ -426,10 +431,14 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             } catch (IOException e){e.printStackTrace();}
             if (sampleFile.isFile()) { // If successful, prepare touchpad
                 int id = data.getIntExtra(TOUCHPAD_ID, 0);
-                samples.put(id, new Sample(sampleFile.getAbsolutePath(), id));
+                Sample sample = new Sample(sampleFile.getAbsolutePath(), id);
                 TouchPad t = (TouchPad)findViewById(id);
                 // Load shared preferences editor to save color
                 SharedPreferences.Editor editor = launchPadprefs.edit();
+                sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                samples.put(id, sample);
+                editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                editor.putBoolean(String.valueOf(id) + LOOP, false);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -469,6 +478,7 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
                     Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                    editor.putBoolean(String.valueOf(id) + LOOP, false);
                     samples.put(id, sample);
                     TouchPad t = (TouchPad) findViewById(id);
                     switch (data.getIntExtra(COLOR, 0)) { // Set and save color
@@ -749,13 +759,6 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
         }
     }
 
-    /**
-     * copy file from source to destination
-     *
-     * @param src source
-     * @param dst destination
-     * @throws java.io.IOException in case of any problems
-     */
     private void CopyFile(File src, File dst) throws IOException {
         FileChannel inChannel = new FileInputStream(src).getChannel();
         FileChannel outChannel = new FileOutputStream(dst).getChannel();
@@ -927,11 +930,15 @@ public class LaunchPadActivity extends Activity implements AudioTrack.OnPlayback
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+/*
             if (listener != null) {
                 audioTrack.setPlaybackPositionUpdateListener(listener);
                 resetMarker();
+                Log.d(LOG_TAG, "new audio track listener created");
             }
+*/
+            audioTrack.setPlaybackPositionUpdateListener(listener);
+            resetMarker();
 
             if (loop) {
                 setLoopMode(true);

@@ -47,13 +47,15 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         beatsData.add(new Line((float)time, (float)getHeight()));
     }
 
+    private static final String LOG_TAG = "MixMatic AudioSampleView";
+
     private String samplePath;
     private List<BeatInfo> beats;
     public double sampleLength;
     private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
     private double beatThreshold = 0.3;
-    private TarsosDSPAudioFormat audioFormat;
     private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
+    private TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
     private Paint paintBrush = new Paint(), paintSelect = new Paint(), paintBackground = new Paint();
     private LinearGradient gradient;
     private float selectStart, selectEnd;
@@ -144,13 +146,20 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         InputStream wavStream = null;
         samplePath = source;
         File sampleFile = new File(samplePath); // File pointer to the current wav sample
-        // If the sample file exists, try to genereate the waveform
+        // If the sample file exists, try to generate the waveform
         if (sampleFile.isFile()) {// Trim the sample down and write it to file
             try {
                 wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
-                long length = sampleFile.length() - 44;
-                // Javazoom WaveFile class is used to write the wav
-                wavStream.skip(44); // Skip the header
+                long length;// = sampleFile.length() - 44;
+
+                // Determine length of wav file
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                length = bb.getInt();
+
+                // Draw the waveform
                 byte[] buffer = new byte[1024];
                 int i = 0;
                 while (i < length){
@@ -168,7 +177,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                         total += s;
                     }
                     i += buffer.length;
-                    waveFormData.add(new Line((float)i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
+                    waveFormData.add(new Line((float) i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
                 }
                 sampleLength = length / 44100 / 4;
                 windowStartTime = 0;
@@ -297,7 +306,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
         // If the sample file exists, try to trim it
         if (sampleFile.isFile()){
-            trimmedSample = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "trimmedSample.wav");
+            trimmedSample = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "trimmed.wav");
             if (trimmedSample.isFile()) trimmedSample.delete();
 
             // Trim the sample down and write it to file
@@ -462,11 +471,16 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
     public double getSelectionStartTime(){
         fixSelection();
-        return selectionStartTime;
+        if (Math.abs(selectEnd - selectStart) < 5)
+        {
+            return 0;
+        }
+        else
+            return selectionStartTime;
     }
     public double getSelectionEndTime(){
         fixSelection();
-        if (selectionStartTime == 0 && selectionEndTime == 0)
+        if (Math.abs(selectEnd - selectStart) < 5)
         {
             return sampleLength;
         }

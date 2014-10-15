@@ -4,16 +4,13 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
 import android.app.ProgressDialog;
-import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
-import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -29,7 +26,6 @@ import android.view.View;
 import android.widget.Button;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -38,14 +34,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 
-import javazoom.jl.converter.Converter;
 import javazoom.jl.converter.WaveFile;
-import javazoom.jl.decoder.Header;
-import javazoom.jl.decoder.JavaLayerException;
-import javazoom.jl.decoder.Obuffer;
 
 
 public class SampleEditActivity extends Activity {
+
+    private static final String LOG_TAG = "MixMatic Sample Edit Activity";
 
     static final int REQUEST_MUSIC_GET = 0;
     static final int AUDIO_PLAY_PROGRESS = 1;
@@ -59,6 +53,7 @@ public class SampleEditActivity extends Activity {
     private SharedPreferences pref;
     private float sampleRate = 44100;
     private int sampleLength;
+    private long encodedFileSize;
     private InputStream musicStream;
     private Thread mp3ConvertThread;
     private ProgressDialog dlg;
@@ -79,8 +74,10 @@ public class SampleEditActivity extends Activity {
 
     // Media player variables
     private Uri fullMusicUri;
+    private MediaFormat mediaFormat;
     private boolean loop;
     private boolean continuePlaying;
+    private boolean continueProcessing;
     private MediaPlayer mPlayer;
     private AudioManager am;
     private final AudioManager.OnAudioFocusChangeListener afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
@@ -124,8 +121,7 @@ public class SampleEditActivity extends Activity {
                 case AUDIO_PROCESSING_COMPLETE:
                     dlg.dismiss();
                     audioSampleView.updateView();
-                    mPlayer.release();
-                    mPlayer = null;
+                    LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
                     break;
                 case MP3_CONVERTER_UPDATE:
                     dlg.setProgress(msg.arg1);
@@ -135,7 +131,7 @@ public class SampleEditActivity extends Activity {
                     // Display determinate progress dialog
                     dlg = new ProgressDialog(context);
                     dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                    dlg.setIndeterminate(false);
+                    dlg.setIndeterminate(true);
                     InputStream wavStream;
                     long len = 0;
                     try {
@@ -147,7 +143,6 @@ public class SampleEditActivity extends Activity {
                         ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
                         len = bb.getInt();
                         sampleLength = (int)len / 4 / (int)sampleRate;
-                        Log.d("Wave duration", String.valueOf(sampleLength));
                         wavStream.close();
                     } catch (IOException e) {e.printStackTrace();}
                     if (len > 0)
@@ -178,15 +173,19 @@ public class SampleEditActivity extends Activity {
                 ContentResolver contentResolver = this.getContentResolver();
                 musicStream = contentResolver.openInputStream(fullMusicUri);
 
-                //Load audio file to play
-                LoadMediaPlayer(fullMusicUri);
+                // Read media format
+                readMediaFormat();
 
-                // Display indeterminate progress dialog
+                //If the sampleLength wasn't set by MediaFormat, use MediaPlayer
+                if (sampleLength <= 0)
+                    LoadMediaPlayer(fullMusicUri);
+
+                // Display progress dialog
                 dlg = new ProgressDialog(this);
                 if (sampleLength > 0){
                     dlg.setIndeterminate(false);
                     dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                    dlg.setMax(sampleLength * 1000 / 26);
+                    dlg.setMax((int)encodedFileSize);
                 }
                 else {
                     dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
@@ -196,9 +195,9 @@ public class SampleEditActivity extends Activity {
                 dlg.setCanceledOnTouchOutside(false);
                 dlgCanceled = false;
                 dlg.setOnCancelListener(dlgCancelListener);
-                dlg.setMessage("Converting MP3 to wav");
+                dlg.setMessage("Decoding audio ...");
                 dlg.show();
-                mp3ConvertThread = new Thread(new DecodeAudioThread());//new Thread(new ConvertMp3Thread());
+                mp3ConvertThread = new Thread(new DecodeAudioThread());
                 mp3ConvertThread.start();
             }
             catch (IOException e){
@@ -233,7 +232,7 @@ public class SampleEditActivity extends Activity {
         }
     }
 
-    public void SelectMp3File(){
+    public void SelectAudioFile(){
         // Allow user to select an audio file
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("audio/*.mp3");
@@ -362,10 +361,6 @@ public class SampleEditActivity extends Activity {
         a.zoomExtents();
     }
 
-    private void ChangeBeatThreshold(int level){
-
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -417,7 +412,7 @@ public class SampleEditActivity extends Activity {
             fm.beginTransaction().add(savedData, "data").commit();
             b = (Button)findViewById(R.id.buttonSave);
             b.setText("Slice");
-            SelectMp3File();
+            SelectAudioFile();
         }
         else{
             // If the cache file already exists from a previous edit, delete it
@@ -426,7 +421,7 @@ public class SampleEditActivity extends Activity {
                 temp.delete();
             savedData = new AudioSampleData();
             fm.beginTransaction().add(savedData, "data").commit();
-            SelectMp3File();
+            SelectAudioFile();
         }
     }
 
@@ -468,7 +463,6 @@ public class SampleEditActivity extends Activity {
             dlg.show();
             // Process audio
             new Thread(new LoadAudioThread()).start();
-            //new Thread(new AudioProcessUpdate()).start();
         }
 
     }
@@ -507,7 +501,7 @@ public class SampleEditActivity extends Activity {
                 startActivity(intent);
                 return true;
             case R.id.action_load_file:
-                SelectMp3File();
+                SelectAudioFile();
                 return true;
             case R.id.action_trim_wav:
                 Trim();
@@ -552,13 +546,6 @@ public class SampleEditActivity extends Activity {
         }
     }
 
-    /**
-     * copy file from source to destination
-     *
-     * @param src source
-     * @param dst destination
-     * @throws java.io.IOException in case of any problems
-     */
     private void CopyFile(File src, File dst) throws IOException {
         FileChannel inChannel = new FileInputStream(src).getChannel();
         FileChannel outChannel = new FileOutputStream(dst).getChannel();
@@ -572,7 +559,7 @@ public class SampleEditActivity extends Activity {
         }
     }
 
-    // Thread to convert mp3 to wav
+    /** Thread to convert mp3 to wav
     public class ConvertMp3Thread implements Runnable{
         @Override
         public void run(){
@@ -612,8 +599,27 @@ public class SampleEditActivity extends Activity {
             m.sendToTarget();
         }
     }
+*/ //Old mp3 decode thread
+
+    private void readMediaFormat(){
+        MediaExtractor extractor = new MediaExtractor();
+        ContentResolver contentResolver = context.getContentResolver();
+        try {
+            AssetFileDescriptor fd = contentResolver.openAssetFileDescriptor(fullMusicUri, "r");
+            extractor.setDataSource(fd.getFileDescriptor());
+            encodedFileSize = fd.getLength();
+            fd.close();
+        } catch (IOException e) {e.printStackTrace();}
+        mediaFormat = extractor.getTrackFormat(0);
+        sampleRate = mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+        if (mediaFormat.containsKey(MediaFormat.KEY_DURATION)) {
+            sampleLength = (int) mediaFormat.getLong(MediaFormat.KEY_DURATION);
+            Log.d(LOG_TAG, "sampleLength set by mediaFormat: " + String.valueOf(sampleLength));
+        }
+    }
 
     public class DecodeAudioThread implements Runnable {
+
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec codec;
         long TIMEOUT_US = 1000;
@@ -622,10 +628,11 @@ public class SampleEditActivity extends Activity {
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         Uri sourceUri = fullMusicUri;
         WaveFile waveFile = new WaveFile();
-        AudioTrack audioTrack;
+        int bytesProcessed = 0;
 
         @Override
         public void run() {
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
             ContentResolver contentResolver = context.getContentResolver();
             try {
                 AssetFileDescriptor fd = contentResolver.openAssetFileDescriptor(sourceUri, "r");
@@ -641,18 +648,6 @@ public class SampleEditActivity extends Activity {
                     format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
                     (short)(8 * format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)),
                     (short)format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
-            // create our AudioTrack instance
-            audioTrack = new AudioTrack(
-                    AudioManager.STREAM_MUSIC,
-                    (int)sampleRate,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT,
-                    AudioTrack.getMinBufferSize (
-                            (int)sampleRate,
-                            AudioFormat.CHANNEL_OUT_STEREO,
-                            AudioFormat.ENCODING_PCM_16BIT),
-                    AudioTrack.MODE_STREAM);
-            audioTrack.play();
             codec = MediaCodec.createDecoderByType(mime);
             codec.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
             codec.start();
@@ -681,6 +676,11 @@ public class SampleEditActivity extends Activity {
                             sampleSize,
                             presentationTimeUs,
                             sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                    // Upddate progress
+                    Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
+                    bytesProcessed += sampleSize;
+                    m.arg1 = bytesProcessed;
+                    m.sendToTarget();
                     if (!sawInputEOS) {
                         extractor.advance();
                     }
@@ -698,7 +698,6 @@ public class SampleEditActivity extends Activity {
                             short[] shorts = new short[chunk.length / 2];
                             ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                             waveFile.WriteData(shorts, shorts.length);
-                            //audioTrack.write(chunk, 0, chunk.length);
 
                         }
                         codec.releaseOutputBuffer(outputBufIndex, false /* render */);
@@ -710,7 +709,7 @@ public class SampleEditActivity extends Activity {
                         codecOutputBuffers = codec.getOutputBuffers();
                     }
                 }
-            }while (!sawInputEOS);
+            }while (!sawInputEOS && !dlgCanceled);
             waveFile.Close();
             codec.stop();
             codec.release();
@@ -727,9 +726,7 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
             double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
-            Log.d("Beat Threshold", String.valueOf(beatThreshold));
             v.setBeatThreshold(beatThreshold);
-            //v.LoadAudio(WAV_CACHE_PATH);
             v.createWaveForm(WAV_CACHE_PATH);
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();
