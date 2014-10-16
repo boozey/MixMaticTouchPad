@@ -49,6 +49,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
     private static final String LOG_TAG = "MixMatic AudioSampleView";
 
+    private String CACHE_PATH;
     private String samplePath;
     private List<BeatInfo> beats;
     public double sampleLength;
@@ -87,6 +88,9 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         setDrawingCacheEnabled(true);
     }
 
+    public void setCACHE_PATH(String path){
+        CACHE_PATH = path;
+    }
     public void LoadAudio(String source){
         InputStream wavStream = null;
         try {
@@ -180,6 +184,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                     waveFormData.add(new Line((float) i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
                 }
                 sampleLength = length / 44100 / 4;
+                Log.d(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
                 windowStartTime = 0;
                 windowEndTime = sampleLength;
                 isLoading = false;
@@ -306,7 +311,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
         // If the sample file exists, try to trim it
         if (sampleFile.isFile()){
-            trimmedSample = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "trimmed.wav");
+            trimmedSample = new File(CACHE_PATH + "trimmed_wav_cache.wav");
             if (trimmedSample.isFile()) trimmedSample.delete();
 
             // Trim the sample down and write it to file
@@ -349,7 +354,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         trimmedSample.renameTo(sampleFile);
         // Set the new sample length
         sampleLength = selectionEndTime - selectionStartTime;
-
+        Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
         // Copy data over for only the trimmed section
         List<Line> temp = new ArrayList<Line>();
         temp.addAll(waveFormData);

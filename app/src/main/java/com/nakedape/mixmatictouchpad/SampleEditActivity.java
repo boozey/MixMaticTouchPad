@@ -50,6 +50,7 @@ public class SampleEditActivity extends Activity {
     static final int MP3_CONVERSION_COMPLETE = 6;
 
     private String WAV_CACHE_PATH;
+    private File CACHE_PATH;
     private SharedPreferences pref;
     private float sampleRate = 44100;
     private int sampleLength;
@@ -62,9 +63,6 @@ public class SampleEditActivity extends Activity {
         @Override
         public void onCancel(DialogInterface dialog) {
             dlgCanceled = true;
-            if (mp3ConvertThread != null){
-                mp3ConvertThread.interrupt();
-            }
         }
     };
     private Context context;
@@ -365,16 +363,21 @@ public class SampleEditActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
+        if (getExternalCacheDir() != null)
+            CACHE_PATH = getExternalCacheDir();
+        else
+            CACHE_PATH = getCacheDir();
 
         PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
         pref = PreferenceManager.getDefaultSharedPreferences(this);
         // Store reference to activity context to use inside event handlers
         context = this;
         // Store a reference to the path for the temporary cache of the wav file
-        WAV_CACHE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC) + "/cache.wav";
+        WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
 
         // Setup audiosample view to handle touch events
         AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        sample.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
         sample.setOnTouchListener(sample);
@@ -395,7 +398,8 @@ public class SampleEditActivity extends Activity {
         if (savedData != null){
             sample.loadAudioSampleData(savedData);
             loop = savedData.getLoop();
-            LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+            if (savedData.getSamplePath() != null)
+                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             savedData = new AudioSampleData();
@@ -469,6 +473,7 @@ public class SampleEditActivity extends Activity {
 
     @Override
     protected void onDestroy(){
+        dlgCanceled = true;
         if (mPlayer != null){
             if (mPlayer.isPlaying())
                 mPlayer.stop();
@@ -767,7 +772,9 @@ public class SampleEditActivity extends Activity {
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
             do {
-                while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000) && mPlayer.isPlaying()) {
+                while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
+                        && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
+                        && mPlayer.isPlaying()) {
                     try {
                         Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                         m.arg1 = mPlayer.getCurrentPosition();
