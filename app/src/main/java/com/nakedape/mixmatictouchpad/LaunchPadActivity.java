@@ -156,10 +156,6 @@ public class LaunchPadActivity extends Activity {
                         if (selections.size() > 0) {
                             intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                             intent.putExtra(NUM_SLICES, selections.size());
-                            String[] strings = new String[selections.size()];
-                            for (int i = 0; i < strings.length; i++)
-                                strings[i] = selections.get(i);
-                            intent.putExtra(TOUCHPAD_ID_ARRAY, strings);
                             startActivityForResult(intent, GET_SLICES);
                         }
                         else {
