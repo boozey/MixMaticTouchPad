@@ -627,7 +627,7 @@ public class SampleEditActivity extends Activity {
 
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec codec;
-        long TIMEOUT_US = 1000;
+        long TIMEOUT_US = 10000;
         ByteBuffer[] codecInputBuffers;
         ByteBuffer[] codecOutputBuffers;
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
