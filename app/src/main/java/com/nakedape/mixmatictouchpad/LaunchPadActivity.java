@@ -45,6 +45,7 @@ public class LaunchPadActivity extends Activity {
     private static final String LOG_TAG = "MixMatic Launch Pad Activity";
 
     public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
+    public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmatictouchpad.touchpadidarray";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
     public static String COLOR = "com.nakedape.mixmatictouchpad.color";
     public static String LOOP = "com.nakedape.mixmatictouchpad.loop";
@@ -109,7 +110,7 @@ public class LaunchPadActivity extends Activity {
 
     private int selectedSampleID;
     private boolean multiSelect = false;
-    private ArrayList<String> selections;
+    private ArrayList<String> selections = new ArrayList<String>();
     private ActionMode launchPadActionMode;
     private ActionMode emptyPadActionMode;
     private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
@@ -138,8 +139,10 @@ public class LaunchPadActivity extends Activity {
                     startActivityForResult(intent, GET_SAMPLE);
                     return true;
                 case R.id.action_multi_select:
+                    if (!multiSelect){
+                        selections = new ArrayList<String>();
+                    }
                     multiSelect = true;
-                    selections = new ArrayList<String>();
                     selections.add(String.valueOf(selectedSampleID));
                     Menu menu = mode.getMenu();
                     MenuItem item2 = menu.findItem(R.id.action_load_sample);
@@ -153,6 +156,10 @@ public class LaunchPadActivity extends Activity {
                         if (selections.size() > 0) {
                             intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                             intent.putExtra(NUM_SLICES, selections.size());
+                            String[] strings = new String[selections.size()];
+                            for (int i = 0; i < strings.length; i++)
+                                strings[i] = selections.get(i);
+                            intent.putExtra(TOUCHPAD_ID_ARRAY, strings);
                             startActivityForResult(intent, GET_SLICES);
                         }
                         else {
@@ -176,7 +183,6 @@ public class LaunchPadActivity extends Activity {
                     oldView = findViewById(Integer.parseInt(s));
                     oldView.setSelected(false);
                 }
-                selections = null;
             }
         }
     };
@@ -502,7 +508,7 @@ public class LaunchPadActivity extends Activity {
                     Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
                     sample.setOnPlayFinishedListener(samplePlayListener);
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
-                    editor.putInt(String.valueOf(selectedSampleID) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                    editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
                     editor.putBoolean(String.valueOf(id) + LOOP, false);
                     samples.put(id, sample);
                     TouchPad t = (TouchPad) findViewById(id);
