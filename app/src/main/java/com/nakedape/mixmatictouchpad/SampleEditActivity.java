@@ -275,8 +275,6 @@ public class SampleEditActivity extends Activity {
                         continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
                         mPlayer.prepare();
-                        if (audioSampleView.getSelectionStartTime() > 0)
-                            mPlayer.seekTo((int)(audioSampleView.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     } catch (IOException e){

@@ -39,6 +39,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 
+// Licensing imports
+
+
 
 public class LaunchPadActivity extends Activity {
 
@@ -48,7 +51,7 @@ public class LaunchPadActivity extends Activity {
     public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmatictouchpad.touchpadidarray";
     public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
     public static String COLOR = "com.nakedape.mixmatictouchpad.color";
-    public static String LOOP = "com.nakedape.mixmatictouchpad.loop";
+    public static String LOOPMODE = "com.nakedape.mixmatictouchpad.loop";
     public static String LAUNCHMODE = "com.nakedape.mixmatictouchpad.launchmode";
     public static String NUM_SLICES = "com.nakedape.mixmatictouchpad.numslices";
     public static String SLICE_PATHS = "com.nakedape.mixmatictouchpad.slicepaths";
@@ -231,7 +234,7 @@ public class LaunchPadActivity extends Activity {
                         if (samples.containsKey(selectedSampleID)) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(false);
-                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOP, false);
+                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOPMODE, false);
                             prefEditor.apply();
                         }
                     }
@@ -240,7 +243,7 @@ public class LaunchPadActivity extends Activity {
                         if (samples.containsKey(selectedSampleID)) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(true);
-                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOP, true);
+                            prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOPMODE, true);
                             prefEditor.apply();
                         }
                     }
@@ -368,9 +371,9 @@ public class LaunchPadActivity extends Activity {
                             v.setPressed(false);
                             return true;
                         }
+                        // Otherwise play the sample
                         else if (s.hasPlayed())
                             s.reset();
-                        // Otherwise play the sample
                         s.play();
                         v.setPressed(true);
                         return true;
@@ -429,7 +432,7 @@ public class LaunchPadActivity extends Activity {
                         v.setSelected(true);
                         selections.add(String.valueOf(v.getId()));
                     }
-                } // If a touchpad contains a sample, exit multiselect mode and show the appropriate menu
+                } // If a touchpad contains a sample, exit multiselect mode and show the edit menu
                 else {
                     multiSelect = false;
                     onClick(v);
@@ -450,8 +453,12 @@ public class LaunchPadActivity extends Activity {
                 homeDir.mkdir();
             // Create a new file to contain the new sample
             File sampleFile = new File(homeDir, String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
-            if (sampleFile.isFile()) // Delete it if it already exists
+            // If the file already exists, delete, but remember to keep its configuration
+            boolean keepSettings = false;
+            if (sampleFile.isFile()) {
                 sampleFile.delete();
+                keepSettings = true;
+            }
             // Copy new sample over
             try {
                 CopyFile(f, sampleFile);
@@ -459,14 +466,20 @@ public class LaunchPadActivity extends Activity {
             if (sampleFile.isFile()) { // If successful, prepare touchpad
                 int id = data.getIntExtra(TOUCHPAD_ID, 0);
                 Sample sample = new Sample(sampleFile.getAbsolutePath(), id);
+                sample.setOnPlayFinishedListener(samplePlayListener);
                 TouchPad t = (TouchPad)findViewById(id);
                 // Set sample properties and save to shared preferences
                 SharedPreferences.Editor editor = launchPadprefs.edit();
-                sample.setOnPlayFinishedListener(samplePlayListener);
-                sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                if (keepSettings){
+                    sample.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
+                    sample.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
+                }
+                else { // Default properties
+                    sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                    editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                    editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
+                }
                 samples.put(id, sample);
-                editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
-                editor.putBoolean(String.valueOf(id) + LOOP, false);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -511,7 +524,7 @@ public class LaunchPadActivity extends Activity {
                     sample.setOnPlayFinishedListener(samplePlayListener);
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
-                    editor.putBoolean(String.valueOf(id) + LOOP, false);
+                    editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
                     samples.put(id, sample);
                     TouchPad t = (TouchPad) findViewById(id);
                     switch (data.getIntExtra(COLOR, 0)) { // Set and save color
@@ -621,7 +634,7 @@ public class LaunchPadActivity extends Activity {
                             Sample s = new Sample(sample.getAbsolutePath(), id);
                             s.setOnPlayFinishedListener(samplePlayListener);
                             samples.put(id, s);
-                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
                             s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
                         }
                         int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
@@ -683,7 +696,7 @@ public class LaunchPadActivity extends Activity {
                             Sample s = new Sample(sample.getAbsolutePath(), id);
                             s.setOnPlayFinishedListener(samplePlayListener);
                             samples.put(id, s);
-                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOP, false));
+                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
                             s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
                         }
                         int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
