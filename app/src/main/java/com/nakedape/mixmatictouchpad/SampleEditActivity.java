@@ -208,7 +208,7 @@ public class SampleEditActivity extends Activity {
         Button b = (Button)findViewById(R.id.buttonPlay);
         b.setEnabled(false);
         if (mPlayer != null){
-            if (mPlayer.isPlaying()) mPlayer.pause();
+            if (mPlayer.isPlaying()) mPlayer.stop();
             mPlayer.release();
             mPlayer = null;
         }
@@ -295,9 +295,8 @@ public class SampleEditActivity extends Activity {
         if (temp.isFile())
             temp.delete();
         if (mPlayer != null){
-            if (mPlayer.isPlaying()) mPlayer.pause();
-            mPlayer.release();
-            mPlayer = null;
+            continuePlaying = false;
+            if (mPlayer.isPlaying()) mPlayer.stop();
         }
         if (numSlices > 1) {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -334,10 +333,9 @@ public class SampleEditActivity extends Activity {
     }
 
     public void Trim(){
+        continuePlaying = false;
         if (mPlayer != null) {
-            if (mPlayer.isPlaying()) mPlayer.pause();
-            mPlayer.release();
-            mPlayer = null;
+            if (mPlayer.isPlaying()) mPlayer.stop();
         }
         AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
@@ -767,25 +765,29 @@ public class SampleEditActivity extends Activity {
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
             do {
-                // Start playing from beginning of selection
-                mPlayer.seekTo((int)Math.round(audioSampleView.getSelectionStartTime() * 1000));
-                do { // Send an update to the play indicator
-                    try {
-                        Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
-                        m.arg1 = mPlayer.getCurrentPosition();
-                        m.sendToTarget();
-                        Thread.sleep(5);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                if (mPlayer != null) {
+                    // Start playing from beginning of selection
+                    mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                    do { // Send an update to the play indicator
+                        try {
+                            Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
+                            m.arg1 = mPlayer.getCurrentPosition();
+                            m.sendToTarget();
+                            Thread.sleep(5);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        // Continue updating as long as still within the selection and it hasn't been paused
                     }
-                // Continue updating as long as still within the selection and it hasn't been paused
-                }while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
-                        && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
-                        && mPlayer.isPlaying());
+                    while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
+                            && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
+                            && continuePlaying);
+                }
             // Loop play if in loop mode and it hasn't been paused
             } while (loop && continuePlaying);
-            // Done with play, pause the player and send final update
-            mPlayer.pause();
+            // Done with play, stop the player and send final update
+            if (mPlayer != null)
+                mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
             m.sendToTarget();
         }

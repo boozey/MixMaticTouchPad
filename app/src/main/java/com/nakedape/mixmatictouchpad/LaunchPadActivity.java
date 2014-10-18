@@ -40,7 +40,11 @@ import java.util.HashMap;
 import java.util.Locale;
 
 // Licensing imports
-
+import com.google.android.vending.licensing.LicenseChecker;
+import com.google.android.vending.licensing.LicenseCheckerCallback;
+import com.google.android.vending.licensing.Policy;
+import com.google.android.vending.licensing.ServerManagedPolicy;
+import com.google.android.vending.licensing.AESObfuscator;
 
 
 public class LaunchPadActivity extends Activity {
@@ -984,6 +988,39 @@ public class LaunchPadActivity extends Activity {
             if (loop) {
                 setLoopMode(true);
             }
+        }
+    }
+
+    private class MyLicenseCheckerCallback implements LicenseCheckerCallback {
+        public void allow(int reason) {
+            if (isFinishing()) {
+                // Don't update UI if Activity is finishing.
+                return;
+            }
+            // Should allow user access.
+        }
+
+        public void dontAllow(int reason) {
+            if (isFinishing()) {
+                // Don't update UI if Activity is finishing.
+                return;
+            }
+
+            if (reason == Policy.RETRY) {
+                // If the reason received from the policy is RETRY, it was probably
+                // due to a loss of connection with the service, so we should give the
+                // user a chance to retry. So show a dialog to retry.
+            } else {
+                // Otherwise, the user is not licensed to use this app.
+                // Your response should always inform the user that the application
+                // is not licensed, but your behavior at that point can vary. You might
+                // provide the user a limited access version of your app or you can
+                // take them to Google Play to purchase the app.
+            }
+        }
+
+        public void applicationError(int reason){
+
         }
     }
 }
