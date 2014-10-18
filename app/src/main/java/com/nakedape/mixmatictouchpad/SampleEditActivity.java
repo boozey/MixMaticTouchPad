@@ -86,7 +86,7 @@ public class SampleEditActivity extends Activity {
                 mPlayer.pause();
             } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
                 // Resume playback
-                if (mPlayer != null)
+                if (mPlayer != null && continuePlaying)
                     mPlayer.start();
             } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
                 am.abandonAudioFocus(afChangeListener);
@@ -262,9 +262,6 @@ public class SampleEditActivity extends Activity {
                         b.setText("Pause");
                         audioSampleView.isPlaying = true;
                         continuePlaying = true;
-                        // Start playing from beginning of selection
-                        if (audioSampleView.getSelectionStartTime() > 0)
-                            mPlayer.seekTo((int)(audioSampleView.getSelectionStartTime() * 1000));
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     }
@@ -772,9 +769,9 @@ public class SampleEditActivity extends Activity {
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
             do {
-                while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
-                        && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
-                        && mPlayer.isPlaying()) {
+                // Start playing from beginning of selection
+                mPlayer.seekTo((int)Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                do { // Send an update to the play indicator
                     try {
                         Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
                         m.arg1 = mPlayer.getCurrentPosition();
@@ -783,9 +780,13 @@ public class SampleEditActivity extends Activity {
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                }
-                mPlayer.seekTo((int)Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                // Continue updating as long as still within the selection and it hasn't been paused
+                }while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
+                        && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
+                        && mPlayer.isPlaying());
+            // Loop play if in loop mode and it hasn't been paused
             } while (loop && continuePlaying);
+            // Done with play, pause the player and send final update
             mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
             m.sendToTarget();

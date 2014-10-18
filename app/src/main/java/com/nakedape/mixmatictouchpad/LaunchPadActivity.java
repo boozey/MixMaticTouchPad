@@ -145,10 +145,10 @@ public class LaunchPadActivity extends Activity {
                     multiSelect = true;
                     selections.add(String.valueOf(selectedSampleID));
                     Menu menu = mode.getMenu();
-                    MenuItem item2 = menu.findItem(R.id.action_load_sample);
-                    item2.setVisible(false);
-                    item2 = menu.findItem(R.id.action_multi_select);
-                    item2.setVisible(false);
+                    MenuItem newItem = menu.findItem(R.id.action_load_sample);
+                    newItem.setVisible(false);
+                    newItem = menu.findItem(R.id.action_multi_select);
+                    newItem.setVisible(false);
                     Toast.makeText(context, R.string.slice_multi_select, Toast.LENGTH_SHORT).show();
                     return true;
                 case R.id.action_load_sample_mode:
@@ -345,7 +345,7 @@ public class LaunchPadActivity extends Activity {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             if (!isEditMode && samples.containsKey(v.getId())) {
-                if (!isPlaying){
+                if (!isPlaying){ // Start counter if it isn't already running
                     isPlaying = true;
                     new Thread(new CounterThread()).start();
                 }
@@ -353,7 +353,7 @@ public class LaunchPadActivity extends Activity {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_UP:
                         switch (s.getLaunchMode()){
-                            case Sample.LAUNCHMODE_GATE:
+                            case Sample.LAUNCHMODE_GATE: // Stop sound and deselect pad
                                 s.stop();
                                 v.setPressed(false);
                                 break;
@@ -362,6 +362,7 @@ public class LaunchPadActivity extends Activity {
                         }
                         return true;
                     case MotionEvent.ACTION_DOWN:
+                        // If the sound is already playing, stop it
                         if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                             s.stop();
                             v.setPressed(false);
@@ -369,6 +370,7 @@ public class LaunchPadActivity extends Activity {
                         }
                         else if (s.hasPlayed())
                             s.reset();
+                        // Otherwise play the sample
                         s.play();
                         v.setPressed(true);
                         return true;
@@ -385,10 +387,13 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void onClick(View v) {
             if (isEditMode && !multiSelect) {
+                // Deselect the current touchpad
                 View oldView = findViewById(selectedSampleID);
                 oldView.setSelected(false);
+                // Select the new touchpad
                 selectedSampleID = v.getId();
                 v.setSelected(true);
+                // If the pad contains a sample, show the edit menu
                 if (samples.containsKey(v.getId())) {
                     if (emptyPadActionMode != null)
                         emptyPadActionMode = null;
@@ -407,13 +412,14 @@ public class LaunchPadActivity extends Activity {
                         item.setChecked(true);
                     }
                 }
+                // If the pad doesn't contain a sample, show the menu to load one
                 else{
                     if (launchPadActionMode != null)
                         launchPadActionMode = null;
                     if (emptyPadActionMode == null)
                         emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
                 }
-            }
+            } // If in multiselect mode allow empty pads to be selected
             else if (multiSelect){
                 if (!samples.containsKey(v.getId())) {
                     if (v.isSelected()) {
@@ -423,7 +429,7 @@ public class LaunchPadActivity extends Activity {
                         v.setSelected(true);
                         selections.add(String.valueOf(v.getId()));
                     }
-                }
+                } // If a touchpad contains a sample, exit multiselect mode and show the appropriate menu
                 else {
                     multiSelect = false;
                     onClick(v);
