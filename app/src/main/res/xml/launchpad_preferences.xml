@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <com.nakedape.mixmatictouchpad.NumberPickerPreference android:key="pref_bpm"
+    <com.nakedape.mixmaticlaunchpad.NumberPickerPreference
+        android:key="pref_bpm"
         android:title="@string/pref_bpm"
         android:persistent="true"
         android:defaultValue="120"/>

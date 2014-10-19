@@ -1,4 +1,4 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 
 

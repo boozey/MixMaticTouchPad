@@ -1,4 +1,4 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 import android.content.Context;
 import android.util.AttributeSet;

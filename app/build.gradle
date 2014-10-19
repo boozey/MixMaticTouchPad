@@ -4,7 +4,7 @@ android {
     compileSdkVersion 19
     buildToolsVersion '20.0.0'
     defaultConfig {
-        applicationId 'com.nakedape.mixmatictouchpad'
+        applicationId 'com.nakedape.mixmaticlaunchpad'
         minSdkVersion 16
         targetSdkVersion 19
         versionCode 1

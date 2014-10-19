@@ -1,6 +1,6 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context="com.nakedape.mixmatictouchpad.LaunchPadActivity" >
+    tools:context="com.nakedape.mixmaticlaunchpad.LaunchPadActivity" >
     <item android:id="@+id/action_edit_mode"
         android:title="@string/action_edit_mode" />
     <item android:id="@+id/action_settings"

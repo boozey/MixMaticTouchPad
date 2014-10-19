@@ -1,4 +1,4 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,25 +6,19 @@ import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Shader;
-import android.os.Environment;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.musicg.wave.Wave;
-import com.musicg.wave.WaveFileManager;
-
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -382,7 +376,6 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         selectionEndTime = sampleLength;
         selectStart = 0;
         selectEnd = getWidth();
-        invalidate();
     }
     public String[] Slice(int numSlices){
         String[] paths = new String[numSlices];
@@ -554,7 +547,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
     }
 
-    public void updateView(){
+    public void redraw(){
         invalidate();
     }
 

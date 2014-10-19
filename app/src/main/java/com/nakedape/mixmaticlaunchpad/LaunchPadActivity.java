@@ -1,8 +1,9 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -13,6 +14,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.*;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
@@ -40,36 +42,50 @@ import java.util.HashMap;
 import java.util.Locale;
 
 // Licensing imports
+import com.google.android.vending.licensing.AESObfuscator;
 import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
 import com.google.android.vending.licensing.Policy;
 import com.google.android.vending.licensing.ServerManagedPolicy;
-import com.google.android.vending.licensing.AESObfuscator;
 
 
 public class LaunchPadActivity extends Activity {
 
     private static final String LOG_TAG = "MixMatic Launch Pad Activity";
 
-    public static String TOUCHPAD_ID = "com.nakedape.mixmatictouchpad.touchpadid";
-    public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmatictouchpad.touchpadidarray";
-    public static String SAMPLE_PATH = "com.nakedape.mixmatictouchpad.samplepath";
-    public static String COLOR = "com.nakedape.mixmatictouchpad.color";
-    public static String LOOPMODE = "com.nakedape.mixmatictouchpad.loop";
-    public static String LAUNCHMODE = "com.nakedape.mixmatictouchpad.launchmode";
-    public static String NUM_SLICES = "com.nakedape.mixmatictouchpad.numslices";
-    public static String SLICE_PATHS = "com.nakedape.mixmatictouchpad.slicepaths";
+    public static String TOUCHPAD_ID = "com.nakedape.mixmaticlaunchpad.touchpadid";
+    public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmaticlaunchpad.touchpadidarray";
+    public static String SAMPLE_PATH = "com.nakedape.mixmaticlaunchpad.samplepath";
+    public static String COLOR = "com.nakedape.mixmaticlaunchpad.color";
+    public static String LOOPMODE = "com.nakedape.mixmaticlaunchpad.loop";
+    public static String LAUNCHMODE = "com.nakedape.mixmaticlaunchpad.launchmode";
+    public static String NUM_SLICES = "com.nakedape.mixmaticlaunchpad.numslices";
+    public static String SLICE_PATHS = "com.nakedape.mixmaticlaunchpad.slicepaths";
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
     private static final int COUNTER_UPDATE = 3;
 
+    // Licensing
+    private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi8rbiVIkVPQvsF7d5CrHXnYeh/WsBRAUdjVADnto9X32e6q3O0aB0E4Kz4C7GuBV1dBvARWL7B1Cb4qI0zvjBi8fJT6/OxQDPssEFSdODXxY7xp6dexbJ1huBdGR8IVg5np06C20s9lH3iPuMdzRa26dP4xnP2vL2G90+msqpxpfR84TxG1sHrOM24o1yzg6pgGmFlHMXL7x+XDZyVZN3TNZR9CSeI+ygvVSg9DZPDQSz1T1cIebQ6MctvCQ0Vi17VT8pAnOM8BXUZUSuaetZHM/OXrhmk3MCFKW4RTrGf5NG1+3U0QQ6+wOkyJXwDdGLyz1/IEQTPCmqOs/LwYdFwIDAQAB";
+    private LicenseCheckerCallback mLicenseCheckerCallback;
+    private LicenseChecker mChecker;
+    // Generate 20 random bytes, and put them here.
+    private static final byte[] SALT = new byte[] {
+            1, -15, -87, 52, 114, 11, -21, 12, 32, -63, 49,
+            0, -91, 30, 110, -4, 77, -115, 18, -1
+    };
+    private String DEVICE_ID;
+    private boolean isLicensed = false;
+
     private boolean isEditMode = false;
     private boolean isPlaying = false;
+
+    // Counter
     private TextView counterTextView;
     private long counter;
     private int bpm = 120;
     private int timeSignature = 4;
-    private Handler counterHandler = new Handler(Looper.getMainLooper()){
+    private Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(Message msg){
             switch (msg.what){
@@ -106,6 +122,7 @@ public class LaunchPadActivity extends Activity {
     };
 
     private Context context;
+    private ProgressDialog progressDialog;
     private HashMap<Integer, Sample> samples;
     private File homeDir;
     private int numTouchPads;
@@ -564,8 +581,27 @@ public class LaunchPadActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_launch_pad);
         context = this;
+
+        // Prepare progress dialog
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setIndeterminate(true);
+        progressDialog.setMessage("Validating License");
+        progressDialog.show();
+        // Do the license check
+        DEVICE_ID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        // Construct the LicenseCheckerCallback.
+        mLicenseCheckerCallback = new MyLicenseCheckerCallback();
+        // Construct the LicenseChecker with a Policy.
+        mChecker = new LicenseChecker(
+                context, new ServerManagedPolicy(this,
+                new AESObfuscator(SALT, getPackageName(), DEVICE_ID)),
+                BASE_64_PUBLIC_KEY);
+        mChecker.checkAccess(mLicenseCheckerCallback);
+
+    }
+    private void licensedOnCreate(){
+        setContentView(R.layout.activity_launch_pad);
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
         launchPadprefs = getPreferences(MODE_PRIVATE);
 
@@ -609,6 +645,7 @@ public class LaunchPadActivity extends Activity {
         // Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+
     }
     private void setupPortrait(){
         LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
@@ -771,23 +808,31 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onResume(){
         super.onResume();
-        int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
-        int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+        if (isLicensed) {
+            int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+            int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
 
-        if (newBpm != bpm || newTimeSignature != timeSignature) {
-            counter = 0;
-            bpm = newBpm;
-            timeSignature = newTimeSignature;
+            if (newBpm != bpm || newTimeSignature != timeSignature) {
+                counter = 0;
+                bpm = newBpm;
+                timeSignature = newTimeSignature;
+            }
+            updateCounterMessage();
         }
-
-        updateCounterMessage();
     }
     @Override
     protected void onDestroy(){
-        isPlaying = false;
-        savedData.setSamples(samples);
-        savedData.setCounter(counter);
         super.onDestroy();
+        if (progressDialog != null)
+            if (progressDialog.isShowing())
+                progressDialog.dismiss();
+        if (mChecker != null)
+            mChecker.onDestroy();
+        if (isLicensed) {
+            isPlaying = false;
+            savedData.setSamples(samples);
+            savedData.setCounter(counter);
+        }
     }
 
 
@@ -802,7 +847,7 @@ public class LaunchPadActivity extends Activity {
                     Thread.sleep(10);
                 } catch (InterruptedException e) {}
                 counter = SystemClock.elapsedRealtime() - startMillis;
-                Message msg = counterHandler.obtainMessage(COUNTER_UPDATE);
+                Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
                 msg.sendToTarget();
             } while (isPlaying);
         }
@@ -998,6 +1043,14 @@ public class LaunchPadActivity extends Activity {
                 return;
             }
             // Should allow user access.
+            Log.d(LOG_TAG, "Licensed");
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    isLicensed = true;
+                    licensedOnCreate();
+                }
+            });
         }
 
         public void dontAllow(int reason) {
@@ -1010,17 +1063,52 @@ public class LaunchPadActivity extends Activity {
                 // If the reason received from the policy is RETRY, it was probably
                 // due to a loss of connection with the service, so we should give the
                 // user a chance to retry. So show a dialog to retry.
+                Log.d(LOG_TAG, "Not licensed");
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.dismiss();
+                        finish();
+                    }
+                });
             } else {
                 // Otherwise, the user is not licensed to use this app.
                 // Your response should always inform the user that the application
                 // is not licensed, but your behavior at that point can vary. You might
                 // provide the user a limited access version of your app or you can
                 // take them to Google Play to purchase the app.
+                Log.d(LOG_TAG, "Not licensed");
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.dismiss();
+                        finish();
+                    }
+                });
             }
         }
 
         public void applicationError(int reason){
+            if (reason == LicenseCheckerCallback.ERROR_CHECK_IN_PROGRESS)
+                Log.d(LOG_TAG, "Licensing Error ERROR_CHECK_IN_PROGRESS" + String.valueOf(reason));
+            else if (reason == LicenseCheckerCallback.ERROR_INVALID_PACKAGE_NAME)
+                Log.d(LOG_TAG, "Licensing Error ERROR_INVALID_PACKAGE_NAME" + String.valueOf(reason));
+            else if (reason == LicenseCheckerCallback.ERROR_INVALID_PUBLIC_KEY)
+                Log.d(LOG_TAG, "Licensing Error ERROR_INVALID_PUBLIC_KEY" + String.valueOf(reason));
+            else if (reason == LicenseCheckerCallback.ERROR_MISSING_PERMISSION)
+                Log.d(LOG_TAG, "Licensing Error ERROR_MISSING_PERMISSION" + String.valueOf(reason));
+            else if (reason == LicenseCheckerCallback.ERROR_NON_MATCHING_UID)
+                Log.d(LOG_TAG, "Licensing Error ERROR_NON_MATCHING_UID" + String.valueOf(reason));
+            else if (reason == LicenseCheckerCallback.ERROR_NOT_MARKET_MANAGED)
+                Log.d(LOG_TAG, "Licensing Error ERROR_NOT_MARKET_MANAGED" + String.valueOf(reason));
 
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    progressDialog.dismiss();
+                    finish();
+                }
+            });
         }
     }
 }

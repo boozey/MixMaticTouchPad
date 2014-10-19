@@ -9,7 +9,7 @@
     android:id="@+id/RelativeLayout"
     tools:context=".MainActivity">
 
-    <com.nakedape.mixmatictouchpad.AudioSampleView
+    <com.nakedape.mixmaticlaunchpad.AudioSampleView
         android:id="@+id/spectralView"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"

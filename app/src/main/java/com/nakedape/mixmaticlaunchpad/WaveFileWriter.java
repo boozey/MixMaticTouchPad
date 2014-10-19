@@ -1,10 +1,7 @@
-package com.nakedape.mixmatictouchpad;
-
-import android.util.Log;
+package com.nakedape.mixmaticlaunchpad;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.ShortBuffer;
 
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;

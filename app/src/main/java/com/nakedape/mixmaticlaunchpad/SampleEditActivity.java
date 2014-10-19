@@ -1,4 +1,4 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -118,7 +118,7 @@ public class SampleEditActivity extends Activity {
                     break;
                 case AUDIO_PROCESSING_COMPLETE:
                     dlg.dismiss();
-                    audioSampleView.updateView();
+                    audioSampleView.redraw();
                     LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
                     break;
                 case MP3_CONVERTER_UPDATE:
@@ -304,13 +304,30 @@ public class SampleEditActivity extends Activity {
             builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    String[] slicePaths = sample.Slice(numSlices);
-                    Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION");
-                    result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
-                    result.putExtra(LaunchPadActivity.COLOR, sample.color);
-                    result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
-                    setResult(Activity.RESULT_OK, result);
-                    finish();
+                    dlg = new ProgressDialog(context);
+                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                    dlg.setIndeterminate(true);
+                    dlg.setMessage(getString(R.string.save_progress_msg));
+                    dlg.show();
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            final String[] slicePaths = sample.Slice(numSlices);
+                            dlg.dismiss();
+                            mHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION");
+                                    result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
+                                    result.putExtra(LaunchPadActivity.COLOR, sample.color);
+                                    result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
+                                    setResult(Activity.RESULT_OK, result);
+                                    finish();
+
+                                }
+                            });
+                        }
+                    }).start();
                 }
             });
             builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
@@ -322,12 +339,29 @@ public class SampleEditActivity extends Activity {
             AlertDialog dialog = builder.create();
             dialog.show();
         }
-        else {
-            Intent result = new Intent("com.nakedape.mixmatictouchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
-            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
-            result.putExtra(LaunchPadActivity.COLOR, sample.color);
-            setResult(Activity.RESULT_OK, result);
-            finish();
+        else {dlg = new ProgressDialog(context);
+            dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            dlg.setIndeterminate(true);
+            dlg.setMessage(getString(R.string.save_progress_msg));
+            dlg.show();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final String[] slicePaths = sample.Slice(numSlices);
+                    dlg.dismiss();
+                    mHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
+                            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+                            result.putExtra(LaunchPadActivity.COLOR, sample.color);
+                            setResult(Activity.RESULT_OK, result);
+                            finish();
+
+                        }
+                    });
+                }
+            }).start();
         }
 
     }
@@ -337,9 +371,26 @@ public class SampleEditActivity extends Activity {
         if (mPlayer != null) {
             if (mPlayer.isPlaying()) mPlayer.stop();
         }
-        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
-        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
+        dlg = new ProgressDialog(context);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setIndeterminate(true);
+        dlg.setMessage(getString(R.string.trim_progress_msg));
+        dlg.show();
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
+                        sample.redraw();
+                        dlg.dismiss();
+                    }
+                });
+            }
+        }).start();
     }
 
     public void ZoomIn(View view){

@@ -16,6 +16,9 @@
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
 
+    <string name="trim_progress_msg">Trimming</string>
+    <string name="save_progress_msg">Preparing sample(s)</string>
+
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_show_beats">Show beats</string>
     <string name="action_edit_sample">Edit sample</string>

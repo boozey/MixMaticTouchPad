@@ -1,4 +1,4 @@
-package com.nakedape.mixmatictouchpad;
+package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -9,8 +9,8 @@ import android.view.MenuItem;
 
 public class EditPreferencesActivity extends Activity {
 
-    public static final String SAMPLE_EDIT_PREFS = "com.nakedape.mixmatictouchpad.sampleeditprefs";
-    public static final String LAUNCHPAD_PREFS  = "com.nakedape.mixmatictouchpad.launchpadprefs";
+    public static final String SAMPLE_EDIT_PREFS = "com.nakedape.mixmaticlaunchpad.sampleeditprefs";
+    public static final String LAUNCHPAD_PREFS  = "com.nakedape.mixmaticlaunchpad.launchpadprefs";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
