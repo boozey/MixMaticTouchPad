@@ -586,6 +586,7 @@ public class LaunchPadActivity extends Activity {
         // Prepare progress dialog
         progressDialog = new ProgressDialog(context);
         progressDialog.setIndeterminate(true);
+        progressDialog.setCanceledOnTouchOutside(false);
         progressDialog.setMessage("Validating License");
         progressDialog.show();
         // Do the license check
@@ -601,6 +602,7 @@ public class LaunchPadActivity extends Activity {
 
     }
     private void licensedOnCreate(){
+        progressDialog.dismiss();
         setContentView(R.layout.activity_launch_pad);
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
         launchPadprefs = getPreferences(MODE_PRIVATE);
