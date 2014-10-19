@@ -12,6 +12,7 @@ import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.net.Uri;
 import android.os.*;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
@@ -583,12 +584,6 @@ public class LaunchPadActivity extends Activity {
         super.onCreate(savedInstanceState);
         context = this;
 
-        // Prepare progress dialog
-        progressDialog = new ProgressDialog(context);
-        progressDialog.setIndeterminate(true);
-        progressDialog.setCanceledOnTouchOutside(false);
-        progressDialog.setMessage("Validating License");
-        progressDialog.show();
         // Do the license check
         DEVICE_ID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         // Construct the LicenseCheckerCallback.
@@ -599,10 +594,9 @@ public class LaunchPadActivity extends Activity {
                 new AESObfuscator(SALT, getPackageName(), DEVICE_ID)),
                 BASE_64_PUBLIC_KEY);
         mChecker.checkAccess(mLicenseCheckerCallback);
-
+        licensedOnCreate();
     }
     private void licensedOnCreate(){
-        progressDialog.dismiss();
         setContentView(R.layout.activity_launch_pad);
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
         launchPadprefs = getPreferences(MODE_PRIVATE);
@@ -1045,14 +1039,7 @@ public class LaunchPadActivity extends Activity {
                 return;
             }
             // Should allow user access.
-            Log.d(LOG_TAG, "Licensed");
-            mHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    isLicensed = true;
-                    licensedOnCreate();
-                }
-            });
+            isLicensed = true;
         }
 
         public void dontAllow(int reason) {
@@ -1065,12 +1052,12 @@ public class LaunchPadActivity extends Activity {
                 // If the reason received from the policy is RETRY, it was probably
                 // due to a loss of connection with the service, so we should give the
                 // user a chance to retry. So show a dialog to retry.
-                Log.d(LOG_TAG, "Not licensed");
+                Log.d(LOG_TAG, "Not licensed RETRY");
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        progressDialog.dismiss();
-                        finish();
+
+                        //finish();
                     }
                 });
             } else {
@@ -1083,8 +1070,26 @@ public class LaunchPadActivity extends Activity {
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        progressDialog.dismiss();
-                        finish();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.setCancelable(false);
+                        builder.setMessage("This app is not properly licensed.  Go to Google Play Store to download a licensed version?");
+                        builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Intent intent = new Intent(Intent.ACTION_VIEW);
+                                intent.setData(Uri.parse("market://details?id=com.nakedape.mixmaticlaunchpad"));
+                                startActivity(intent);
+                                finish();
+                            }
+                        });
+                        builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                //finish();
+                            }
+                        });
+                        AlertDialog dialog = builder.create();
+                        dialog.show();
                     }
                 });
             }
@@ -1107,7 +1112,6 @@ public class LaunchPadActivity extends Activity {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    progressDialog.dismiss();
                     finish();
                 }
             });

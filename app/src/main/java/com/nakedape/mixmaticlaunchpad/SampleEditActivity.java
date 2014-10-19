@@ -339,7 +339,8 @@ public class SampleEditActivity extends Activity {
             AlertDialog dialog = builder.create();
             dialog.show();
         }
-        else {dlg = new ProgressDialog(context);
+        else {
+            dlg = new ProgressDialog(context);
             dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
             dlg.setIndeterminate(true);
             dlg.setMessage(getString(R.string.save_progress_msg));
@@ -347,7 +348,6 @@ public class SampleEditActivity extends Activity {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final String[] slicePaths = sample.Slice(numSlices);
                     dlg.dismiss();
                     mHandler.post(new Runnable() {
                         @Override
