@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -16,7 +15,6 @@ import android.net.Uri;
 import android.os.*;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.Menu;
@@ -24,7 +22,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -407,64 +404,6 @@ public class LaunchPadActivity extends Activity {
         }
     };
 
-    // Handles click events in edit mode
-    private View.OnClickListener TouchPadClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (isEditMode && !multiSelect) {
-                // Deselect the current touchpad
-                View oldView = findViewById(selectedSampleID);
-                oldView.setSelected(false);
-                // Select the new touchpad
-                selectedSampleID = v.getId();
-                v.setSelected(true);
-                // If the pad contains a sample, show the edit menu
-                if (samples.containsKey(v.getId())) {
-                    if (emptyPadActionMode != null)
-                        emptyPadActionMode = null;
-                    if (launchPadActionMode == null)
-                        launchPadActionMode = startActionMode(launchPadActionModeCallback);
-                    Sample s = (Sample) samples.get(v.getId());
-                    Menu menu = launchPadActionMode.getMenu();
-                    MenuItem item = menu.findItem(R.id.action_loop_mode);
-                    item.setChecked(s.getLoopMode());
-                    if (s.getLaunchMode() == Sample.LAUNCHMODE_TRIGGER) {
-                        item = menu.findItem(R.id.action_launch_mode_trigger);
-                        item.setChecked(true);
-                    }
-                    else {
-                        item = menu.findItem(R.id.action_launch_mode_gate);
-                        item.setChecked(true);
-                    }
-                }
-                // If the pad doesn't contain a sample, show the menu to load one
-                else{
-                    if (launchPadActionMode != null)
-                        launchPadActionMode = null;
-                    if (emptyPadActionMode == null)
-                        emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
-                }
-            } // If in multiselect mode allow empty pads to be selected
-            else if (multiSelect){
-                if (!samples.containsKey(v.getId())) {
-                    if (v.isSelected()) {
-                        v.setSelected(false);
-                        selections.remove(String.valueOf(v.getId()));
-                    } else {
-                        v.setSelected(true);
-                        selections.add(String.valueOf(v.getId()));
-                    }
-                } // If a touchpad contains a sample, exit multiselect mode and show the edit menu
-                else {
-                    multiSelect = false;
-                    onClick(v);
-                }
-            }
-            else {
-                selectedSampleID = v.getId();
-            }
-        }
-    };
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
@@ -474,7 +413,7 @@ public class LaunchPadActivity extends Activity {
             if (!homeDir.isDirectory()) // If the home directory doesn't exist, create it
                 homeDir.mkdir();
             // Create a new file to contain the new sample
-            File sampleFile = new File(homeDir, String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
+            File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
             // If the file already exists, delete, but remember to keep its configuration
             boolean keepSettings = false;
             if (sampleFile.isFile()) {
@@ -578,7 +517,63 @@ public class LaunchPadActivity extends Activity {
         }
     }
 
-    // Activity over rides
+    // Handles click events in edit mode
+    public void touchPadClick(View v){if (isEditMode && !multiSelect) {
+        // Deselect the current touchpad
+        View oldView = findViewById(selectedSampleID);
+        if (oldView != null)
+            oldView.setSelected(false);
+        // Select the new touchpad
+        selectedSampleID = v.getId();
+        v.setSelected(true);
+        // If the pad contains a sample, show the edit menu
+        if (samples.containsKey(v.getId())) {
+            if (emptyPadActionMode != null)
+                emptyPadActionMode = null;
+            if (launchPadActionMode == null)
+                launchPadActionMode = startActionMode(launchPadActionModeCallback);
+            Sample s = (Sample) samples.get(v.getId());
+            Menu menu = launchPadActionMode.getMenu();
+            MenuItem item = menu.findItem(R.id.action_loop_mode);
+            item.setChecked(s.getLoopMode());
+            if (s.getLaunchMode() == Sample.LAUNCHMODE_TRIGGER) {
+                item = menu.findItem(R.id.action_launch_mode_trigger);
+                item.setChecked(true);
+            }
+            else {
+                item = menu.findItem(R.id.action_launch_mode_gate);
+                item.setChecked(true);
+            }
+        }
+        // If the pad doesn't contain a sample, show the menu to load one
+        else{
+            if (launchPadActionMode != null)
+                launchPadActionMode = null;
+            if (emptyPadActionMode == null)
+                emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
+        }
+    } // If in multiselect mode allow empty pads to be selected
+    else if (multiSelect){
+        if (!samples.containsKey(v.getId())) {
+            if (v.isSelected()) {
+                v.setSelected(false);
+                selections.remove(String.valueOf(v.getId()));
+            } else {
+                v.setSelected(true);
+                selections.add(String.valueOf(v.getId()));
+            }
+        } // If a touchpad contains a sample, exit multiselect mode and show the edit menu
+        else {
+            multiSelect = false;
+            touchPadClick(v);
+        }
+    }
+    else {
+        selectedSampleID = v.getId();
+    }
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -608,6 +603,10 @@ public class LaunchPadActivity extends Activity {
         timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
         updateCounterMessage();
 
+        // Set up audio
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
         savedData = (LaunchPadData) fm.findFragmentByTag("data");
@@ -618,150 +617,289 @@ public class LaunchPadActivity extends Activity {
             int min = (int)Math.floor(sec / 60);
             counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
             savedDataLoaded = true;
-            for (int i = 1; i < 25; i++){
-                if (i==6) i = 35;
-                if (samples.containsKey(i)){
-                    Sample s = samples.get(i);
-                    s.setOnPlayFinishedListener(samplePlayListener);
-                }
-                if (i==35) i = 6;
-            }
+            // Setup touch pads from retained fragment
+            setupPadsFromFrag();
         }
         else{
             savedData = new LaunchPadData();
             fm.beginTransaction().add(savedData, "data").commit();
+            // Setup touch pads from files
+            setupPadsFromFile();
         }
-        // Set up touch pads and load samples
-        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
-            setupPortrait();
-        } else {
-            setupLandscape();
-        }
-
-        // Set up audio
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-
     }
-    private void setupPortrait(){
-        LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
-        DisplayMetrics metrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        if (!savedDataLoaded)
+    private void setupPadsFromFile(){
+        if (!savedDataLoaded && homeDir.isDirectory()) {
             samples = new HashMap<Integer, Sample>();
-        int id = 1;
-        for (int i = 0; i < 6; i++){
-            LinearLayout l = new LinearLayout(this);
-            l.setOrientation(LinearLayout.HORIZONTAL);
-            mainLayout.addView(l);
-            for (int j = 0; j < 4; j++){
-                if (id == 6)
-                    id = 35;
-                TouchPad t = new TouchPad(this);
-                t.setId(id);
-                t.setWidth(metrics.widthPixels / 4);
-                t.setHeight((metrics.heightPixels - 150) / 6);
-                t.setOnTouchListener(TouchPadTouchListener);
-                t.setOnClickListener(TouchPadClickListener);
-                l.addView(t);
-                if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
-                    File sample = new File(homeDir, String.valueOf(id) + ".wav");
-                    if (sample.isFile()){ // If the sample exists, load it
-                        if (!savedDataLoaded) {
-                            Sample s = new Sample(sample.getAbsolutePath(), id);
-                            s.setOnPlayFinishedListener(samplePlayListener);
-                            samples.put(id, s);
-                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
-                            s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
-                        }
-                        int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
-                        switch (color){ // Load and set color
-                            case 0:
-                                t.setBackgroundResource(R.drawable.launch_pad_blue);
-                                break;
-                            case 1:
-                                t.setBackgroundResource(R.drawable.launch_pad_red);
-                                break;
-                            case 2:
-                                t.setBackgroundResource(R.drawable.launch_pad_green);
-                                break;
-                            case 3:
-                                t.setBackgroundResource(R.drawable.launch_pad_orange);
-                                break;
-                        }
-                    }
-                    else{
-                        t.setBackgroundResource(R.drawable.launch_pad_empty);
-                    }
-                }
-                if (id == 35)
-                    id = 6;
-                id++;
-            }
+            TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad2);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad3);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad4);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad5);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad6);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad7);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad8);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad9);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad10);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad11);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad12);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad13);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad14);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad15);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad16);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad17);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad18);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad19);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad20);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad21);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad22);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad23);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
+            pad = (TouchPad) findViewById(R.id.touchPad24);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+            if (sampleFile.isFile())  // If the sample exists, load it
+                loadSample(sampleFile.getAbsolutePath(), pad);
         }
-        numTouchPads = id;
     }
-    private void setupLandscape(){
-        getActionBar().hide();
-        LinearLayout mainLayout = (LinearLayout)findViewById(R.id.mainLayout);
-        LinearLayout padLayout = new LinearLayout(this);
-        padLayout.setOrientation(LinearLayout.HORIZONTAL);
-        mainLayout.addView(padLayout);
-        DisplayMetrics metrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        if (!savedDataLoaded)
-            samples = new HashMap<Integer, Sample>();
-        int id = 1;
-        for (int i = 0; i < 6; i++){
-            LinearLayout l = new LinearLayout(this);
-            l.setOrientation(LinearLayout.VERTICAL);
-            padLayout.addView(l);
-            for (int j = 0; j < 4; j++){
-                if (id == 6)
-                    id = 35;
-                TouchPad t = new TouchPad(this);
-                t.setId(id);
-                t.setWidth(metrics.widthPixels / 6);
-                t.setHeight((metrics.heightPixels - 75) / 4);
-                t.setOnTouchListener(TouchPadTouchListener);
-                t.setOnClickListener(TouchPadClickListener);
-                l.addView(t);
-                if (homeDir.isDirectory()){ // If the home directory already exists, try to load samples
-                    File sample = new File(homeDir, String.valueOf(id) + ".wav");
-                    if (sample.isFile()){ // If the sample exists, load it
-                        if (!savedDataLoaded) {
-                            Sample s = new Sample(sample.getAbsolutePath(), id);
-                            s.setOnPlayFinishedListener(samplePlayListener);
-                            samples.put(id, s);
-                            s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
-                            s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
-                        }
-                        int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
-                        switch (color){ // Load and set color
-                            case 0:
-                                t.setBackgroundResource(R.drawable.launch_pad_blue);
-                                break;
-                            case 1:
-                                t.setBackgroundResource(R.drawable.launch_pad_red);
-                                break;
-                            case 2:
-                                t.setBackgroundResource(R.drawable.launch_pad_green);
-                                break;
-                            case 3:
-                                t.setBackgroundResource(R.drawable.launch_pad_orange);
-                                break;
-                        }
-                    }
-                    else{
-                        t.setBackgroundResource(R.drawable.launch_pad_empty);
-                    }
-                }
-                if (id == 35)
-                    id = 6;
-                id++;
-            }
+    private void setupPadsFromFrag(){
+        TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
         }
-        numTouchPads = id;
+        pad = (TouchPad) findViewById(R.id.touchPad2);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad3);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad4);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad5);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad6);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad7);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad8);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad9);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad10);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad11);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad12);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad13);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad14);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad15);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad16);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad17);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad18);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad19);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad20);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad21);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad22);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad23);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad24);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        if (samples.containsKey(pad.getId())) {
+            setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
+        }
+    }
+    private void loadSample(String path, TouchPad pad){
+        int id = pad.getId();
+        pad.setOnTouchListener(TouchPadTouchListener);
+        Sample s = new Sample(path, id);
+        s.setOnPlayFinishedListener(samplePlayListener);
+        samples.put(id, s);
+        s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
+        s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+        int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
+        setPadColor(color, pad);
+    }
+    private void setPadColor(int color, TouchPad pad){
+        switch (color){ // Load and set color
+            case 0:
+                pad.setBackgroundResource(R.drawable.launch_pad_blue);
+                break;
+            case 1:
+                pad.setBackgroundResource(R.drawable.launch_pad_red);
+                break;
+            case 2:
+                pad.setBackgroundResource(R.drawable.launch_pad_green);
+                break;
+            case 3:
+                pad.setBackgroundResource(R.drawable.launch_pad_orange);
+                break;
+        }
     }
 
     @Override
@@ -785,8 +923,7 @@ public class LaunchPadActivity extends Activity {
         else if (id == R.id.action_edit_mode) {
             isEditMode = true;
             isPlaying = false;
-            selectedSampleID = 1;
-            View v = findViewById(selectedSampleID);
+            View v = findViewById(R.id.touchPad1);
             v.callOnClick();
         }
         else if (id == R.id.action_stop){
@@ -824,11 +961,9 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.dismiss();
         if (mChecker != null)
             mChecker.onDestroy();
-        if (isLicensed) {
-            isPlaying = false;
-            savedData.setSamples(samples);
-            savedData.setCounter(counter);
-        }
+        isPlaying = false;
+        savedData.setSamples(samples);
+        savedData.setCounter(counter);
     }
 
 
