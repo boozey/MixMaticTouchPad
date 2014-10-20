@@ -13,6 +13,7 @@ public class LaunchPadData extends Fragment {
     private HashMap samples;
     private long counter;
     private boolean isPlaying;
+    private boolean isEditMode;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -27,4 +28,6 @@ public class LaunchPadData extends Fragment {
     public long getCounter() {return counter;}
     public void setPlaying(boolean isPlaying) {this.isPlaying = isPlaying;}
     public boolean isPlaying() {return isPlaying;}
+    public void setEditMode(boolean isEditMode) {this.isEditMode = isEditMode;}
+    public boolean isEditMode() {return isEditMode;}
 }
