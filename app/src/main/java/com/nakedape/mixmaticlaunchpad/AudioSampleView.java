@@ -61,6 +61,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
     private Line playPos = new Line(0, 0);
     public AudioDispatcher dispatcher;
     public boolean isPlaying = false;
+    public boolean continutePlaying = false;
     private boolean showBeats = false;
     public boolean isLoading = false;
     public int color = 0;
@@ -275,16 +276,18 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         try {
             wavStream = new BufferedInputStream(new FileInputStream(samplePath));
             UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-            bufferSize = 1024 * 64; //32KB buffer = AudioTrack minimum buffer * 2
+            bufferSize = 1024 * 4; //32KB buffer = AudioTrack minimum buffer * 2
             overLap = 0;
             dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
             AndroidAudioPlayer player = new AndroidAudioPlayer(audioFormat, bufferSize);
             dispatcher.addAudioProcessor(player);
             dispatcher.skip(startTime);
+            continutePlaying = true;
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    while (dispatcher.secondsProcessed() < endTime) {
+                    isPlaying = true;
+                    while (dispatcher.secondsProcessed() < endTime && continutePlaying) {
                         try {
                             Thread.sleep(10);
                         } catch (InterruptedException e) {
@@ -292,10 +295,14 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                         }
                     }
                     dispatcher.stop();
+                    isPlaying = false;
                 }
             }).start();
             dispatcher.run();
         }catch (FileNotFoundException e){e.printStackTrace();}
+    }
+    public void Stop(){
+        continutePlaying = false;
     }
 
     public void TrimToSelection(double startTime, double endTime){
@@ -433,32 +440,79 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         return sliceFile.getAbsolutePath();
     }
-    public boolean WriteSelectionToFile(InputStream wavStream, String writePath, double startTime, final double endTime) {
-        UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-        dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
-        WaveFileWriter writer = new WaveFileWriter(writePath,
-                (int) dispatcher.getFormat().getSampleRate(),
-                (short)16,
-                (short) dispatcher.getFormat().getChannels());
-        dispatcher.addAudioProcessor(writer);
-        dispatcher.skip(startTime);
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while (dispatcher.secondsProcessed() < endTime){
-                        try{
-                            Thread.sleep(10);
-                        } catch (InterruptedException e){e.printStackTrace();}
+    public boolean TarsosTrim(double startTime, final double endTime) {
+        InputStream wavStream = null; // InputStream to stream the wav to trim
+        File trimmedSample = null;  // File to contain the trimmed down sample
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+
+        // If the sample file exists, try to trim it
+        if (sampleFile.isFile()) {
+            trimmedSample = new File(CACHE_PATH + "trimmed_wav_cache.wav");
+            if (trimmedSample.isFile()) trimmedSample.delete();
+
+            // Trim the sample down and write it to file
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
+                dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
+                WaveFileWriter writer = new WaveFileWriter(trimmedSample.getAbsolutePath(),
+                        44100,
+                        (short) 16,
+                        (short) 1);
+                dispatcher.addAudioProcessor(writer);
+                dispatcher.skip(startTime);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (dispatcher.secondsProcessed() < endTime) {
+                            try {
+                                Thread.sleep(1);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        dispatcher.stop();
                     }
-                    dispatcher.stop();
+                }).start();
+                dispatcher.run();
+                //writer.processingFinished();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            // Delete the original wav sample
+            sampleFile.delete();
+            // Copy the trimmed wav over to replace the sample
+            trimmedSample.renameTo(sampleFile);
+            // Set the new sample length
+            sampleLength = selectionEndTime - selectionStartTime;
+            Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
+            // Copy data over for only the trimmed section
+            List<Line> temp = new ArrayList<Line>();
+            temp.addAll(waveFormData);
+            waveFormData.clear();
+            for (Line l : temp) {
+                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
+                    waveFormData.add(new Line((l.getX() - (float)selectionStartTime), l.getY()));
                 }
-            }).start();
-        dispatcher.run();
-        //writer.processingFinished();
-        try {
-            audioStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+            }
+            waveFormRender.clear();
+            waveFormRender.addAll(waveFormData);
+            temp.clear();
+            temp.addAll(beatsData);
+            beatsData.clear();
+            for (Line l : temp) {
+                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
+                    beatsData.add(new Line(l.getX() - (float)selectionStartTime, l.getY()));
+                }
+            }
+            beatsRender.clear();
+            beatsRender.addAll(beatsData);
+            windowStartTime = 0;
+            windowEndTime = sampleLength;
+            selectionStartTime = 0;
+            selectionEndTime = sampleLength;
+            selectStart = 0;
+            selectEnd = getWidth();
         }
         return true;
     }
@@ -527,7 +581,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             }
         }
         invalidate();
-        return true;
+        return false;
     }
     private void fixSelection(){
         // Make sure start of selection is before end of selection

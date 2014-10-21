@@ -20,7 +20,9 @@ import android.os.*;
 import android.os.Process;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
@@ -68,6 +70,42 @@ public class SampleEditActivity extends Activity {
     private Context context;
     private int sampleId;
     private int numSlices = 1;
+
+    // Context menu
+    private ActionMode sampleEditActionMode;
+    private ActionMode.Callback sampleEditActionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.sample_edit_context, menu);
+
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+
+        }
+    };
+    private View.OnClickListener sampleViewLongClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (sampleEditActionMode == null)
+                sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+        }
+    };
+
+    // Fragment to save data during runtime changes
     private AudioSampleData savedData;
 
     // Media player variables
@@ -201,6 +239,9 @@ public class SampleEditActivity extends Activity {
             catch (IOException e){
                 e.printStackTrace();
             }
+        }
+        else if (requestCode == REQUEST_MUSIC_GET && resultCode == RESULT_CANCELED){
+            finish();
         }
     }
 
@@ -381,6 +422,7 @@ public class SampleEditActivity extends Activity {
             @Override
             public void run() {
                 sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
+                //sample.TarsosTrim(sample.getSelectionStartTime(), sample.getSelectionEndTime());
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -425,6 +467,7 @@ public class SampleEditActivity extends Activity {
         sample.setFocusable(true);
         sample.setFocusableInTouchMode(true);
         sample.setOnTouchListener(sample);
+        sample.setOnClickListener(sampleViewLongClickListener);
 
         //Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);

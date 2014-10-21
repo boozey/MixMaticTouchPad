@@ -472,7 +472,7 @@ public class LaunchPadActivity extends Activity {
             String[] slicePaths = data.getStringArrayExtra(SLICE_PATHS);
             for (int i = 0; i < selections.size(); i++){
                 File tempFile = new File(slicePaths[i]);
-                File sliceFile = new File(homeDir, selections.get(i) + ".wav" );
+                File sliceFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(selections.get(i)) + ".wav");
                 if (sliceFile.isFile()) sliceFile.delete();
                 // Copy new sample over
                 try {
@@ -998,10 +998,12 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
+        /*
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             if (getActionBar() != null)
                 getActionBar().hide();
         }
+        */
         int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
         int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
 
@@ -1252,7 +1254,7 @@ public class LaunchPadActivity extends Activity {
                     @Override
                     public void run() {
 
-                        //finish();
+                        finish();
                     }
                 });
             } else {
@@ -1280,7 +1282,7 @@ public class LaunchPadActivity extends Activity {
                         builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                //finish();
+                                finish();
                             }
                         });
                         AlertDialog dialog = builder.create();
