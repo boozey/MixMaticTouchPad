@@ -5,5 +5,6 @@
         android:title="@string/action_trim_wav" />
     <item android:id="@+id/action_loop_selection"
         android:title="@string/action_loop_selection"
-        android:checkable="true"/>
+        android:checkable="true"
+        android:showAsAction="never"/>
 </menu>

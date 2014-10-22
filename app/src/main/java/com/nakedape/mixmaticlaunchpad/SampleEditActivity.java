@@ -89,12 +89,30 @@ public class SampleEditActivity extends Activity {
 
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            switch (item.getItemId()){
+                case R.id.action_trim_wav:
+                    Trim();
+                    return true;
+                case R.id.action_loop_selection:
+                    if (item.isChecked()){
+                        loop = false;
+                        item.setChecked(false);
+                    }
+                    else {
+                        loop = true;
+                        item.setChecked(true);
+                    }
+                    return true;
+            }
             return false;
         }
 
         @Override
         public void onDestroyActionMode(ActionMode mode) {
-
+            sampleEditActionMode = null;
+            AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+            sampleView.clearSelection();
+            loop = false;
         }
     };
     private View.OnClickListener sampleViewLongClickListener = new View.OnClickListener() {
@@ -166,30 +184,13 @@ public class SampleEditActivity extends Activity {
                     dlg.dismiss();
                     // Display determinate progress dialog
                     dlg = new ProgressDialog(context);
-                    dlg.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                     dlg.setIndeterminate(true);
-                    InputStream wavStream;
-                    long len = 0;
-                    try {
-                        File file = new File(WAV_CACHE_PATH);
-                        wavStream = new FileInputStream(file);
-                        byte[] lenInt = new byte[4];
-                        wavStream.skip(40);
-                        wavStream.read(lenInt, 0, 4);
-                        ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
-                        len = bb.getInt();
-                        sampleLength = (int)len / 4 / (int)sampleRate;
-                        wavStream.close();
-                    } catch (IOException e) {e.printStackTrace();}
-                    if (len > 0)
-                        dlg.setMax(sampleLength);
-                    else
-                        dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
                     dlg.setCancelable(true);
                     dlg.setCanceledOnTouchOutside(false);
                     dlgCanceled = false;
                     dlg.setOnCancelListener(dlgCancelListener);
-                    dlg.setMessage("Processing Audio");
+                    dlg.setMessage("Generating waveform");
                     dlg.show();
                     // Process audio
                     new Thread(new LoadAudioThread()).start();
@@ -442,7 +443,8 @@ public class SampleEditActivity extends Activity {
 
     public void ZoomOut(View view){
         AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
-        a.zoomExtents();
+        //a.zoomExtents();
+        a.zoomOut();
     }
 
     @Override
@@ -605,7 +607,33 @@ public class SampleEditActivity extends Activity {
                 }
                 else {
                     item.setChecked(true);
-                    sample.setShowBeats(true);
+                    dlg = new ProgressDialog(context);
+                    dlg.setMessage("Processing audio");
+                    dlg.setIndeterminate(true);
+                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                    dlg.setCancelable(true);
+                    dlg.setCanceledOnTouchOutside(false);
+                    dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                        @Override
+                        public void onCancel(DialogInterface dialog) {
+                            sample.dispatcher.stop();
+                        }
+                    });
+                    dlg.show();
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
+                            sample.identifyBeats(beatThreshold);
+                            mHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    dlg.dismiss();
+                                    sample.setShowBeats(true);
+                                }
+                            });
+                        }
+                    }).start();
                 }
                 return true;
             case R.id.action_loop_selection:
@@ -817,8 +845,6 @@ public class SampleEditActivity extends Activity {
         public void run() {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
-            double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
-            v.setBeatThreshold(beatThreshold);
             v.createWaveForm(WAV_CACHE_PATH);
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();

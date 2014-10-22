@@ -27,6 +27,7 @@ import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.Oscilloscope;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
+import be.tarsos.dsp.onsets.BeatRootSpectralFluxOnsetDetector;
 import be.tarsos.dsp.onsets.ComplexOnsetDetector;
 import be.tarsos.dsp.onsets.OnsetHandler;
 import javazoom.jl.converter.WaveFile;
@@ -37,8 +38,10 @@ import javazoom.jl.converter.WaveFile;
 public class AudioSampleView extends View implements View.OnTouchListener, OnsetHandler {
     @Override
     public void handleOnset(double time, double salience){
-        beats.add(new BeatInfo(time, salience));
-        beatsData.add(new Line((float)time, (float)getHeight()));
+        if (salience > 0.5) {
+            beats.add(new BeatInfo(time, salience));
+            beatsData.add(new Line((float) time, (float) getHeight()));
+        }
     }
 
     private static final String LOG_TAG = "MixMatic AudioSampleView";
@@ -48,7 +51,6 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
     private List<BeatInfo> beats;
     public double sampleLength;
     private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
-    private double beatThreshold = 0.3;
     private int bufferSize = 1024 * 64, overLap = bufferSize / 2, sampleRate = 44100;
     private TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
     private Paint paintBrush = new Paint(), paintSelect = new Paint(), paintBackground = new Paint();
@@ -70,7 +72,6 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
     public AudioSampleView(Context context) {
         super(context);
-
     }
     public AudioSampleView(Context context, AttributeSet attrs){
         super(context, attrs);
@@ -109,9 +110,6 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             beats = new ArrayList<BeatInfo>(500);
             beatsData = new ArrayList<Line>(500);
             waveFormData = new ArrayList<Line>(1000);
-            ComplexOnsetDetector onsetDetector = new ComplexOnsetDetector(bufferSize, beatThreshold);
-            onsetDetector.setHandler(this);
-            dispatcher.addAudioProcessor(onsetDetector);
             Oscilloscope.OscilloscopeEventHandler handler = new Oscilloscope.OscilloscopeEventHandler() {
                 @Override
                 public void handleEvent(float[] floats, AudioEvent audioEvent) {
@@ -230,7 +228,6 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
     public boolean ShowBeats(){
         return showBeats;
     }
-    public void setBeatThreshold(double beatThreshold) {this.beatThreshold = beatThreshold;}
 
     public void zoomSelection(){
         // Make sure there is a selection
@@ -268,6 +265,26 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         selectEnd = (float)selectionEndTime * getWidth() / (float)sampleLength;
         windowStartTime = 0;
         windowEndTime = sampleLength;
+        invalidate();
+    }
+    public void zoomOut(){
+        double oldWindowLength = windowEndTime - windowStartTime;
+        windowStartTime = Math.max(windowStartTime - oldWindowLength / 2, 0);
+        windowEndTime = Math.min(windowEndTime + oldWindowLength / 2, sampleLength);
+        waveFormRender.clear();
+        for (Line l : waveFormData) {
+            if (l.getX() >= windowStartTime && l.getX() <= windowEndTime) {
+                waveFormRender.add(new Line((l.getX()), l.getY()));
+            }
+        }
+        beatsRender.clear();
+        for (Line l : beatsData) {
+            if (l.getX() >= windowStartTime && l.getX() <= windowEndTime) {
+                beatsRender.add(new Line(l.getX(), l.getY()));
+            }
+        }
+        selectStart = (float)(selectionStartTime * getWidth() / (windowEndTime - windowStartTime));
+        selectEnd = (float)(selectionEndTime * getWidth() / (windowEndTime - windowStartTime));
         invalidate();
     }
 
@@ -516,6 +533,41 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         return true;
     }
+    public void identifyBeats(double beatThreshold){
+        dispatcher = getDispatcher(1024);
+        beats = new ArrayList<BeatInfo>(500);
+        beatsData = new ArrayList<Line>(500);
+        ComplexOnsetDetector onsetDetector = new ComplexOnsetDetector(1024, beatThreshold);
+        //BeatRootSpectralFluxOnsetDetector onsetDetector = new BeatRootSpectralFluxOnsetDetector(dispatcher, 256, 8);
+        onsetDetector.setHandler(this);
+        dispatcher.addAudioProcessor(onsetDetector);
+        dispatcher.run();
+        beatsRender.addAll(beatsData);
+    }
+    private AudioDispatcher getDispatcher(int bufferSize) {
+        InputStream wavStream;
+        UniversalAudioInputStream audioStream = null;
+        try {
+            wavStream = new BufferedInputStream(new FileInputStream(samplePath));
+            //Read the sample rate
+            byte[] rateInt = new byte[4];
+            wavStream.skip(24);
+            wavStream.read(rateInt, 0, 4);
+            ByteBuffer bb = ByteBuffer.wrap(rateInt).order(ByteOrder.LITTLE_ENDIAN);
+            sampleRate = bb.getInt();
+            Log.d("Sample Rate", String.valueOf(sampleRate));
+
+            audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
+            // Small buffer size to allow more accurate rendering of waveform
+            overLap = bufferSize / 2;
+            //Set up and run Tarsos
+            audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
+        } catch (IOException e) {e.printStackTrace();}
+        if (audioStream != null)
+            return new AudioDispatcher(audioStream, bufferSize, overLap);
+        else
+            return null;
+    }
 
     public String getSamplePath(){
         return samplePath;
@@ -538,6 +590,13 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         else
             return selectionEndTime;
+    }
+    public void clearSelection(){
+        selectStart = 0;
+        selectEnd = 0;
+        selectionStartTime = 0;
+        selectionEndTime = 0;
+        invalidate();
     }
 
     public void updatePlayIndicator(double time){
@@ -632,9 +691,23 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                 increment = Math.max(1, Math.round(waveFormRender.size() / getWidth()) / 5);
             }
             paintBrush.setColor(Color.parseColor(foregroundColor));
-            for (int i = 0; i < waveFormRender.size(); i += increment){
-                canvas.drawLine((float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec, axis,
-                        (float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec, axis - waveFormRender.get(i).y * getHeight(), paintBrush);
+            if (dpPerSample <= 1) {
+                for (int i = 0; i < waveFormRender.size(); i += increment) {
+                    canvas.drawLine((float) (waveFormRender.get(i).x - windowStartTime) * dpPerSec,
+                            axis,
+                            (float) (waveFormRender.get(i).x - windowStartTime) * dpPerSec,
+                            axis - waveFormRender.get(i).y * getHeight(), paintBrush);
+                }
+            }
+            else {
+                float width = getWidth() / waveFormRender.size() / increment;
+                for (int i = 0; i < waveFormRender.size(); i += increment) {
+                    canvas.drawRect((float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec,
+                    axis,
+                    (float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec + width,
+                    axis - waveFormRender.get(i).y * getHeight(),
+                    paintBrush);
+                }
             }
 
             if (showBeats) {
