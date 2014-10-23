@@ -884,29 +884,31 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
-            do {
-                if (mPlayer != null) {
-                    // Start playing from beginning of selection
-                    mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
-                    do { // Send an update to the play indicator
-                        try {
-                            Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
-                            m.arg1 = mPlayer.getCurrentPosition();
-                            m.sendToTarget();
-                            Thread.sleep(5);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+            try {
+                do {
+                    if (mPlayer != null) {
+                        // Start playing from beginning of selection
+                        if (mPlayer.isPlaying())
+                            mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                        do { // Send an update to the play indicator
+                            try {
+                                Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
+                                m.arg1 = mPlayer.getCurrentPosition();
+                                m.sendToTarget();
+                                Thread.sleep(5);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            // Continue updating as long as still within the selection and it hasn't been paused
                         }
-                        // Continue updating as long as still within the selection and it hasn't been paused
+                        while (mPlayer != null && continuePlaying && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
+                                && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000));
                     }
-                    while (mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
-                            && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000)
-                            && continuePlaying);
-                }
-            // Loop play if in loop mode and it hasn't been paused
-            } while (loop && continuePlaying);
-            // Done with play, stop the player and send final update
-            if (mPlayer != null)
+                    // Loop play if in loop mode and it hasn't been paused
+                } while (mPlayer != null && loop && continuePlaying);
+            } catch (IllegalStateException e){e.printStackTrace();}
+            // Done with play, pause the player and send final update
+            if (mPlayer != null && mPlayer.isPlaying())
                 mPlayer.pause();
             Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
             m.sendToTarget();

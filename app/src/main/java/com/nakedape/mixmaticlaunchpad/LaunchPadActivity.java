@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -101,7 +100,9 @@ public class LaunchPadActivity extends Activity {
         int bars = (int)Math.floor(beats / timeSignature);
         counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
     }
+    private ArrayList<LaunchEvent> launchList = new ArrayList<LaunchEvent>(50);
 
+    // Listener to turn off touch pads when sound is finished
     private AudioTrack.OnPlaybackPositionUpdateListener samplePlayListener = new AudioTrack.OnPlaybackPositionUpdateListener() {
         @Override
         public void onMarkerReached(AudioTrack track) {
@@ -369,7 +370,9 @@ public class LaunchPadActivity extends Activity {
         public boolean onTouch(View v, MotionEvent event) {
             if (!isEditMode && samples.containsKey(v.getId())) {
                 if (!isPlaying){ // Start counter if it isn't already running
+                    counter = 0;
                     isPlaying = true;
+                    launchList = new ArrayList<LaunchEvent>(50);
                     new Thread(new CounterThread()).start();
                 }
                 Sample s = samples.get(v.getId());
@@ -379,6 +382,7 @@ public class LaunchPadActivity extends Activity {
                             case Sample.LAUNCHMODE_GATE: // Stop sound and deselect pad
                                 s.stop();
                                 v.setPressed(false);
+                                launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
                                 break;
                             default:
                                 break;
@@ -389,6 +393,7 @@ public class LaunchPadActivity extends Activity {
                         if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                             s.stop();
                             v.setPressed(false);
+                            launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
                             return true;
                         }
                         // Otherwise play the sample
@@ -396,6 +401,7 @@ public class LaunchPadActivity extends Activity {
                             s.reset();
                         s.play();
                         v.setPressed(true);
+                        launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_START, v.getId()));
                         return true;
                     default:
                         return false;
@@ -581,6 +587,7 @@ public class LaunchPadActivity extends Activity {
 
     }
 
+    // On create methods
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -931,6 +938,7 @@ public class LaunchPadActivity extends Activity {
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
     }
+
     private void loadSample(String path, TouchPad pad){
         int id = pad.getId();
         pad.setOnTouchListener(TouchPadTouchListener);
@@ -956,6 +964,31 @@ public class LaunchPadActivity extends Activity {
             case 3:
                 pad.setBackgroundResource(R.drawable.launch_pad_orange);
                 break;
+        }
+    }
+
+    private class playBackRecording implements Runnable {
+        @Override
+        public void run() {
+            counter = 0;
+            isPlaying = true;
+            new Thread(new CounterThread()).start();
+            for (LaunchEvent event : launchList) {
+                while (event.timeStamp > counter && isPlaying)
+                {
+                    try {
+                        Thread.sleep(5);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (event.eventType.equals(LaunchEvent.PLAY_START))
+                    samples.get(event.getSampleId()).play();
+                else
+                    samples.get(event.getSampleId()).stop();
+                if (!isPlaying) break;
+            }
+            isPlaying = false;
         }
     }
 
@@ -985,13 +1018,10 @@ public class LaunchPadActivity extends Activity {
         }
         else if (id == R.id.action_stop){
             isPlaying = false;
-            for (int i = 0; i < numTouchPads; i++) {
-                if (samples.containsKey(i)) {
-                    Sample s = (Sample) samples.get(i);
-                    s.stop();
-                }
-            }
-
+        }
+        else if (id == R.id.action_play){
+            isPlaying = false;
+            new Thread(new playBackRecording()).start();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1038,7 +1068,7 @@ public class LaunchPadActivity extends Activity {
             do {
                 try {
                     Thread.sleep(10);
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException e) {e.printStackTrace();}
                 counter = SystemClock.elapsedRealtime() - startMillis;
                 Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
                 msg.sendToTarget();
@@ -1227,6 +1257,24 @@ public class LaunchPadActivity extends Activity {
                 setLoopMode(true);
             }
         }
+    }
+
+    public class LaunchEvent{
+        public static final String PLAY_START = "com.nakedape.mixmaticlaunchpad.playstart";
+        public static final String PLAY_STOP = "com.nakedape.mixmaticlaunchpad.playstop";
+        private double timeStamp;
+        private String eventType;
+        private int sampleId;
+
+        public LaunchEvent(double timeStamp, String eventType, int sampleId){
+            this.timeStamp = timeStamp;
+            this.eventType = eventType;
+            this.sampleId = sampleId;
+        }
+
+        public double getTimeStamp() {return timeStamp;}
+        public String getEventType() {return eventType;}
+        public int getSampleId() {return sampleId;}
     }
 
     private class MyLicenseCheckerCallback implements LicenseCheckerCallback {
