@@ -57,6 +57,7 @@ public class SampleEditActivity extends Activity {
     private float sampleRate = 44100;
     private int sampleLength;
     private long encodedFileSize;
+    private boolean showBeats = false;
     private InputStream musicStream;
     private Thread mp3ConvertThread;
     private ProgressDialog dlg;
@@ -78,7 +79,8 @@ public class SampleEditActivity extends Activity {
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.sample_edit_context, menu);
-
+            MenuItem item = menu.findItem(R.id.action_show_beats);
+            item.setChecked(showBeats);
             return true;
         }
 
@@ -89,6 +91,7 @@ public class SampleEditActivity extends Activity {
 
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
             switch (item.getItemId()){
                 case R.id.action_trim_wav:
                     Trim();
@@ -102,6 +105,21 @@ public class SampleEditActivity extends Activity {
                         loop = true;
                         item.setChecked(true);
                     }
+                    return true;
+                case R.id.action_show_beats:
+                    if (item.isChecked()) {
+                        item.setChecked(false);
+                        showBeats = false;
+                        sample.setShowBeats(false);
+                    }
+                    else {
+                        item.setChecked(true);
+                        showBeats = true;
+                        showBeats();
+                    }
+                    return true;
+                case R.id.action_pick_color:
+                    pickColor();
                     return true;
             }
             return false;
@@ -447,6 +465,51 @@ public class SampleEditActivity extends Activity {
         a.zoomOut();
     }
 
+    public void showBeats(){
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        dlg = new ProgressDialog(context);
+        dlg.setMessage("Processing audio");
+        dlg.setIndeterminate(true);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setCancelable(true);
+        dlg.setCanceledOnTouchOutside(false);
+        dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                sample.dispatcher.stop();
+            }
+        });
+        dlg.show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
+                sample.identifyBeats(beatThreshold);
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        dlg.dismiss();
+                        sample.setShowBeats(true);
+                    }
+                });
+            }
+        }).start();
+    }
+
+    public void pickColor(){
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(R.string.color_dialog_title);
+        builder.setItems(R.array.color_names, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                sample.setColor(which);
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -579,6 +642,14 @@ public class SampleEditActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.sample_edit, menu);
+        MenuItem item = menu.findItem(R.id.action_show_beats);
+        item.setChecked(showBeats);
+        return true;
+    }
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu){
+        MenuItem item = menu.findItem(R.id.action_show_beats);
+        item.setChecked(showBeats);
         return true;
     }
 
@@ -603,37 +674,13 @@ public class SampleEditActivity extends Activity {
             case R.id.action_show_beats:
                 if (item.isChecked()) {
                     item.setChecked(false);
+                    showBeats = false;
                     sample.setShowBeats(false);
                 }
                 else {
                     item.setChecked(true);
-                    dlg = new ProgressDialog(context);
-                    dlg.setMessage("Processing audio");
-                    dlg.setIndeterminate(true);
-                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                    dlg.setCancelable(true);
-                    dlg.setCanceledOnTouchOutside(false);
-                    dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
-                        @Override
-                        public void onCancel(DialogInterface dialog) {
-                            sample.dispatcher.stop();
-                        }
-                    });
-                    dlg.show();
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
-                            sample.identifyBeats(beatThreshold);
-                            mHandler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    dlg.dismiss();
-                                    sample.setShowBeats(true);
-                                }
-                            });
-                        }
-                    }).start();
+                    showBeats = true;
+                    showBeats();
                 }
                 return true;
             case R.id.action_loop_selection:
@@ -647,16 +694,7 @@ public class SampleEditActivity extends Activity {
                 }
                 return true;
             case R.id.action_pick_color:
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle(R.string.color_dialog_title);
-                builder.setItems(R.array.color_names, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        sample.setColor(which);
-                    }
-                });
-                AlertDialog dialog = builder.create();
-                dialog.show();
+                pickColor();
                 return true;
             case R.id.action_play_tarsos:
                 sample.Play(sample.getSelectionStartTime(), sample.getSelectionEndTime());
