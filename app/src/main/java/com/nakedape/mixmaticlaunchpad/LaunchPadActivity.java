@@ -16,6 +16,7 @@ import android.os.*;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -123,7 +124,8 @@ public class LaunchPadActivity extends Activity {
 
     private Context context;
     private ProgressDialog progressDialog;
-    private HashMap<Integer, Sample> samples;
+    //private HashMap<Integer, Sample> samples;
+    private SparseArray<Sample> samples;
     private File homeDir;
     private int numTouchPads;
     private AudioManager am;
@@ -214,7 +216,7 @@ public class LaunchPadActivity extends Activity {
             isEditMode = true;
             View oldView = findViewById(selectedSampleID);
             oldView.setSelected(true);
-            if (samples.containsKey(selectedSampleID)) {
+            if (samples.indexOfKey(selectedSampleID) >= 0) {
                 Sample s = (Sample) samples.get(selectedSampleID);
                 MenuItem item = menu.findItem(R.id.action_loop_mode);
                 item.setChecked(s.getLoopMode());
@@ -243,7 +245,7 @@ public class LaunchPadActivity extends Activity {
                 case R.id.action_edit_sample:
                     Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
                     intent.putExtra(TOUCHPAD_ID, selectedSampleID);
-                    if (samples.containsKey(selectedSampleID)){
+                    if (samples.indexOfKey(selectedSampleID) >= 0){
                         intent.putExtra(SAMPLE_PATH, homeDir.getAbsolutePath() + "/" + "Mixmatic_Touch_Pad_" + String.valueOf(selectedSampleID) + ".wav");
                         intent.putExtra(COLOR, launchPadprefs.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
                     }
@@ -252,7 +254,7 @@ public class LaunchPadActivity extends Activity {
                 case R.id.action_loop_mode:
                     if (item.isChecked()) {
                         item.setChecked(false);
-                        if (samples.containsKey(selectedSampleID)) {
+                        if (samples.indexOfKey(selectedSampleID) >= 0) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(false);
                             prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOPMODE, false);
@@ -261,7 +263,7 @@ public class LaunchPadActivity extends Activity {
                     }
                     else {
                         item.setChecked(true);
-                        if (samples.containsKey(selectedSampleID)) {
+                        if (samples.indexOfKey(selectedSampleID) >= 0) {
                             Sample s = (Sample)samples.get(selectedSampleID);
                             s.setLoopMode(true);
                             prefEditor.putBoolean(String.valueOf(selectedSampleID) + LOOPMODE, true);
@@ -270,7 +272,7 @@ public class LaunchPadActivity extends Activity {
                     }
                     return true;
                 case R.id.action_remove_sample:
-                    if (samples.containsKey(selectedSampleID)){
+                    if (samples.indexOfKey(selectedSampleID) >= 0){
                         AlertDialog.Builder builder = new AlertDialog.Builder(context);
                         builder.setMessage(getString(R.string.warning_remove_sample));
                         builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
@@ -299,7 +301,7 @@ public class LaunchPadActivity extends Activity {
                     }
                     return true;
                 case R.id.action_launch_mode_gate:
-                    if (samples.containsKey(selectedSampleID)){
+                    if (samples.indexOfKey(selectedSampleID) >= 0){
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setLaunchMode(Sample.LAUNCHMODE_GATE);
                         item.setChecked(true);
@@ -308,7 +310,7 @@ public class LaunchPadActivity extends Activity {
                     }
                     return true;
                 case R.id.action_launch_mode_trigger:
-                    if (samples.containsKey(selectedSampleID)){
+                    if (samples.indexOfKey(selectedSampleID) >= 0){
                         Sample s = (Sample)samples.get(selectedSampleID);
                         s.setOnPlayFinishedListener(samplePlayListener);
                         s.setLaunchMode(Sample.LAUNCHMODE_TRIGGER);
@@ -323,7 +325,7 @@ public class LaunchPadActivity extends Activity {
                     builder.setItems(R.array.color_names, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            if (samples.containsKey(selectedSampleID)){
+                            if (samples.indexOfKey(selectedSampleID) >= 0){
                                 View v = findViewById(selectedSampleID);// Load shared preferences to save color
                                 SharedPreferences.Editor editor = launchPadprefs.edit();
                                 switch (which){ // Set and save color
@@ -368,7 +370,7 @@ public class LaunchPadActivity extends Activity {
     private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
-            if (!isEditMode && samples.containsKey(v.getId())) {
+            if (!isEditMode && samples.indexOfKey(v.getId()) >= 0) {
                 if (!isPlaying){ // Start counter if it isn't already running
                     counter = 0;
                     isPlaying = true;
@@ -533,7 +535,7 @@ public class LaunchPadActivity extends Activity {
                 oldView.setSelected(false);
             selectedSampleID = v.getId();
             // If the pad contains a sample, show the edit menu
-            if (samples.containsKey(v.getId())) {
+            if (samples.indexOfKey(v.getId()) >= 0) {
                 if (emptyPadActionMode != null)
                     emptyPadActionMode = null;
                 if (launchPadActionMode == null)
@@ -564,7 +566,7 @@ public class LaunchPadActivity extends Activity {
             }
         } // If in multiselect mode allow empty pads to be selected
         else if (multiSelect) {
-            if (!samples.containsKey(v.getId())) {
+            if (!(samples.indexOfKey(v.getId()) >= 0)) {
                 if (v.isSelected()) {
                     v.setSelected(false);
                     selections.remove(String.valueOf(v.getId()));
@@ -644,7 +646,7 @@ public class LaunchPadActivity extends Activity {
     }
     private void setupPadsFromFile(){
         if (!savedDataLoaded && homeDir.isDirectory()) {
-            samples = new HashMap<Integer, Sample>();
+            samples = new SparseArray<Sample>(24);
             TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
             pad.setOnTouchListener(TouchPadTouchListener);
             File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
@@ -771,168 +773,168 @@ public class LaunchPadActivity extends Activity {
         Sample sample;
         TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad2);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad3);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad4);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad5);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad6);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad7);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad8);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad9);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad10);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad11);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad12);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad13);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad14);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad15);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad16);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad17);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad18);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad19);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad20);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad21);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad22);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad23);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);
         }
         pad = (TouchPad) findViewById(R.id.touchPad24);
         pad.setOnTouchListener(TouchPadTouchListener);
-        if (samples.containsKey(pad.getId())) {
+        if (samples.indexOfKey(pad.getId()) >= 0) {
             setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
             sample = samples.get(pad.getId());
             sample.setOnPlayFinishedListener(samplePlayListener);

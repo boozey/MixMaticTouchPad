@@ -2,6 +2,7 @@ package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Fragment;
 import android.os.Bundle;
+import android.util.SparseArray;
 
 import java.util.HashMap;
 
@@ -10,7 +11,7 @@ import java.util.HashMap;
  */
 public class LaunchPadData extends Fragment {
 
-    private HashMap samples;
+    private SparseArray<LaunchPadActivity.Sample> samples;
     private long counter;
     private boolean isPlaying;
     private boolean isEditMode;
@@ -22,8 +23,8 @@ public class LaunchPadData extends Fragment {
         setRetainInstance(true);
     }
 
-    public void setSamples(HashMap samples){this.samples = samples;}
-    public HashMap getSamples() {return samples;}
+    public void setSamples(SparseArray<LaunchPadActivity.Sample> samples){this.samples = samples;}
+    public SparseArray<LaunchPadActivity.Sample> getSamples() {return samples;}
     public void setCounter(long counter) {this.counter = counter;}
     public long getCounter() {return counter;}
     public void setPlaying(boolean isPlaying) {this.isPlaying = isPlaying;}
