@@ -936,7 +936,7 @@ public class SampleEditActivity extends Activity {
                                 Thread.sleep(5);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
-                            }
+                            } catch (NullPointerException e) { e.printStackTrace(); }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
                         while (mPlayer != null && continuePlaying && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)

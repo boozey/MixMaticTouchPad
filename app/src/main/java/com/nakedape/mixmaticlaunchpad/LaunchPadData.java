@@ -4,6 +4,7 @@ import android.app.Fragment;
 import android.os.Bundle;
 import android.util.SparseArray;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -15,6 +16,7 @@ public class LaunchPadData extends Fragment {
     private long counter;
     private boolean isPlaying;
     private boolean isEditMode;
+    private ArrayList<Integer> activePads;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -31,4 +33,6 @@ public class LaunchPadData extends Fragment {
     public boolean isPlaying() {return isPlaying;}
     public void setEditMode(boolean isEditMode) {this.isEditMode = isEditMode;}
     public boolean isEditMode() {return isEditMode;}
+    public void setActivePads(ArrayList<Integer> activePads) {this.activePads = activePads;}
+    public ArrayList<Integer> getActivePads() {return activePads;}
 }

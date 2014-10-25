@@ -7,8 +7,10 @@
         android:title="@string/action_settings"
         android:orderInCategory="100"
         android:showAsAction="never" />
+    <item android:id="@+id/action_play"
+        android:title="Play back mix"/>
     <item android:id="@+id/action_stop"
         android:title="@string/action_stop"/>
-    <item android:id="@+id/action_play"
-        android:title="Play back recording"/>
+    <item android:id="@+id/action_write_wav"
+        android:title="Save mix to wav" />
 </menu>

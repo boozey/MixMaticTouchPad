@@ -37,7 +37,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Locale;
 
 // Licensing imports
@@ -46,6 +45,8 @@ import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
 import com.google.android.vending.licensing.Policy;
 import com.google.android.vending.licensing.ServerManagedPolicy;
+
+import javazoom.jl.converter.WaveFile;
 
 
 public class LaunchPadActivity extends Activity {
@@ -101,7 +102,8 @@ public class LaunchPadActivity extends Activity {
         int bars = (int)Math.floor(beats / timeSignature);
         counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
     }
-    private ArrayList<LaunchEvent> launchList = new ArrayList<LaunchEvent>(50);
+    private ArrayList<LaunchEvent> launchEvents = new ArrayList<LaunchEvent>(50);
+    private ArrayList<Integer> activePads = new ArrayList<Integer>(24);
 
     // Listener to turn off touch pads when sound is finished
     private AudioTrack.OnPlaybackPositionUpdateListener samplePlayListener = new AudioTrack.OnPlaybackPositionUpdateListener() {
@@ -374,7 +376,7 @@ public class LaunchPadActivity extends Activity {
                 if (!isPlaying){ // Start counter if it isn't already running
                     counter = 0;
                     isPlaying = true;
-                    launchList = new ArrayList<LaunchEvent>(50);
+                    launchEvents = new ArrayList<LaunchEvent>(50);
                     new Thread(new CounterThread()).start();
                 }
                 Sample s = samples.get(v.getId());
@@ -384,7 +386,7 @@ public class LaunchPadActivity extends Activity {
                             case Sample.LAUNCHMODE_GATE: // Stop sound and deselect pad
                                 s.stop();
                                 v.setPressed(false);
-                                launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
+                                launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
                                 break;
                             default:
                                 break;
@@ -395,7 +397,7 @@ public class LaunchPadActivity extends Activity {
                         if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                             s.stop();
                             v.setPressed(false);
-                            launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
+                            launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
                             return true;
                         }
                         // Otherwise play the sample
@@ -403,7 +405,7 @@ public class LaunchPadActivity extends Activity {
                             s.reset();
                         s.play();
                         v.setPressed(true);
-                        launchList.add(new LaunchEvent(counter, LaunchEvent.PLAY_START, v.getId()));
+                        launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_START, v.getId()));
                         return true;
                     default:
                         return false;
@@ -633,6 +635,7 @@ public class LaunchPadActivity extends Activity {
             int min = (int)Math.floor(sec / 60);
             counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
             isEditMode = savedData.isEditMode();
+            activePads = savedData.getActivePads();
             savedDataLoaded = true;
             // Setup touch pads from retained fragment
             setupPadsFromFrag();
@@ -650,123 +653,171 @@ public class LaunchPadActivity extends Activity {
             TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
             pad.setOnTouchListener(TouchPadTouchListener);
             File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()) {  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad2);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile())  { // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad3);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()) { // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad4);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()) { // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad5);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad6);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad7);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad8);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad9);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad10);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad11);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad12);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad13);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad14);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad15);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad16);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad17);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()) { // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad18);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad19);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad20);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad21);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad22);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad23);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
             pad = (TouchPad) findViewById(R.id.touchPad24);
             pad.setOnTouchListener(TouchPadTouchListener);
             sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  // If the sample exists, load it
+            if (sampleFile.isFile()){  // If the sample exists, load it
                 loadSample(sampleFile.getAbsolutePath(), pad);
+                activePads.add(pad.getId());
+            }
         }
     }
     private void setupPadsFromFrag(){
@@ -975,7 +1026,7 @@ public class LaunchPadActivity extends Activity {
             counter = 0;
             isPlaying = true;
             new Thread(new CounterThread()).start();
-            for (LaunchEvent event : launchList) {
+            for (LaunchEvent event : launchEvents) {
                 while (event.timeStamp > counter && isPlaying)
                 {
                     try {
@@ -992,6 +1043,95 @@ public class LaunchPadActivity extends Activity {
             }
             isPlaying = false;
         }
+    }
+    private void stopPlayBack(){
+        isPlaying = false;
+        for (Integer i : activePads) {
+            Sample s = samples.get(i);
+            if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                s.stop();
+                launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
+            }
+        }
+    }
+    public void Stop(View v){
+        stopPlayBack();
+    }
+
+    private void SaveToFile(){
+        // Wave file to write
+        File waveFileTemp = new File(homeDir, "saved.wav");
+        if (waveFileTemp.isFile())
+            waveFileTemp.delete();
+        WaveFile waveFile = new WaveFile();
+        waveFile.OpenForWrite(waveFileTemp.getAbsolutePath(), 44100, (short)16, (short)2);
+        // Array holds all the samples that are being played at one time
+        ArrayList<String> playingSamples = new ArrayList<String>(24);
+        // Array to contain offsets for samples that play longer than the next event stored as strings
+        SparseArray<String> playingSampleOffsets = new SparseArray<String>(24);
+        int bytesWritten = 0;
+        int i = 0;
+        int length = 0;
+        do {
+            LaunchEvent event = launchEvents.get(i);
+            if (event.eventType.equals(LaunchEvent.PLAY_START))
+                playingSamples.add(String.valueOf(event.getSampleId()));
+            else
+                playingSamples.remove(String.valueOf(event.getSampleId()));
+            // Figure out how much can be written before the next start/stop event
+            if (i < launchEvents.size() - 1) {
+                length = (int) (launchEvents.get(i + 1).timeStamp / 1000 * 44100 * 16 / 4) - bytesWritten;
+            }
+            else
+                length = 0;
+            // short array to hold that data to be written before the next event
+            short[] shortData = new short[length / 2];
+            // For each sample that is playing load its data and add it to the array to be written
+            for (String id : playingSamples){
+                // byte array to hold that data to be written before the next event for this sample
+                int idInt = Integer.parseInt(id);
+                byte[] byteData = new byte[length];
+                byte [] sampleBytes = samples.get(idInt).getAudioBytes();
+                int bytesCopied = 0;
+                int offset = Integer.parseInt(playingSampleOffsets.get(idInt, "0"));
+                if (offset > sampleBytes.length)
+                    offset -= sampleBytes.length;
+                Log.d(LOG_TAG, "offset: " + String.valueOf(offset));
+                if (sampleBytes.length - offset <= byteData.length) {
+                    // Fill the byte array with copies of the sample until it is full
+                    do {
+                        ByteBuffer.wrap(sampleBytes, offset, sampleBytes.length - offset).get(byteData, bytesCopied, sampleBytes.length - offset);
+                        bytesCopied += sampleBytes.length - offset;
+                        offset = 0;
+                    } while (bytesCopied + sampleBytes.length <= byteData.length);
+                    ByteBuffer.wrap(sampleBytes, 0, byteData.length - bytesCopied).get(byteData, bytesCopied, byteData.length - bytesCopied);
+                    playingSampleOffsets.put(idInt, String.valueOf(sampleBytes.length - (byteData.length - bytesCopied)));
+                }
+                else{
+                    ByteBuffer.wrap(sampleBytes, offset, byteData.length).get(byteData);
+                    playingSampleOffsets.put(Integer.parseInt(id), String.valueOf(sampleBytes.length + offset - byteData.length));
+                }
+                // Convert byte data to shorts
+                short[] shorts = new short[byteData.length / 2];
+                ByteBuffer.wrap(byteData).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                // Add the sample short data to the total data to be written to file
+                float [] mixedBuffer = new float[shorts.length];
+                for (int j = 0; j < shorts.length; j++){
+                    mixedBuffer[j] = shortData[j] + shorts[j];
+                }
+                float max = 0;
+                for (float f : mixedBuffer)
+                    max = Math.max(Math.abs(f), max);
+                for (float f: mixedBuffer)
+                    f = f * 32767 / max;
+                for (int j = 0; j < shorts.length; j++)
+                    shortData[j] = (short)mixedBuffer[j];
+            }
+            waveFile.WriteData(shortData, shortData.length);
+            i++;
+            bytesWritten += length;
+        } while (i < launchEvents.size());
+        waveFile.Close();
     }
 
     @Override
@@ -1019,11 +1159,14 @@ public class LaunchPadActivity extends Activity {
             v.callOnClick();
         }
         else if (id == R.id.action_stop){
-            isPlaying = false;
+            stopPlayBack();
         }
         else if (id == R.id.action_play){
             isPlaying = false;
             new Thread(new playBackRecording()).start();
+        }
+        else if (id == R.id.action_write_wav){
+            SaveToFile();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1058,6 +1201,7 @@ public class LaunchPadActivity extends Activity {
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);
+        savedData.setActivePads(activePads);
     }
 
 
@@ -1180,6 +1324,17 @@ public class LaunchPadActivity extends Activity {
         }
         public int getLaunchMode(){
             return launchMode;
+        }
+        public byte[] getAudioBytes(){
+            InputStream stream = null;
+            byte[] bytes = null;
+            try {
+                stream = new BufferedInputStream(new FileInputStream(sampleFile));
+                stream.skip(44);
+                bytes = new byte[sampleByteLength];
+                stream.read(bytes);
+            } catch (IOException e) {e.printStackTrace();}
+            return bytes;
         }
         public void play(){
             played = true;
