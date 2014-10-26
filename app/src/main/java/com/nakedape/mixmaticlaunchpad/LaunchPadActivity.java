@@ -11,6 +11,9 @@ import android.content.SharedPreferences;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.net.Uri;
 import android.os.*;
 import android.preference.PreferenceManager;
@@ -1062,7 +1065,7 @@ public class LaunchPadActivity extends Activity {
         stopPlayBack();
     }
 
-    private void SaveToFile(){
+    private void SaveToFile(final String fileType){
         progressDialog = new ProgressDialog(context);
         progressDialog.setMessage("Exporting mix to wav");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
@@ -1074,8 +1077,20 @@ public class LaunchPadActivity extends Activity {
             @Override
             public void run() {
                 WriteWavFile();
+                EncodeAudio(fileType);
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.dismiss();
+                    }
+                });
             }
         }).start();
+    }
+    private void EncodeAudio(String fileType){
+        if (!fileType.equals("wav")) {
+            //MediaCodec codec = MediaCodec.createEncoderByType("audio/" + fileType);
+        }
     }
     private void WriteWavFile(){
         // Wave file to write
@@ -1084,7 +1099,7 @@ public class LaunchPadActivity extends Activity {
             waveFileTemp.delete();
         WaveFile waveFile = new WaveFile();
         waveFile.OpenForWrite(waveFileTemp.getAbsolutePath(), 44100, (short)16, (short)2);
-        // Array holds all the samples that are being played at one time
+        // Array holds all the samples that are being played at a given time
         ArrayList<String> playingSamples = new ArrayList<String>(24);
         // Array to contain offsets for samples that play longer than the next event stored as strings
         SparseArray<String> playingSampleOffsets = new SparseArray<String>(24);
@@ -1106,13 +1121,13 @@ public class LaunchPadActivity extends Activity {
             // short array to hold that data to be written before the next event
             short[] shortData = new short[length / 2];
             // For each sample that is playing load its data and add it to the array to be written
-            for (String id : playingSamples){
+            for (String idString : playingSamples){
                 // byte array to hold that data to be written before the next event for this sample
-                int idInt = Integer.parseInt(id);
+                int id = Integer.parseInt(idString);
                 byte[] byteData = new byte[length];
-                byte [] sampleBytes = samples.get(idInt).getAudioBytes();
+                byte [] sampleBytes = samples.get(id).getAudioBytes();
                 int bytesCopied = 0;
-                int offset = Integer.parseInt(playingSampleOffsets.get(idInt, "0"));
+                int offset = Integer.parseInt(playingSampleOffsets.get(id, "0"));
                 if (offset > sampleBytes.length)
                     offset -= sampleBytes.length;
                 if (sampleBytes.length - offset <= byteData.length) {
@@ -1123,11 +1138,11 @@ public class LaunchPadActivity extends Activity {
                         offset = 0;
                     } while (bytesCopied + sampleBytes.length <= byteData.length);
                     ByteBuffer.wrap(sampleBytes, 0, byteData.length - bytesCopied).get(byteData, bytesCopied, byteData.length - bytesCopied);
-                    playingSampleOffsets.put(idInt, String.valueOf(sampleBytes.length - (byteData.length - bytesCopied)));
+                    playingSampleOffsets.put(id, String.valueOf((byteData.length - bytesCopied)));
                 }
                 else{
                     ByteBuffer.wrap(sampleBytes, offset, byteData.length).get(byteData);
-                    playingSampleOffsets.put(Integer.parseInt(id), String.valueOf(sampleBytes.length + offset - byteData.length));
+                    playingSampleOffsets.put(Integer.parseInt(idString), String.valueOf(sampleBytes.length + offset + byteData.length));
                 }
                 // Convert byte data to shorts
                 short[] shorts = new short[byteData.length / 2];
@@ -1150,12 +1165,42 @@ public class LaunchPadActivity extends Activity {
             bytesWritten += length;
         } while (i < launchEvents.size());
         waveFile.Close();
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                progressDialog.dismiss();
+    }
+    private void selectEncoder(){
+        if (launchEvents.size() > 1) {
+            ArrayList<String> codecs = new ArrayList<String>();
+            codecs.add("wav");
+            final String[] fileTypes;
+            for (int i = 0; i < MediaCodecList.getCodecCount(); i++) {
+                MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+                if (codecInfo.isEncoder()) {
+                    String[] types = codecInfo.getSupportedTypes();
+                    for (String s : types) {
+                        if (s.startsWith("audio"))
+                            if (codecs.indexOf(s.substring(6)) < 0)
+                                codecs.add(s.substring(6));
+                        Log.d(LOG_TAG, codecInfo.getName() + " supported type: " + s);
+                    }
+                }
             }
-        });
+            fileTypes = new String[codecs.size()];
+            for (int i = 0; i < codecs.size(); i++)
+                fileTypes[i] = codecs.get(i);
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle("Select audio file format");
+            builder.setItems(fileTypes, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    SaveToFile(fileTypes[which]);
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
+        }
+        else
+        {
+            Toast.makeText(context, "Nothing to export", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -1190,7 +1235,7 @@ public class LaunchPadActivity extends Activity {
             new Thread(new playBackRecording()).start();
         }
         else if (id == R.id.action_write_wav){
-            SaveToFile();
+            selectEncoder();
         }
         return super.onOptionsItemSelected(item);
     }
