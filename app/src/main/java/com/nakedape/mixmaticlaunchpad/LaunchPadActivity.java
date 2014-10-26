@@ -64,6 +64,7 @@ public class LaunchPadActivity extends Activity {
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
     private static final int COUNTER_UPDATE = 3;
+    private static final int WAV_FILE_WRITE_PROGRESS = 4;
 
     // Licensing
     private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi8rbiVIkVPQvsF7d5CrHXnYeh/WsBRAUdjVADnto9X32e6q3O0aB0E4Kz4C7GuBV1dBvARWL7B1Cb4qI0zvjBi8fJT6/OxQDPssEFSdODXxY7xp6dexbJ1huBdGR8IVg5np06C20s9lH3iPuMdzRa26dP4xnP2vL2G90+msqpxpfR84TxG1sHrOM24o1yzg6pgGmFlHMXL7x+XDZyVZN3TNZR9CSeI+ygvVSg9DZPDQSz1T1cIebQ6MctvCQ0Vi17VT8pAnOM8BXUZUSuaetZHM/OXrhmk3MCFKW4RTrGf5NG1+3U0QQ6+wOkyJXwDdGLyz1/IEQTPCmqOs/LwYdFwIDAQAB";
@@ -91,6 +92,9 @@ public class LaunchPadActivity extends Activity {
             switch (msg.what){
                 case COUNTER_UPDATE:
                     updateCounterMessage();
+                    break;
+                case WAV_FILE_WRITE_PROGRESS:
+                    progressDialog.setProgress(msg.arg1);
                     break;
             }
         }
@@ -1059,6 +1063,21 @@ public class LaunchPadActivity extends Activity {
     }
 
     private void SaveToFile(){
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setMessage("Exporting mix to wav");
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.setIndeterminate(false);
+        progressDialog.setCancelable(false);
+        progressDialog.setMax(launchEvents.size());
+        progressDialog.show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                WriteWavFile();
+            }
+        }).start();
+    }
+    private void WriteWavFile(){
         // Wave file to write
         File waveFileTemp = new File(homeDir, "saved.wav");
         if (waveFileTemp.isFile())
@@ -1096,7 +1115,6 @@ public class LaunchPadActivity extends Activity {
                 int offset = Integer.parseInt(playingSampleOffsets.get(idInt, "0"));
                 if (offset > sampleBytes.length)
                     offset -= sampleBytes.length;
-                Log.d(LOG_TAG, "offset: " + String.valueOf(offset));
                 if (sampleBytes.length - offset <= byteData.length) {
                     // Fill the byte array with copies of the sample until it is full
                     do {
@@ -1125,10 +1143,19 @@ public class LaunchPadActivity extends Activity {
                     shortData[j] = (short) (mixedBuffer[j] * 32767 / max);
             }
             waveFile.WriteData(shortData, shortData.length);
+            Message m = mHandler.obtainMessage(WAV_FILE_WRITE_PROGRESS);
+            m.arg1 = i;
+            m.sendToTarget();
             i++;
             bytesWritten += length;
         } while (i < launchEvents.size());
         waveFile.Close();
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                progressDialog.dismiss();
+            }
+        });
     }
 
     @Override
