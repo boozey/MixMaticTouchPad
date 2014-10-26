@@ -1080,7 +1080,7 @@ public class LaunchPadActivity extends Activity {
                 playingSamples.remove(String.valueOf(event.getSampleId()));
             // Figure out how much can be written before the next start/stop event
             if (i < launchEvents.size() - 1) {
-                length = (int) (launchEvents.get(i + 1).timeStamp / 1000 * 44100 * 16 / 4) - bytesWritten;
+                length = (int)(launchEvents.get(i + 1).timeStamp / 1000 * 44100) * 16 / 4 - bytesWritten;
             }
             else
                 length = 0;
@@ -1116,16 +1116,13 @@ public class LaunchPadActivity extends Activity {
                 ByteBuffer.wrap(byteData).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
                 // Add the sample short data to the total data to be written to file
                 float [] mixedBuffer = new float[shorts.length];
+                float max = 0;
                 for (int j = 0; j < shorts.length; j++){
                     mixedBuffer[j] = shortData[j] + shorts[j];
+                    max = Math.max(mixedBuffer[j], max);
                 }
-                float max = 0;
-                for (float f : mixedBuffer)
-                    max = Math.max(Math.abs(f), max);
-                for (float f: mixedBuffer)
-                    f = f * 32767 / max;
-                for (int j = 0; j < shorts.length; j++)
-                    shortData[j] = (short)mixedBuffer[j];
+                for (int j = 0; j < mixedBuffer.length; j++)
+                    shortData[j] = (short) (mixedBuffer[j] * 32767 / max);
             }
             waveFile.WriteData(shortData, shortData.length);
             i++;
