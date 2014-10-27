@@ -35,7 +35,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -84,6 +83,7 @@ public class LaunchPadActivity extends Activity {
     private boolean isLicensed = false;
 
     private boolean isEditMode = false;
+    private boolean isRecording = false;
     private boolean isPlaying = false;
     private boolean dialogCanceled = false;
 
@@ -382,10 +382,10 @@ public class LaunchPadActivity extends Activity {
     private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
-            if (!isEditMode && samples.indexOfKey(v.getId()) >= 0) {
-                if (!isPlaying){ // Start counter if it isn't already running
+            if (!isEditMode &&!isPlaying && samples.indexOfKey(v.getId()) >= 0) {
+                if (!isRecording){ // Start counter if it isn't already running
                     counter = 0;
-                    isPlaying = true;
+                    isRecording = true;
                     launchEvents = new ArrayList<LaunchEvent>(50);
                     new Thread(new CounterThread()).start();
                 }
@@ -1034,6 +1034,7 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void run() {
             counter = 0;
+            isRecording = false;
             isPlaying = true;
             new Thread(new CounterThread()).start();
             for (LaunchEvent event : launchEvents) {
@@ -1055,6 +1056,7 @@ public class LaunchPadActivity extends Activity {
         }
     }
     private void stopPlayBack(){
+        isRecording = false;
         isPlaying = false;
         for (Integer i : activePads) {
             Sample s = samples.get(i);
@@ -1101,6 +1103,12 @@ public class LaunchPadActivity extends Activity {
                             @Override
                             public void run() {
                                 EncodeAudio(fileType);
+                                mHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        progressDialog.dismiss();
+                                    }
+                                });
                             }
                         }).start();
                     }
@@ -1294,14 +1302,14 @@ public class LaunchPadActivity extends Activity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         if (id == R.id.action_settings) {
-            isPlaying = false;
+            isRecording = false;
             Intent intent = new Intent(EditPreferencesActivity.LAUNCHPAD_PREFS, null, context, EditPreferencesActivity.class);
             startActivity(intent);
             return true;
         }
         else if (id == R.id.action_edit_mode) {
             isEditMode = true;
-            isPlaying = false;
+            isRecording = false;
             View v = findViewById(R.id.touchPad1);
             v.callOnClick();
         }
@@ -1309,7 +1317,7 @@ public class LaunchPadActivity extends Activity {
             stopPlayBack();
         }
         else if (id == R.id.action_play){
-            isPlaying = false;
+            isRecording = false;
             new Thread(new playBackRecording()).start();
         }
         else if (id == R.id.action_write_wav){
@@ -1345,7 +1353,7 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.dismiss();
         if (mChecker != null)
             mChecker.onDestroy();
-        isPlaying = false;
+        isRecording = false;
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);
@@ -1366,7 +1374,7 @@ public class LaunchPadActivity extends Activity {
                 counter = SystemClock.elapsedRealtime() - startMillis;
                 Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
                 msg.sendToTarget();
-            } while (isPlaying);
+            } while (isRecording || isPlaying);
         }
     }
 
