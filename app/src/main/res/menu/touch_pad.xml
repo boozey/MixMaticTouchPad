@@ -12,5 +12,5 @@
     <item android:id="@+id/action_stop"
         android:title="@string/action_stop"/>
     <item android:id="@+id/action_write_wav"
-        android:title="Export mix to wav" />
+        android:title="Export mix as file" />
 </menu>

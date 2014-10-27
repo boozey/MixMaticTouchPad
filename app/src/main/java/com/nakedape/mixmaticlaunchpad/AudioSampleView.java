@@ -283,8 +283,8 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
                 beatsRender.add(new Line(l.getX(), l.getY()));
             }
         }
-        selectStart = (float)(selectionStartTime * getWidth() / (windowEndTime - windowStartTime));
-        selectEnd = (float)(selectionEndTime * getWidth() / (windowEndTime - windowStartTime));
+        selectStart = (float)((selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime) * getWidth());
+        selectEnd = (float)((selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime) * getWidth());
         invalidate();
     }
 

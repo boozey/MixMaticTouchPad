@@ -14,6 +14,7 @@ import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.*;
 import android.preference.PreferenceManager;
@@ -34,6 +35,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -83,6 +85,7 @@ public class LaunchPadActivity extends Activity {
 
     private boolean isEditMode = false;
     private boolean isPlaying = false;
+    private boolean dialogCanceled = false;
 
     // Counter
     private TextView counterTextView;
@@ -1067,7 +1070,7 @@ public class LaunchPadActivity extends Activity {
 
     private void SaveToFile(final String fileType){
         progressDialog = new ProgressDialog(context);
-        progressDialog.setMessage("Exporting mix to wav");
+        progressDialog.setMessage("Writing wav");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progressDialog.setIndeterminate(false);
         progressDialog.setCancelable(false);
@@ -1077,11 +1080,29 @@ public class LaunchPadActivity extends Activity {
             @Override
             public void run() {
                 WriteWavFile();
-                EncodeAudio(fileType);
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         progressDialog.dismiss();
+                        progressDialog = new ProgressDialog(context);
+                        progressDialog.setMessage("Encoding " + fileType);
+                        progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                        progressDialog.setIndeterminate(true);
+                        progressDialog.setCancelable(true);
+                        progressDialog.setCanceledOnTouchOutside(false);
+                        progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                            @Override
+                            public void onCancel(DialogInterface dialog) {
+                                dialogCanceled = true;
+                            }
+                        });
+                        progressDialog.show();
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                EncodeAudio(fileType);
+                            }
+                        }).start();
                     }
                 });
             }
@@ -1089,7 +1110,64 @@ public class LaunchPadActivity extends Activity {
     }
     private void EncodeAudio(String fileType){
         if (!fileType.equals("wav")) {
-            //MediaCodec codec = MediaCodec.createEncoderByType("audio/" + fileType);
+            File encodedFile = new File(homeDir + "/saved.aac");
+            if (encodedFile.isFile())
+                encodedFile.delete();
+            FileOutputStream fileWriter;
+            long TIMEOUT_US = 10000;
+            ByteBuffer[] codecInputBuffers;
+            ByteBuffer[] codecOutputBuffers;
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            InputStream wavStream;
+            MediaFormat format = new MediaFormat();
+            format.setString(MediaFormat.KEY_MIME, "audio/" + fileType);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, 128);
+            format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+            format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+            try {
+                fileWriter = new FileOutputStream(encodedFile);
+                wavStream = new BufferedInputStream(new FileInputStream(new File(homeDir, "saved.wav")));
+                wavStream.skip(44);
+                MediaCodec codec = MediaCodec.createEncoderByType("audio/" + fileType);
+                codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+                codec.start();
+                codecInputBuffers = codec.getInputBuffers();
+                codecOutputBuffers = codec.getOutputBuffers();
+                boolean sawInputEOS = false;
+                boolean sawOutputEOS = false;
+                do {
+                    // Load input buffer
+                    int inputBufIndex = codec.dequeueInputBuffer(TIMEOUT_US);
+                    Log.d(LOG_TAG, "inputBufIndex = " + String.valueOf(inputBufIndex));
+                    if (inputBufIndex >= 0) {
+                        ByteBuffer inputBuffer = codecInputBuffers[inputBufIndex];
+                        inputBuffer.clear();
+                        byte[] inputBytes = new byte[inputBuffer.capacity()];
+                        int len = wavStream.read(inputBytes);
+                        inputBuffer.put(inputBytes);
+                        codec.queueInputBuffer(inputBufIndex, 0, len, 0, 0);
+                        Log.d(LOG_TAG, "codec read bytes " + String.valueOf(inputBytes.length));
+                    }
+                    else
+                        sawInputEOS = true;
+                    // Process output buffers
+                    int outputBufIndex = codec.dequeueOutputBuffer(info, TIMEOUT_US);
+                    if (outputBufIndex >=0){
+                        ByteBuffer outputBuffer = codecOutputBuffers[outputBufIndex];
+                        byte[] outputBytes = new byte[info.size];
+                        outputBuffer.position(0);
+                        outputBuffer.get(outputBytes);
+                        fileWriter.write(outputBytes);
+                        codec.releaseOutputBuffer(outputBufIndex, false);
+                        Log.d(LOG_TAG, "codec wrote bytes " + String.valueOf(outputBytes.length));
+                    }
+                    if ((info.flags == MediaCodec.BUFFER_FLAG_END_OF_STREAM) || (info.flags == MediaCodec.BUFFER_FLAG_SYNC_FRAME + MediaCodec.BUFFER_FLAG_END_OF_STREAM))
+                        sawOutputEOS = true;
+                } while (!sawInputEOS && !sawOutputEOS && !dialogCanceled);
+                codec.stop();
+                fileWriter.close();
+
+            } catch (IOException e) {e.printStackTrace();}
         }
     }
     private void WriteWavFile(){
@@ -1235,6 +1313,7 @@ public class LaunchPadActivity extends Activity {
             new Thread(new playBackRecording()).start();
         }
         else if (id == R.id.action_write_wav){
+            stopPlayBack();
             selectEncoder();
         }
         return super.onOptionsItemSelected(item);
@@ -1528,7 +1607,7 @@ public class LaunchPadActivity extends Activity {
                     @Override
                     public void run() {
 
-                        finish();
+                        //finish();
                     }
                 });
             } else {
