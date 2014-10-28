@@ -127,7 +127,8 @@ public class LaunchPadActivity extends Activity {
                 v.setPressed(false);
                 Sample s = (Sample) samples.get(id);
                 s.stop();
-                launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
+                if (isRecording)
+                    launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
             }
         }
 
@@ -1105,6 +1106,7 @@ public class LaunchPadActivity extends Activity {
         progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progressDialog.setIndeterminate(false);
         progressDialog.setCancelable(true);
+        progressDialog.setCanceledOnTouchOutside(false);
         dialogCanceled = false;
         progressDialog.setMax(launchEvents.size());
         progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
