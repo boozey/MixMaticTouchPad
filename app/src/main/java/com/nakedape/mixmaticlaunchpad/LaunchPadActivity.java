@@ -22,11 +22,13 @@ import android.provider.Settings;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.ActionMode;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -125,6 +127,7 @@ public class LaunchPadActivity extends Activity {
                 v.setPressed(false);
                 Sample s = (Sample) samples.get(id);
                 s.stop();
+                launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, v.getId()));
             }
         }
 
@@ -382,8 +385,8 @@ public class LaunchPadActivity extends Activity {
     private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
-            if (!isEditMode &&!isPlaying && samples.indexOfKey(v.getId()) >= 0) {
-                if (!isRecording){ // Start counter if it isn't already running
+            if (!isEditMode && !isPlaying && samples.indexOfKey(v.getId()) >= 0) {
+                if (!isRecording){ // Start counter and reinitialize launch event array
                     counter = 0;
                     isRecording = true;
                     launchEvents = new ArrayList<LaunchEvent>(50);
@@ -1070,51 +1073,98 @@ public class LaunchPadActivity extends Activity {
         stopPlayBack();
     }
 
-    private void SaveToFile(final String fileType){
+    // File save/export methods
+    private void promptForFilename(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Enter a name");
+        LayoutInflater inflater = getLayoutInflater();
+        final View view = inflater.inflate(R.layout.enter_text_dialog, null);
+        builder.setView(view);
+        builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                EditText text = (EditText) view.findViewById(R.id.dialogText);
+                String fileName = text.getText().toString();
+                if (fileName.toLowerCase().endsWith(".wav"))
+                    fileName = fileName.substring(0, fileName.length() - 4);
+                SaveToFile(fileName);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    private void SaveToFile(final String fileName){
         progressDialog = new ProgressDialog(context);
-        progressDialog.setMessage("Writing wav");
+        progressDialog.setMessage("Saving " + fileName + ".wav");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progressDialog.setIndeterminate(false);
-        progressDialog.setCancelable(false);
+        progressDialog.setCancelable(true);
+        dialogCanceled = false;
         progressDialog.setMax(launchEvents.size());
+        progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                progressDialog.dismiss();
+                dialogCanceled = true;
+            }
+        });
         progressDialog.show();
         new Thread(new Runnable() {
             @Override
             public void run() {
-                WriteWavFile();
+                WriteWavFile(fileName);
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         progressDialog.dismiss();
-                        progressDialog = new ProgressDialog(context);
-                        progressDialog.setMessage("Encoding " + fileType);
-                        progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                        progressDialog.setIndeterminate(true);
-                        progressDialog.setCancelable(true);
-                        progressDialog.setCanceledOnTouchOutside(false);
-                        progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-                            @Override
-                            public void onCancel(DialogInterface dialog) {
-                                dialogCanceled = true;
-                            }
-                        });
-                        progressDialog.show();
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                EncodeAudio(fileType);
-                                mHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        progressDialog.dismiss();
-                                    }
-                                });
-                            }
-                        }).start();
+                        if (!dialogCanceled)
+                            Toast.makeText(context, "Saved to " + homeDir + "/" + fileName + ".wav", Toast.LENGTH_SHORT).show();
                     }
                 });
             }
         }).start();
+    }
+    private void selectEncoder(){
+        if (launchEvents.size() > 1) {
+            ArrayList<String> codecs = new ArrayList<String>();
+            codecs.add("wav");
+            final String[] fileTypes;
+            for (int i = 0; i < MediaCodecList.getCodecCount(); i++) {
+                MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+                if (codecInfo.isEncoder()) {
+                    String[] types = codecInfo.getSupportedTypes();
+                    for (String s : types) {
+                        if (s.startsWith("audio"))
+                            if (codecs.indexOf(s.substring(6)) < 0)
+                                codecs.add(s.substring(6));
+                        Log.d(LOG_TAG, codecInfo.getName() + " supported type: " + s);
+                    }
+                }
+            }
+            fileTypes = new String[codecs.size()];
+            for (int i = 0; i < codecs.size(); i++)
+                fileTypes[i] = codecs.get(i);
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle("Select audio file format");
+            builder.setItems(fileTypes, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    SaveToFile(fileTypes[which]);
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
+        }
+        else
+        {
+            Toast.makeText(context, "Nothing to export", Toast.LENGTH_SHORT).show();
+        }
     }
     private void EncodeAudio(String fileType){
         if (!fileType.equals("wav")) {
@@ -1178,18 +1228,18 @@ public class LaunchPadActivity extends Activity {
             } catch (IOException e) {e.printStackTrace();}
         }
     }
-    private void WriteWavFile(){
+    private void WriteWavFile(String fileName){
         // Wave file to write
-        File waveFileTemp = new File(homeDir, "saved.wav");
+        File waveFileTemp = new File(homeDir, fileName + ".wav");
         if (waveFileTemp.isFile())
             waveFileTemp.delete();
         WaveFile waveFile = new WaveFile();
         waveFile.OpenForWrite(waveFileTemp.getAbsolutePath(), 44100, (short)16, (short)2);
         // Array holds all the samples that are being played at a given time
         ArrayList<String> playingSamples = new ArrayList<String>(24);
-        // Array to contain offsets for samples that play longer than the next event stored as strings
+        // Array to contain offsets for samples that play longer than the next event.  Stored as strings
         SparseArray<String> playingSampleOffsets = new SparseArray<String>(24);
-        int bytesWritten = 0;
+        int bytesWritten = 0; // Total bytes written, also used to track time
         int i = 0;
         int length = 0;
         do {
@@ -1249,44 +1299,8 @@ public class LaunchPadActivity extends Activity {
             m.sendToTarget();
             i++;
             bytesWritten += length;
-        } while (i < launchEvents.size());
+        } while (i < launchEvents.size() && !dialogCanceled);
         waveFile.Close();
-    }
-    private void selectEncoder(){
-        if (launchEvents.size() > 1) {
-            ArrayList<String> codecs = new ArrayList<String>();
-            codecs.add("wav");
-            final String[] fileTypes;
-            for (int i = 0; i < MediaCodecList.getCodecCount(); i++) {
-                MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-                if (codecInfo.isEncoder()) {
-                    String[] types = codecInfo.getSupportedTypes();
-                    for (String s : types) {
-                        if (s.startsWith("audio"))
-                            if (codecs.indexOf(s.substring(6)) < 0)
-                                codecs.add(s.substring(6));
-                        Log.d(LOG_TAG, codecInfo.getName() + " supported type: " + s);
-                    }
-                }
-            }
-            fileTypes = new String[codecs.size()];
-            for (int i = 0; i < codecs.size(); i++)
-                fileTypes[i] = codecs.get(i);
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setTitle("Select audio file format");
-            builder.setItems(fileTypes, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    SaveToFile(fileTypes[which]);
-                }
-            });
-            AlertDialog dialog = builder.create();
-            dialog.show();
-        }
-        else
-        {
-            Toast.makeText(context, "Nothing to export", Toast.LENGTH_SHORT).show();
-        }
     }
 
     @Override
@@ -1322,7 +1336,7 @@ public class LaunchPadActivity extends Activity {
         }
         else if (id == R.id.action_write_wav){
             stopPlayBack();
-            selectEncoder();
+            promptForFilename();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1350,10 +1364,11 @@ public class LaunchPadActivity extends Activity {
         super.onDestroy();
         if (progressDialog != null)
             if (progressDialog.isShowing())
-                progressDialog.dismiss();
+                progressDialog.cancel();
         if (mChecker != null)
             mChecker.onDestroy();
         isRecording = false;
+        isPlaying = false;
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);

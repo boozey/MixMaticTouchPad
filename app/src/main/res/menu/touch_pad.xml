@@ -8,9 +8,9 @@
         android:orderInCategory="100"
         android:showAsAction="never" />
     <item android:id="@+id/action_play"
-        android:title="Play back mix"/>
+        android:title="@string/action_play_back"/>
     <item android:id="@+id/action_stop"
         android:title="@string/action_stop"/>
     <item android:id="@+id/action_write_wav"
-        android:title="Export mix as file" />
+        android:title="@string/action_save_mix" />
 </menu>
