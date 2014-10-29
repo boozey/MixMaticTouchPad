@@ -1248,8 +1248,10 @@ public class LaunchPadActivity extends Activity {
             LaunchEvent event = launchEvents.get(i);
             if (event.eventType.equals(LaunchEvent.PLAY_START))
                 playingSamples.add(String.valueOf(event.getSampleId()));
-            else
+            else {
                 playingSamples.remove(String.valueOf(event.getSampleId()));
+                playingSampleOffsets.put(event.getSampleId(), String.valueOf(0));
+            }
             // Figure out how much can be written before the next start/stop event
             if (i < launchEvents.size() - 1) {
                 length = (int)(launchEvents.get(i + 1).timeStamp / 1000 * 44100) * 16 / 4 - bytesWritten;
