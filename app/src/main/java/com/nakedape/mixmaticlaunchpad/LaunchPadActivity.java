@@ -626,6 +626,10 @@ public class LaunchPadActivity extends Activity {
     private void licensedOnCreate(){
         setContentView(R.layout.activity_launch_pad);
         homeDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MixMatic");
+        if (!homeDir.isDirectory()){
+            if (!homeDir.mkdir())
+                Toast.makeText(context, "ERROR: Unable to create storage folder", Toast.LENGTH_SHORT).show();
+        }
         launchPadprefs = getPreferences(MODE_PRIVATE);
 
         PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
@@ -663,177 +667,175 @@ public class LaunchPadActivity extends Activity {
             setupPadsFromFile();
         }
     }
-    private void setupPadsFromFile(){
-        if (!savedDataLoaded && homeDir.isDirectory()) {
-            samples = new SparseArray<Sample>(24);
-            TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()) {  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad2);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile())  { // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad3);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()) { // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad4);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()) { // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad5);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad6);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad7);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad8);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad9);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad10);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad11);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad12);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad13);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad14);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad15);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad16);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad17);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()) { // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad18);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad19);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad20);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad21);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad22);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad23);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
-            pad = (TouchPad) findViewById(R.id.touchPad24);
-            pad.setOnTouchListener(TouchPadTouchListener);
-            sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
-            if (sampleFile.isFile()){  // If the sample exists, load it
-                loadSample(sampleFile.getAbsolutePath(), pad);
-                activePads.add(pad.getId());
-            }
+    private void setupPadsFromFile() {
+        samples = new SparseArray<Sample>(24);
+        TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad2);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) { // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad3);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) { // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad4);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) { // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad5);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad6);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad7);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad8);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad9);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad10);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad11);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad12);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad13);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad14);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad15);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad16);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad17);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) { // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad18);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad19);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad20);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad21);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad22);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad23);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
+        }
+        pad = (TouchPad) findViewById(R.id.touchPad24);
+        pad.setOnTouchListener(TouchPadTouchListener);
+        sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
+        if (sampleFile.isFile()) {  // If the sample exists, load it
+            loadSample(sampleFile.getAbsolutePath(), pad);
+            activePads.add(pad.getId());
         }
     }
     private void setupPadsFromFrag(){
