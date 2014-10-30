@@ -1,6 +1,7 @@
 package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Fragment;
+import android.net.Uri;
 import android.os.Bundle;
 
 import java.util.ArrayList;
@@ -25,6 +26,12 @@ public class AudioSampleData extends Fragment {
     private String foregroundColor;
 
     private boolean loop;
+
+    private boolean isSliceMode;
+    private int numSlices;
+
+    private boolean isDecoding;
+    private Uri fullMusicUri;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -73,5 +80,15 @@ public class AudioSampleData extends Fragment {
 
     public void setLoop(boolean loop){this.loop = loop;}
     public boolean getLoop() {return loop;}
+
+    public void setSliceMode(boolean sliceMode) {this.isSliceMode = sliceMode;}
+    public boolean isSliceMode() {return isSliceMode;}
+    public void setNumSlices(int numSlices) {this.numSlices = numSlices;}
+    public int getNumSlices() {return numSlices;}
+
+    public void setDecoding(boolean isDecoding) {this.isDecoding = isDecoding;}
+    public boolean isDecoding() {return isDecoding;}
+    public void setFullMusicUri(Uri fullMusicUri) {this.fullMusicUri = fullMusicUri;}
+    public Uri getFullMusicUri() {return fullMusicUri;}
 
 }
