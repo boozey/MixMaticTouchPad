@@ -15,6 +15,7 @@ public class LaunchPadData extends Fragment {
     private SparseArray<LaunchPadActivity.Sample> samples;
     private long counter;
     private boolean isPlaying;
+    private boolean isRecording;
     private boolean isEditMode;
     private ArrayList<Integer> activePads;
 
@@ -31,6 +32,8 @@ public class LaunchPadData extends Fragment {
     public long getCounter() {return counter;}
     public void setPlaying(boolean isPlaying) {this.isPlaying = isPlaying;}
     public boolean isPlaying() {return isPlaying;}
+    public void setRecording(boolean isRecording) {this.isRecording = isRecording;}
+    public boolean isRecording() {return  isRecording;}
     public void setEditMode(boolean isEditMode) {this.isEditMode = isEditMode;}
     public boolean isEditMode() {return isEditMode;}
     public void setActivePads(ArrayList<Integer> activePads) {this.activePads = activePads;}

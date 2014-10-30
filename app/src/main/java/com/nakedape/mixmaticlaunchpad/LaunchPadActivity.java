@@ -650,6 +650,8 @@ public class LaunchPadActivity extends Activity {
             counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
             isEditMode = savedData.isEditMode();
             activePads = savedData.getActivePads();
+            isRecording = savedData.isRecording();
+            isPlaying = savedData.isPlaying();
             savedDataLoaded = true;
             // Setup touch pads from retained fragment
             setupPadsFromFrag();
@@ -1311,6 +1313,23 @@ public class LaunchPadActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.touch_pad, menu);
+        for (Integer I : activePads){
+            if (samples.get(I).audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                View view = findViewById(I);
+                view.setPressed(true);
+            }
+        }
+        return true;
+    }
+    @Override
+    public boolean onMenuOpened(int featureId, Menu menu){
+        for (Integer I : activePads){
+            if (samples.get(I).audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                View view = findViewById(I);
+                view.setPressed(true);
+            }
+        }
+        stopPlayBack();
         return true;
     }
     @Override
@@ -1371,12 +1390,14 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.cancel();
         if (mChecker != null)
             mChecker.onDestroy();
-        isRecording = false;
-        isPlaying = false;
+        //isRecording = false;
+        //isPlaying = false;
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);
         savedData.setActivePads(activePads);
+        savedData.setPlaying(isPlaying);
+        savedData.setRecording(isRecording);
     }
 
 
