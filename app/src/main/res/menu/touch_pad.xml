@@ -9,8 +9,6 @@
         android:showAsAction="never" />
     <item android:id="@+id/action_play"
         android:title="@string/action_play_back"/>
-    <item android:id="@+id/action_stop"
-        android:title="@string/action_stop"/>
     <item android:id="@+id/action_write_wav"
         android:title="@string/action_save_mix" />
 </menu>

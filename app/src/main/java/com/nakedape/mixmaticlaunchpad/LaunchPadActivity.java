@@ -115,7 +115,7 @@ public class LaunchPadActivity extends Activity {
         counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
     }
     private ArrayList<LaunchEvent> launchEvents = new ArrayList<LaunchEvent>(50);
-    private ArrayList<Integer> activePads = new ArrayList<Integer>(24);
+    private ArrayList<Integer> activePads;
 
     // Listener to turn off touch pads when sound is finished
     private AudioTrack.OnPlaybackPositionUpdateListener samplePlayListener = new AudioTrack.OnPlaybackPositionUpdateListener() {
@@ -669,6 +669,7 @@ public class LaunchPadActivity extends Activity {
     }
     private void setupPadsFromFile() {
         samples = new SparseArray<Sample>(24);
+        activePads = new ArrayList<Integer>(24);
         TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
         pad.setOnTouchListener(TouchPadTouchListener);
         File sampleFile = new File(homeDir, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
@@ -1329,12 +1330,6 @@ public class LaunchPadActivity extends Activity {
     }
     @Override
     public boolean onMenuOpened(int featureId, Menu menu){
-        for (Integer I : activePads){
-            if (samples.get(I).audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                View view = findViewById(I);
-                view.setPressed(true);
-            }
-        }
         stopPlayBack();
         return true;
     }
@@ -1355,9 +1350,6 @@ public class LaunchPadActivity extends Activity {
             isRecording = false;
             View v = findViewById(R.id.touchPad1);
             v.callOnClick();
-        }
-        else if (id == R.id.action_stop){
-            stopPlayBack();
         }
         else if (id == R.id.action_play){
             isRecording = false;
