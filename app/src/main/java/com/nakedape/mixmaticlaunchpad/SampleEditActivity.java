@@ -587,23 +587,21 @@ public class SampleEditActivity extends Activity {
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
-        if (savedData != null){
+        if (savedData != null) {
+            loop = savedData.getLoop();
+            if (savedData.isSliceMode()) {
+                setSliceMode(savedData.getNumSlices());
+            }
+            if (savedData.getSamplePath() != null)
+                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+            if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
+                sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+            }
+            sample.loadAudioSampleData(savedData);
             if (savedData.isDecoding())
                 decodeAudio(savedData.getFullMusicUri());
             else if (savedData.isGeneratingWaveForm())
                 loadSample();
-            else {
-                loop = savedData.getLoop();
-                if (savedData.isSliceMode()) {
-                    setSliceMode(savedData.getNumSlices());
-                }
-                if (savedData.getSamplePath() != null)
-                    LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
-                if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
-                    sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
-                }
-                sample.loadAudioSampleData(savedData);
-            }
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             // sample edit is loading a sample from a launch pad
