@@ -29,6 +29,8 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.NumberPicker;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -67,6 +69,7 @@ public class LaunchPadActivity extends Activity {
     public static String LAUNCHMODE = "com.nakedape.mixmaticlaunchpad.launchmode";
     public static String NUM_SLICES = "com.nakedape.mixmaticlaunchpad.numslices";
     public static String SLICE_PATHS = "com.nakedape.mixmaticlaunchpad.slicepaths";
+    public static String SAMPLE_VOLUME = "com.nakedape.mixmaticlaunchpad.volume";
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
     private static final int COUNTER_UPDATE = 3;
@@ -368,6 +371,10 @@ public class LaunchPadActivity extends Activity {
                     });
                     AlertDialog dialog = builder.create();
                     dialog.show();
+                    return true;
+                case R.id.action_set_volume:
+                    setSampleVolume(selectedSampleID);
+                    return true;
                 default:
                     return true;
             }
@@ -464,6 +471,7 @@ public class LaunchPadActivity extends Activity {
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
                     editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
+                    editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f);
                 }
                 samples.put(id, sample);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
@@ -1015,6 +1023,7 @@ public class LaunchPadActivity extends Activity {
         }
     }
 
+    // Sample setup methods
     private void loadSample(String path, TouchPad pad){
         int id = pad.getId();
         pad.setOnTouchListener(TouchPadTouchListener);
@@ -1023,6 +1032,7 @@ public class LaunchPadActivity extends Activity {
         samples.put(id, s);
         s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
         s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+        s.setVolume(launchPadprefs.getFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f));
         int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
         setPadColor(color, pad);
     }
@@ -1041,6 +1051,27 @@ public class LaunchPadActivity extends Activity {
                 pad.setBackgroundResource(R.drawable.launch_pad_orange);
                 break;
         }
+    }
+    private void setSampleVolume(final int sampleId){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        final NumberPicker numberPicker = new NumberPicker(context);
+        numberPicker.setMaxValue((int)(AudioTrack.getMaxVolume() * 100));
+        numberPicker.setValue((int)(samples.get(sampleId).getVolume() *100));
+        builder.setView(numberPicker);
+        builder.setPositiveButton(R.string.set, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                float volume = (float)numberPicker.getValue() / 100;
+                samples.get(sampleId).setVolume(volume);
+                SharedPreferences.Editor editor = launchPadprefs.edit();
+                editor.putFloat(String.valueOf(sampleId) + SAMPLE_VOLUME, volume);
+                editor.apply();
+                dialog.dismiss();
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, null);
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     private class playBackRecording implements Runnable {
@@ -1320,12 +1351,6 @@ public class LaunchPadActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.touch_pad, menu);
-        for (Integer I : activePads){
-            if (samples.get(I).audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                View view = findViewById(I);
-                view.setPressed(true);
-            }
-        }
         return true;
     }
     @Override
@@ -1442,6 +1467,7 @@ public class LaunchPadActivity extends Activity {
         private int launchMode = LAUNCHMODE_TRIGGER;
         private File sampleFile;
         private int sampleByteLength;
+        private float volume = 0.5f;
         private boolean played = false;
         private AudioTrack audioTrack;
         private AudioTrack.OnPlaybackPositionUpdateListener listener;
@@ -1562,6 +1588,11 @@ public class LaunchPadActivity extends Activity {
             audioTrack.release();
             loadAudioTrack();
         }
+        public void setVolume(float volume){
+            this.volume = volume;
+            loadAudioTrack();
+        }
+        public float getVolume() {return volume;}
         public boolean hasPlayed(){
             return played;
         }
@@ -1598,7 +1629,7 @@ public class LaunchPadActivity extends Activity {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            audioTrack.setStereoVolume(volume, volume);
             if (listener != null) {
                 audioTrack.setPlaybackPositionUpdateListener(listener);
                 resetMarker();

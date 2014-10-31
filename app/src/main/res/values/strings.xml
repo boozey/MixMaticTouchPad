@@ -16,6 +16,7 @@
     <string name="save">Save</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="set">Set</string>
     <string name="cancel">Cancel</string>
 
     <string name="load_audio_file">Load audio file</string>
@@ -41,6 +42,7 @@
     <string name="action_pick_color">Change color</string>
     <string name="warning_remove_sample">Remove sample?</string>
     <string name="color_dialog_title">Pick a color</string>
+    <string name="action_set_volume">Volume</string>
 
     <string name="button_slice_mode_title">Slice</string>
     <string name="slice_multi_select">Select pads to fill</string>
