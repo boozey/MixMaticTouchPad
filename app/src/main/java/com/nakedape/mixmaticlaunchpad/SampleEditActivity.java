@@ -73,6 +73,7 @@ public class SampleEditActivity extends Activity {
     private int numSlices = 1;
     private boolean isSliceMode = false;
     private boolean isDecoding = false;
+    private boolean isGeneratingWaveForm = false;
 
     // Context menu
     private ActionMode sampleEditActionMode;
@@ -201,19 +202,7 @@ public class SampleEditActivity extends Activity {
                     dlg.setProgress(msg.arg1);
                     break;
                 case MP3_CONVERSION_COMPLETE:
-                    dlg.dismiss();
-                    // Display indeterminate progress dialog
-                    dlg = new ProgressDialog(context);
-                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                    dlg.setIndeterminate(true);
-                    dlg.setCancelable(true);
-                    dlg.setCanceledOnTouchOutside(false);
-                    dlgCanceled = false;
-                    dlg.setOnCancelListener(dlgCancelListener);
-                    dlg.setMessage(getString(R.string.generating_waveform));
-                    dlg.show();
-                    // Generate waveform
-                    new Thread(new LoadAudioThread()).start();
+                    loadSample();
                     break;
             }
         }
@@ -267,6 +256,23 @@ public class SampleEditActivity extends Activity {
         catch (IOException e){
             e.printStackTrace();
         }
+    }
+    private void loadSample(){
+        if (dlg != null)
+            if (dlg.isShowing())
+                dlg.dismiss();
+        // Display indeterminate progress dialog
+        dlg = new ProgressDialog(context);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setIndeterminate(true);
+        dlg.setCancelable(true);
+        dlg.setCanceledOnTouchOutside(false);
+        dlgCanceled = false;
+        dlg.setOnCancelListener(dlgCancelListener);
+        dlg.setMessage(getString(R.string.generating_waveform));
+        dlg.show();
+        // Generate waveform
+        new Thread(new LoadAudioThread()).start();
     }
 
     public void LoadMediaPlayer(Uri uri){
@@ -584,6 +590,8 @@ public class SampleEditActivity extends Activity {
         if (savedData != null){
             if (savedData.isDecoding())
                 decodeAudio(savedData.getFullMusicUri());
+            else if (savedData.isGeneratingWaveForm())
+                loadSample();
             else {
                 loop = savedData.getLoop();
                 if (savedData.isSliceMode()) {
@@ -692,6 +700,7 @@ public class SampleEditActivity extends Activity {
         savedData.setSliceMode(isSliceMode);
         savedData.setDecoding(isDecoding);
         savedData.setFullMusicUri(fullMusicUri);
+        savedData.setGeneratingWaveForm(isGeneratingWaveForm);
         super.onDestroy();
     }
 
@@ -940,9 +949,11 @@ public class SampleEditActivity extends Activity {
     public class LoadAudioThread implements Runnable{
         @Override
         public void run() {
+            isGeneratingWaveForm = true;
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
             v.createWaveForm(WAV_CACHE_PATH);
+            isGeneratingWaveForm = false;
             Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
             m.sendToTarget();
         }

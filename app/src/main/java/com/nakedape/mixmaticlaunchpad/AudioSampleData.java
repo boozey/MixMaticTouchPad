@@ -33,6 +33,8 @@ public class AudioSampleData extends Fragment {
     private boolean isDecoding;
     private Uri fullMusicUri;
 
+    private boolean isGeneratingWaveForm;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,5 +92,8 @@ public class AudioSampleData extends Fragment {
     public boolean isDecoding() {return isDecoding;}
     public void setFullMusicUri(Uri fullMusicUri) {this.fullMusicUri = fullMusicUri;}
     public Uri getFullMusicUri() {return fullMusicUri;}
+
+    public void setGeneratingWaveForm(boolean isGeneratingWaveForm) {this.isGeneratingWaveForm = isGeneratingWaveForm;}
+    public boolean isGeneratingWaveForm() {return isGeneratingWaveForm;}
 
 }
