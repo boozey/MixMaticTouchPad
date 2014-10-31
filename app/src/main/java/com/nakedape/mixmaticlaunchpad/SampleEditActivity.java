@@ -355,7 +355,6 @@ public class SampleEditActivity extends Activity {
     }
 
     public void Save(View view){
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
         if (temp.isFile())
             temp.delete();
@@ -363,39 +362,27 @@ public class SampleEditActivity extends Activity {
             continuePlaying = false;
             if (mPlayer.isPlaying()) mPlayer.stop();
         }
-        if (numSlices > 1) {
+        if (isSliceMode) {
+            saveSlices();
+        }
+        else {
+            checkSampleSizeAndSave();
+        }
+
+    }
+    private void checkSampleSizeAndSave(){
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        // If sample size is more than 4 seconds, show warning
+        if (sample.sampleLength > 4) {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setMessage(getString(R.string.slice_size_warning, numSlices, sample.sampleLength / numSlices));
-            builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+            builder.setMessage(getString(R.string.sample_size_warning, sample.sampleLength));
+            builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    dlg = new ProgressDialog(context);
-                    dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                    dlg.setIndeterminate(true);
-                    dlg.setMessage(getString(R.string.save_progress_msg));
-                    dlg.show();
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            final String[] slicePaths = sample.Slice(numSlices);
-                            dlg.dismiss();
-                            mHandler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION");
-                                    result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
-                                    result.putExtra(LaunchPadActivity.COLOR, sample.color);
-                                    result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
-                                    setResult(Activity.RESULT_OK, result);
-                                    finish();
-
-                                }
-                            });
-                        }
-                    }).start();
+                    saveSample(sample);
                 }
             });
-            builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+            builder.setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
 
@@ -405,30 +392,74 @@ public class SampleEditActivity extends Activity {
             dialog.show();
         }
         else {
-            dlg = new ProgressDialog(context);
-            dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            dlg.setIndeterminate(true);
-            dlg.setMessage(getString(R.string.save_progress_msg));
-            dlg.show();
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    dlg.dismiss();
-                    mHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
-                            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
-                            result.putExtra(LaunchPadActivity.COLOR, sample.color);
-                            setResult(Activity.RESULT_OK, result);
-                            finish();
-
-                        }
-                    });
-                }
-            }).start();
+            saveSample(sample);
         }
+    }
+    private void saveSample(final AudioSampleView sample){
+        dlg = new ProgressDialog(context);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setIndeterminate(true);
+        dlg.setMessage(getString(R.string.save_progress_msg));
+        dlg.show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                dlg.dismiss();
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
+                        result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+                        result.putExtra(LaunchPadActivity.COLOR, sample.color);
+                        setResult(Activity.RESULT_OK, result);
+                        finish();
 
+                    }
+                });
+            }
+        }).start();
+    }
+    private void saveSlices(){
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setMessage(getString(R.string.slice_size_warning, numSlices, sample.sampleLength / numSlices));
+        builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dlg = new ProgressDialog(context);
+                dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                dlg.setIndeterminate(true);
+                dlg.setMessage(getString(R.string.save_progress_msg));
+                dlg.show();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final String[] slicePaths = sample.Slice(numSlices);
+                        dlg.dismiss();
+                        mHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION");
+                                result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
+                                result.putExtra(LaunchPadActivity.COLOR, sample.color);
+                                result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
+                                setResult(Activity.RESULT_OK, result);
+                                finish();
+
+                            }
+                        });
+                    }
+                }).start();
+            }
+        });
+        builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     public void Trim(){
@@ -551,15 +582,20 @@ public class SampleEditActivity extends Activity {
         FragmentManager fm = getFragmentManager();
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
         if (savedData != null){
-            sample.loadAudioSampleData(savedData);
-            loop = savedData.getLoop();
-            if (savedData.isSliceMode()){
-                setSliceMode(savedData.getNumSlices());
-            }
-            if (savedData.getSamplePath() != null)
-                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
             if (savedData.isDecoding())
                 decodeAudio(savedData.getFullMusicUri());
+            else {
+                loop = savedData.getLoop();
+                if (savedData.isSliceMode()) {
+                    setSliceMode(savedData.getNumSlices());
+                }
+                if (savedData.getSamplePath() != null)
+                    LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+                if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
+                    sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+                }
+                sample.loadAudioSampleData(savedData);
+            }
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             // sample edit is loading a sample from a launch pad
@@ -949,7 +985,9 @@ public class SampleEditActivity extends Activity {
                 do {
                     if (mPlayer != null) {
                         // Start playing from beginning of selection
-                        if (mPlayer.isPlaying())
+                        if (mPlayer.isPlaying()
+                                && (mPlayer.getCurrentPosition() > audioSampleView.getSelectionStartTime() * 1000 + 1
+                                || mPlayer.getCurrentPosition() < audioSampleView.getSelectionStartTime() * 1000))
                             mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
                         do { // Send an update to the play indicator
                             try {
@@ -959,15 +997,19 @@ public class SampleEditActivity extends Activity {
                                 Thread.sleep(5);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
-                            } catch (NullPointerException e) { e.printStackTrace(); }
+                            } catch (NullPointerException e) {
+                                e.printStackTrace();
+                            }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
                         while (mPlayer != null && continuePlaying && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
                                 && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000));
+
+                        // Loop play if in loop mode and it hasn't been paused
                     }
-                    // Loop play if in loop mode and it hasn't been paused
                 } while (mPlayer != null && loop && continuePlaying);
             } catch (IllegalStateException e){e.printStackTrace();}
+            catch (NullPointerException e) {e.printStackTrace();}
             // Done with play, pause the player and send final update
             if (mPlayer != null && mPlayer.isPlaying())
                 mPlayer.pause();

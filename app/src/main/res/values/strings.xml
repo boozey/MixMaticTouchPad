@@ -43,6 +43,7 @@
     <string name="slice_multi_select">Select pads to fill</string>
     <string name="slice_selection_error">Please select at least one pad</string>
     <string name="slice_size_warning" formatted="false">Slice into %d slices that are each %.3f seconds in length?</string>
+    <string name="sample_size_warning" formatted="false">Sample length is %.3f seconds.\nSamples more than a few seconds in length can lower performance and potentially cause the application to crash.\nProceed with Save?</string>
 
     <string name="pref_beat_threshold">Beat detection threshold</string>
     <string name="title_activity_sample_edit_preferences">Preferences</string>
