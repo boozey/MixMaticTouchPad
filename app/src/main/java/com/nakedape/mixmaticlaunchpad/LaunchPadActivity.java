@@ -142,7 +142,6 @@ public class LaunchPadActivity extends Activity {
 
     private Context context;
     private ProgressDialog progressDialog;
-    //private HashMap<Integer, Sample> samples;
     private SparseArray<Sample> samples;
     private File homeDirectory, sampleDirectory;
     private int numTouchPads;
@@ -441,12 +440,13 @@ public class LaunchPadActivity extends Activity {
                 if (keepSettings){
                     sample.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
                     sample.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
+                    sample.setVolume(launchPadprefs.getFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
                 }
                 else { // Default properties
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
                     editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
-                    editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f);
+                    editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
                 }
                 samples.put(id, sample);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
@@ -491,9 +491,11 @@ public class LaunchPadActivity extends Activity {
                     SharedPreferences.Editor editor = launchPadprefs.edit();
                     Sample sample = new Sample(sliceFile.getAbsolutePath(), id);
                     sample.setOnPlayFinishedListener(samplePlayListener);
+                    // Default settings
                     sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
                     editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
                     editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
+                    editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
                     samples.put(id, sample);
                     TouchPad t = (TouchPad) findViewById(id);
                     switch (data.getIntExtra(COLOR, 0)) { // Set and save color
@@ -1011,7 +1013,7 @@ public class LaunchPadActivity extends Activity {
         samples.put(id, s);
         s.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
         s.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
-        s.setVolume(launchPadprefs.getFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f));
+        s.setVolume(launchPadprefs.getFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
         int color = launchPadprefs.getInt(String.valueOf(id) + COLOR, 0);
         setPadColor(color, pad);
     }
@@ -1485,7 +1487,7 @@ public class LaunchPadActivity extends Activity {
         private int launchMode = LAUNCHMODE_TRIGGER;
         private File sampleFile;
         private int sampleByteLength;
-        private float volume = 0.5f;
+        private float volume = 0.5f * AudioTrack.getMaxVolume();
         private boolean played = false;
         private AudioTrack audioTrack;
         private AudioTrack.OnPlaybackPositionUpdateListener listener;
