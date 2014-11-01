@@ -701,7 +701,6 @@ public class SampleEditActivity extends Activity {
         savedData.setGeneratingWaveForm(isGeneratingWaveForm);
         super.onDestroy();
     }
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -716,7 +715,6 @@ public class SampleEditActivity extends Activity {
         item.setChecked(showBeats);
         return true;
     }
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
