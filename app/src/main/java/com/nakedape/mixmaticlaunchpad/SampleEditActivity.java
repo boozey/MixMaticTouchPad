@@ -152,15 +152,16 @@ public class SampleEditActivity extends Activity {
     private MediaFormat mediaFormat;
     private boolean loop;
     private boolean continuePlaying;
+    private boolean stopPlayIndicatorThread;
     private boolean continueProcessing;
     private MediaPlayer mPlayer;
     private AudioManager am;
     private final AudioManager.OnAudioFocusChangeListener afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
         public void onAudioFocusChange(int focusChange) {
-            if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+           if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
                 // Pause playback
                 if (mPlayer != null)
-                mPlayer.pause();
+                    mPlayer.pause();
             } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
                 // Resume playback
                 if (mPlayer != null && continuePlaying)
@@ -169,9 +170,11 @@ public class SampleEditActivity extends Activity {
                 am.abandonAudioFocus(afChangeListener);
                 // Stop playback
                 if (mPlayer != null) {
-                    mPlayer.stop();
-                    mPlayer.release();
-                    mPlayer = null;
+                    Log.d(LOG_TAG, "Audio focus lost, mediaplayer stopped");
+                    mPlayer.pause();
+                    //mPlayer.stop();
+                    //mPlayer.release();
+                    //mPlayer = null;
                 }
             }
         }
@@ -324,15 +327,12 @@ public class SampleEditActivity extends Activity {
                 AudioSampleView audioSampleView = (AudioSampleView) findViewById(R.id.spectralView);
                 if (mPlayer != null) {
                     if (mPlayer.isPlaying()){ // If already playing, pause
-                        mPlayer.pause();
-                        audioSampleView.isPlaying = false;
                         continuePlaying = false;
-                        b.setText("Play");
+                        b.setText(getString(R.string.play));
                     }
                     else { // If not playing, start
-                        b.setText("Pause");
+                        b.setText(getString(R.string.pause));
                         audioSampleView.isPlaying = true;
-                        continuePlaying = true;
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
                     }
@@ -341,7 +341,7 @@ public class SampleEditActivity extends Activity {
                     mPlayer = new MediaPlayer();
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
-                        b.setText("Pause");
+                        b.setText(getString(R.string.pause));
                         audioSampleView.isPlaying = true;
                         continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
@@ -579,7 +579,6 @@ public class SampleEditActivity extends Activity {
         //Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-        mPlayer = new MediaPlayer();
 
         // Get data from intent
         Intent intent = getIntent();
@@ -592,8 +591,8 @@ public class SampleEditActivity extends Activity {
             if (savedData.isSliceMode()) {
                 setSliceMode(savedData.getNumSlices());
             }
-            if (savedData.getSamplePath() != null)
-                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+            //if (savedData.getSamplePath() != null)
+            //    LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
             if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
                 sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
             }
@@ -602,6 +601,16 @@ public class SampleEditActivity extends Activity {
                 decodeAudio(savedData.getFullMusicUri());
             else if (savedData.isGeneratingWaveForm())
                 loadSample();
+            mPlayer = savedData.getmPlayer();
+            if (mPlayer != null) {
+                if (mPlayer.isPlaying()) {
+                    Button b = (Button) findViewById(R.id.buttonPlay);
+                    b.setText(getString(R.string.pause));
+                    new Thread(new PlayIndicator()).start();
+                }
+            }
+            else
+                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             // sample edit is loading a sample from a launch pad
@@ -684,22 +693,38 @@ public class SampleEditActivity extends Activity {
 
     @Override
     protected void onDestroy(){
-        dlgCanceled = true;
-        if (mPlayer != null){
-            if (mPlayer.isPlaying())
-                mPlayer.stop();
-            mPlayer.release();
-            mPlayer = null;
-        }
-        AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
-        sampleView.saveAudioSampleData(savedData);
-        savedData.setLoop(loop);
-        savedData.setNumSlices(numSlices);
-        savedData.setSliceMode(isSliceMode);
-        savedData.setDecoding(isDecoding);
-        savedData.setFullMusicUri(fullMusicUri);
-        savedData.setGeneratingWaveForm(isGeneratingWaveForm);
         super.onDestroy();
+        if (isFinishing()){
+            dlgCanceled = true;
+            stopPlayIndicatorThread = true;
+            if (mPlayer != null){
+                mPlayer.stop();
+                mPlayer.release();
+                mPlayer = null;
+            }
+        }
+        else {
+            dlgCanceled = true;
+            stopPlayIndicatorThread = true;
+            AudioSampleView sampleView = (AudioSampleView) findViewById(R.id.spectralView);
+            sampleView.saveAudioSampleData(savedData);
+            savedData.setLoop(loop);
+            savedData.setNumSlices(numSlices);
+            savedData.setSliceMode(isSliceMode);
+            savedData.setDecoding(isDecoding);
+            savedData.setFullMusicUri(fullMusicUri);
+            savedData.setGeneratingWaveForm(isGeneratingWaveForm);
+            if (mPlayer != null) {
+                if (mPlayer.isPlaying())
+                    savedData.setmPlayer(mPlayer);
+                else {
+                    mPlayer.stop();
+                    mPlayer.release();
+                    mPlayer = null;
+                    savedData.setmPlayer(null);
+                }
+            }
+        }
     }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -988,12 +1013,13 @@ public class SampleEditActivity extends Activity {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
+            continuePlaying = true;
             try {
                 do {
                     if (mPlayer != null) {
                         // Start playing from beginning of selection
                         if (mPlayer.isPlaying()
-                                && (mPlayer.getCurrentPosition() > audioSampleView.getSelectionStartTime() * 1000 + 1
+                                && (mPlayer.getCurrentPosition() >= audioSampleView.getSelectionEndTime() * 1000
                                 || mPlayer.getCurrentPosition() < audioSampleView.getSelectionStartTime() * 1000))
                             mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
                         do { // Send an update to the play indicator
@@ -1009,19 +1035,22 @@ public class SampleEditActivity extends Activity {
                             }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
-                        while (mPlayer != null && continuePlaying && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
+                        while (mPlayer != null && continuePlaying && !stopPlayIndicatorThread && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
                                 && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000));
 
                         // Loop play if in loop mode and it hasn't been paused
                     }
-                } while (mPlayer != null && loop && continuePlaying);
+                } while (mPlayer != null && loop && !stopPlayIndicatorThread && continuePlaying);
             } catch (IllegalStateException e){e.printStackTrace();}
             catch (NullPointerException e) {e.printStackTrace();}
-            // Done with play, pause the player and send final update
-            if (mPlayer != null && mPlayer.isPlaying())
-                mPlayer.pause();
-            Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
-            m.sendToTarget();
+            if (!stopPlayIndicatorThread) {
+                // Done with play, pause the player and send final update
+                if (mPlayer != null && mPlayer.isPlaying())
+                    mPlayer.pause();
+                continuePlaying = false;
+                Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
+                m.sendToTarget();
+            }
         }
 
         public Thread getCurrentThread(){

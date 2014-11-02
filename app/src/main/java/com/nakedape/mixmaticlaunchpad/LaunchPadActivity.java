@@ -1531,16 +1531,29 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.cancel();
         if (mChecker != null)
             mChecker.onDestroy();
-        stopCounterThread = true;
-        stopPlaybackThread = true;
-        savedData.setSamples(samples);
-        savedData.setCounter(counter);
-        savedData.setEditMode(isEditMode);
-        savedData.setActivePads(activePads);
-        savedData.setPlaying(isPlaying);
-        savedData.setRecording(isRecording);
-        savedData.setLaunchEvents(launchEvents);
-        savedData.setPlayEventIndex(playEventIndex);
+        if (isFinishing()){
+            // Release audiotrack resources
+            for (Integer i : activePads) {
+                Sample s = samples.get(i);
+                isPlaying = false;
+                if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                    s.stop();
+                }
+                s.audioTrack.release();
+            }
+        }
+        else {
+            stopCounterThread = true;
+            stopPlaybackThread = true;
+            savedData.setSamples(samples);
+            savedData.setCounter(counter);
+            savedData.setEditMode(isEditMode);
+            savedData.setActivePads(activePads);
+            savedData.setPlaying(isPlaying);
+            savedData.setRecording(isRecording);
+            savedData.setLaunchEvents(launchEvents);
+            savedData.setPlayEventIndex(playEventIndex);
+        }
     }
 
 

@@ -575,20 +575,10 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
 
     public double getSelectionStartTime(){
         fixSelection();
-        if (Math.abs(selectEnd - selectStart) < 5)
-        {
-            return 0;
-        }
-        else
             return selectionStartTime;
     }
     public double getSelectionEndTime(){
         fixSelection();
-        if (Math.abs(selectEnd - selectStart) < 5)
-        {
-            return sampleLength;
-        }
-        else
             return selectionEndTime;
     }
     public void clearSelection(){
@@ -649,15 +639,29 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             selectEnd = selectStart;
             selectStart = temp;
         }
-        // Make sure start/end of selection are with bounds
+        // Make sure start/end of selection are within bounds
         if (selectStart < 0) selectStart = 0;
         if (selectStart > getWidth()) selectStart = getWidth();
         if (selectEnd > getWidth()) selectEnd = getWidth();
         if (selectEnd < 0) selectEnd = 0;
 
         // Set start time and end time of selection
-        selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
-        selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
+            need to be set in order for the selection to be drawn correctly*/
+        if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0){
+            selectStart = (float)(getWidth() * (selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime));
+            selectEnd = (float)(getWidth() * (selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime));
+        }
+        else if (getWidth() > 0) {
+            selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
+            selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+        }
+        if (Math.abs(selectionEndTime - selectionStartTime) < 0.1)
+        {
+            selectionStartTime = 0;
+            selectionEndTime = sampleLength;
+        }
+        Log.d(LOG_TAG, "Selection End Time: " + String.valueOf(selectionEndTime));
     }
 
     public void redraw(){
@@ -719,7 +723,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             }
             /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
             need to be set in order for the selection to persist*/
-            if (selectStart == 0 && selectionStartTime > 0){
+            if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0){
                 selectStart = (float)(getWidth() * (selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime));
                 selectEnd = (float)(getWidth() * (selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime));
             }

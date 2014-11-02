@@ -18,6 +18,8 @@
     <string name="no">No</string>
     <string name="set">Set</string>
     <string name="cancel">Cancel</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
 
     <string name="load_audio_file">Load audio file</string>
     <string name="show_beats">Show beat marks</string>

@@ -1,6 +1,7 @@
 package com.nakedape.mixmaticlaunchpad;
 
 import android.app.Fragment;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -32,6 +33,7 @@ public class AudioSampleData extends Fragment {
 
     private boolean isDecoding;
     private Uri fullMusicUri;
+    private MediaPlayer mPlayer;
 
     private boolean isGeneratingWaveForm;
 
@@ -95,5 +97,8 @@ public class AudioSampleData extends Fragment {
 
     public void setGeneratingWaveForm(boolean isGeneratingWaveForm) {this.isGeneratingWaveForm = isGeneratingWaveForm;}
     public boolean isGeneratingWaveForm() {return isGeneratingWaveForm;}
+
+    public void setmPlayer(MediaPlayer mPlayer){this.mPlayer = mPlayer;}
+    public MediaPlayer getmPlayer(){return mPlayer;}
 
 }
