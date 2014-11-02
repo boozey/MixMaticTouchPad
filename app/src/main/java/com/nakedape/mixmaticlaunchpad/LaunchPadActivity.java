@@ -93,6 +93,8 @@ public class LaunchPadActivity extends Activity {
     private boolean isPlaying = false;
     private boolean dialogCanceled = false;
     private boolean stopCounterThread = false;
+    private boolean stopPlaybackThread = false;
+
 
     // Counter
     private TextView counterTextView;
@@ -137,6 +139,7 @@ public class LaunchPadActivity extends Activity {
         counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
     }
     private ArrayList<LaunchEvent> launchEvents = new ArrayList<LaunchEvent>(50);
+    private int playEventIndex = 0;
     private ArrayList<Integer> activePads;
 
     // Listener to turn off touch pads when sound is finished
@@ -664,10 +667,13 @@ public class LaunchPadActivity extends Activity {
             isRecording = savedData.isRecording();
             isPlaying = savedData.isPlaying();
             launchEvents = savedData.getLaunchEvents();
+            playEventIndex = savedData.getPlayEventIndex();
             savedDataLoaded = true;
-            // Setup touch pads from retained fragment
-            if (isRecording || isPlaying)
+            if (isRecording)
                 new Thread(new CounterThread()).start();
+            if (isPlaying)
+                new Thread(new playBackRecording()).start();
+            // Setup touch pads from retained fragment
             setupPadsFromFrag();
         }
         else{
@@ -1165,11 +1171,14 @@ public class LaunchPadActivity extends Activity {
     private class playBackRecording implements Runnable {
         @Override
         public void run() {
-            counter = 0;
             isRecording = false;
+            if (!isPlaying) {
+                playEventIndex = 0;
+                counter = 0;
+            }
             isPlaying = true;
             new Thread(new CounterThread()).start();
-            for (int i = 0; i < launchEvents.size() && isPlaying; i++) {
+            for (int i = playEventIndex; i < launchEvents.size() && isPlaying && !stopPlaybackThread; i++) {
                 LaunchEvent event = launchEvents.get(i);
                 while (event.timeStamp > counter)
                 {
@@ -1192,7 +1201,8 @@ public class LaunchPadActivity extends Activity {
                     message.sendToTarget();
                 }
             }
-            isPlaying = false;
+            if (!stopPlaybackThread)
+                isPlaying = false;
         }
     }
     private void resetRecording(){
@@ -1522,6 +1532,7 @@ public class LaunchPadActivity extends Activity {
         if (mChecker != null)
             mChecker.onDestroy();
         stopCounterThread = true;
+        stopPlaybackThread = true;
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);
@@ -1529,6 +1540,7 @@ public class LaunchPadActivity extends Activity {
         savedData.setPlaying(isPlaying);
         savedData.setRecording(isRecording);
         savedData.setLaunchEvents(launchEvents);
+        savedData.setPlayEventIndex(playEventIndex);
     }
 
 

@@ -19,6 +19,7 @@ public class LaunchPadData extends Fragment {
     private boolean isEditMode;
     private ArrayList<Integer> activePads;
     private ArrayList<LaunchPadActivity.LaunchEvent> launchEvents;
+    private int playEventIndex;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -41,4 +42,6 @@ public class LaunchPadData extends Fragment {
     public ArrayList<Integer> getActivePads() {return activePads;}
     public void setLaunchEvents(ArrayList<LaunchPadActivity.LaunchEvent> launchEvents) {this.launchEvents = launchEvents;}
     public ArrayList<LaunchPadActivity.LaunchEvent> getLaunchEvents() {return launchEvents;}
+    public void setPlayEventIndex(int playEventIndex) {this.playEventIndex = playEventIndex;}
+    public int getPlayEventIndex() {return playEventIndex;}
 }
