@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -28,6 +29,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.EditText;
 import android.widget.NumberPicker;
 import android.widget.TextView;
@@ -1180,6 +1182,7 @@ public class LaunchPadActivity extends Activity {
             new Thread(new CounterThread()).start();
             for (int i = playEventIndex; i < launchEvents.size() && isPlaying && !stopPlaybackThread; i++) {
                 LaunchEvent event = launchEvents.get(i);
+                playEventIndex = i;
                 while (event.timeStamp > counter)
                 {
                     try {
@@ -1507,12 +1510,13 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
-        /*
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            if (getActionBar() != null)
-                getActionBar().hide();
+            if (ViewConfiguration.get(context).hasPermanentMenuKey()) {
+                if (getActionBar() != null)
+                    getActionBar().hide();
+            }
         }
-        */
+
         int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
         int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
 
@@ -1531,6 +1535,8 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.cancel();
         if (mChecker != null)
             mChecker.onDestroy();
+        stopCounterThread = true;
+        stopPlaybackThread = true;
         if (isFinishing()){
             // Release audiotrack resources
             for (Integer i : activePads) {
@@ -1543,8 +1549,6 @@ public class LaunchPadActivity extends Activity {
             }
         }
         else {
-            stopCounterThread = true;
-            stopPlaybackThread = true;
             savedData.setSamples(samples);
             savedData.setCounter(counter);
             savedData.setEditMode(isEditMode);
