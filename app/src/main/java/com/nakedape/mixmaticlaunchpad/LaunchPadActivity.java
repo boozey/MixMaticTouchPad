@@ -73,6 +73,8 @@ public class LaunchPadActivity extends Activity {
     private static int GET_SLICES = 1;
     private static final int COUNTER_UPDATE = 3;
     private static final int WAV_FILE_WRITE_PROGRESS = 4;
+    private static final int SET_PRESSED_TRUE = 5;
+    private static final int SET_PRESSED_FALSE = 6;
 
     // Licensing
     private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi8rbiVIkVPQvsF7d5CrHXnYeh/WsBRAUdjVADnto9X32e6q3O0aB0E4Kz4C7GuBV1dBvARWL7B1Cb4qI0zvjBi8fJT6/OxQDPssEFSdODXxY7xp6dexbJ1huBdGR8IVg5np06C20s9lH3iPuMdzRa26dP4xnP2vL2G90+msqpxpfR84TxG1sHrOM24o1yzg6pgGmFlHMXL7x+XDZyVZN3TNZR9CSeI+ygvVSg9DZPDQSz1T1cIebQ6MctvCQ0Vi17VT8pAnOM8BXUZUSuaetZHM/OXrhmk3MCFKW4RTrGf5NG1+3U0QQ6+wOkyJXwDdGLyz1/IEQTPCmqOs/LwYdFwIDAQAB";
@@ -90,6 +92,7 @@ public class LaunchPadActivity extends Activity {
     private boolean isRecording = false;
     private boolean isPlaying = false;
     private boolean dialogCanceled = false;
+    private boolean stopCounterThread = false;
 
     // Counter
     private TextView counterTextView;
@@ -109,11 +112,28 @@ public class LaunchPadActivity extends Activity {
             }
         }
     };
+    private Handler playHandler = new Handler(Looper.getMainLooper()){
+        @Override
+        public void handleMessage(Message msg) {
+            View v = findViewById(msg.arg1);
+            switch (msg.what){
+                case SET_PRESSED_TRUE:
+                    v.setPressed(true);
+                    break;
+                case SET_PRESSED_FALSE:
+                    v.setPressed(false);
+                    break;
+            }
+        }
+    };
     private void updateCounterMessage(){
         double beatsPerSec = (double)bpm / 60;
         double sec = (double)counter / 1000;
         double beats = sec * beatsPerSec;
         int bars = (int)Math.floor(beats / timeSignature);
+        // Subtract one from beats so that counter displays zero when zero
+        if (beats == 0)
+            beats = -1;
         counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, bars, beats % timeSignature + 1));
     }
     private ArrayList<LaunchEvent> launchEvents = new ArrayList<LaunchEvent>(50);
@@ -368,10 +388,8 @@ public class LaunchPadActivity extends Activity {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             if (!isEditMode && !isPlaying && samples.indexOfKey(v.getId()) >= 0) {
-                if (!isRecording){ // Start counter and reinitialize launch event array
-                    counter = 0;
+                if (!isRecording){ // Start counter thread
                     isRecording = true;
-                    launchEvents = new ArrayList<LaunchEvent>(50);
                     new Thread(new CounterThread()).start();
                 }
                 Sample s = samples.get(v.getId());
@@ -645,8 +663,11 @@ public class LaunchPadActivity extends Activity {
             activePads = savedData.getActivePads();
             isRecording = savedData.isRecording();
             isPlaying = savedData.isPlaying();
+            launchEvents = savedData.getLaunchEvents();
             savedDataLoaded = true;
             // Setup touch pads from retained fragment
+            if (isRecording || isPlaying)
+                new Thread(new CounterThread()).start();
             setupPadsFromFrag();
         }
         else{
@@ -659,6 +680,7 @@ public class LaunchPadActivity extends Activity {
     private void setupPadsFromFile() {
         samples = new SparseArray<Sample>(24);
         activePads = new ArrayList<Integer>(24);
+        resetRecording();
         TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
         pad.setOnTouchListener(TouchPadTouchListener);
         File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
@@ -839,6 +861,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad2);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -846,6 +870,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad3);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -853,6 +879,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad4);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -860,6 +888,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad5);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -867,6 +897,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad6);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -874,6 +906,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad7);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -881,6 +915,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad8);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -888,6 +924,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad9);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -895,6 +933,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad10);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -902,6 +942,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad11);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -909,6 +951,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad12);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -916,6 +960,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad13);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -923,6 +969,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad14);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -930,6 +978,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad15);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -937,6 +987,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad16);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -944,6 +996,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad17);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -951,6 +1005,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad18);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -958,6 +1014,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad19);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -965,6 +1023,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad20);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -972,6 +1032,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad21);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -979,6 +1041,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad22);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -986,6 +1050,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad23);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -993,6 +1059,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
             pad = (TouchPad) findViewById(R.id.touchPad24);
             pad.setOnTouchListener(TouchPadTouchListener);
@@ -1000,6 +1068,8 @@ public class LaunchPadActivity extends Activity {
                 setPadColor(launchPadprefs.getInt(String.valueOf(pad.getId()) + COLOR, 0), pad);
                 sample = samples.get(pad.getId());
                 sample.setOnPlayFinishedListener(samplePlayListener);
+                sample.setLoopMode(sample.getLoopMode());
+                pad.setPressed(sample.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             }
         }
     }
@@ -1099,8 +1169,9 @@ public class LaunchPadActivity extends Activity {
             isRecording = false;
             isPlaying = true;
             new Thread(new CounterThread()).start();
-            for (LaunchEvent event : launchEvents) {
-                while (event.timeStamp > counter && isPlaying)
+            for (int i = 0; i < launchEvents.size() && isPlaying; i++) {
+                LaunchEvent event = launchEvents.get(i);
+                while (event.timeStamp > counter)
                 {
                     try {
                         Thread.sleep(5);
@@ -1108,25 +1179,39 @@ public class LaunchPadActivity extends Activity {
                         e.printStackTrace();
                     }
                 }
-                if (event.eventType.equals(LaunchEvent.PLAY_START))
+                if (event.eventType.equals(LaunchEvent.PLAY_START)) {
                     samples.get(event.getSampleId()).play();
-                else
+                    Message message = playHandler.obtainMessage(SET_PRESSED_TRUE);
+                    message.arg1 = event.getSampleId();
+                    message.sendToTarget();
+                }
+                else {
                     samples.get(event.getSampleId()).stop();
-                if (!isPlaying) break;
+                    Message message = playHandler.obtainMessage(SET_PRESSED_FALSE);
+                    message.arg1 = event.getSampleId();
+                    message.sendToTarget();
+                }
             }
             isPlaying = false;
         }
     }
-    private void stopPlayBack(){
+    private void resetRecording(){
         isRecording = false;
-        isPlaying = false;
+        counter = 0;
+        launchEvents = new ArrayList<LaunchEvent>(50);
+        updateCounterMessage();
+    }
+    private void stopPlayBack(){
         for (Integer i : activePads) {
             Sample s = samples.get(i);
+            isPlaying = false;
             if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
                 s.stop();
-                launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
+                if (isRecording)
+                    launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
             }
         }
+        isRecording = false;
     }
     public void Stop(View v){
         stopPlayBack();
@@ -1160,7 +1245,7 @@ public class LaunchPadActivity extends Activity {
     }
     private void SaveToFile(final String fileName){
         progressDialog = new ProgressDialog(context);
-        progressDialog.setMessage("Saving " + fileName + ".wav");
+        progressDialog.setMessage(getString(R.string.file_export_msg) + fileName + ".wav");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progressDialog.setIndeterminate(false);
         progressDialog.setCancelable(true);
@@ -1404,6 +1489,9 @@ public class LaunchPadActivity extends Activity {
             stopPlayBack();
             promptForFilename();
         }
+        else if (id == R.id.action_reset) {
+            resetRecording();
+        }
         return super.onOptionsItemSelected(item);
     }
     @Override
@@ -1433,14 +1521,14 @@ public class LaunchPadActivity extends Activity {
                 progressDialog.cancel();
         if (mChecker != null)
             mChecker.onDestroy();
-        //isRecording = false;
-        //isPlaying = false;
+        stopCounterThread = true;
         savedData.setSamples(samples);
         savedData.setCounter(counter);
         savedData.setEditMode(isEditMode);
         savedData.setActivePads(activePads);
         savedData.setPlaying(isPlaying);
         savedData.setRecording(isRecording);
+        savedData.setLaunchEvents(launchEvents);
     }
 
 
@@ -1449,7 +1537,7 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-            long startMillis = SystemClock.elapsedRealtime();
+            long startMillis = SystemClock.elapsedRealtime() - counter;
             do {
                 try {
                     Thread.sleep(10);
@@ -1457,7 +1545,7 @@ public class LaunchPadActivity extends Activity {
                 counter = SystemClock.elapsedRealtime() - startMillis;
                 Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
                 msg.sendToTarget();
-            } while (isRecording || isPlaying);
+            } while ((isRecording || isPlaying) && !stopCounterThread);
         }
     }
 
@@ -1518,7 +1606,7 @@ public class LaunchPadActivity extends Activity {
             this.loop = loop;
             if (loop) {
                 loopMode = -1;
-                if (hasPlayed()) {
+                /*if (hasPlayed()) {
                     audioTrack.stop();
                     audioTrack.flush();
                     audioTrack.reloadStaticData();
@@ -1526,18 +1614,19 @@ public class LaunchPadActivity extends Activity {
                 }
                 if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED)
                     loadAudioTrack();
+                */
                 audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
                 audioTrack.setNotificationMarkerPosition(0);
                 audioTrack.setPlaybackPositionUpdateListener(null);
             }
             else {
                 loopMode = 0;
-                if (hasPlayed()) {
+                /*if (hasPlayed()) {
                     audioTrack.stop();
                     audioTrack.flush();
                     audioTrack.reloadStaticData();
                     played = false;
-                }
+                }*/
                 try {
                     audioTrack.setLoopPoints(0, 0, 0);
                 } catch (Exception e) {}

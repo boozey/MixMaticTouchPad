@@ -18,6 +18,7 @@ public class LaunchPadData extends Fragment {
     private boolean isRecording;
     private boolean isEditMode;
     private ArrayList<Integer> activePads;
+    private ArrayList<LaunchPadActivity.LaunchEvent> launchEvents;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -38,4 +39,6 @@ public class LaunchPadData extends Fragment {
     public boolean isEditMode() {return isEditMode;}
     public void setActivePads(ArrayList<Integer> activePads) {this.activePads = activePads;}
     public ArrayList<Integer> getActivePads() {return activePads;}
+    public void setLaunchEvents(ArrayList<LaunchPadActivity.LaunchEvent> launchEvents) {this.launchEvents = launchEvents;}
+    public ArrayList<LaunchPadActivity.LaunchEvent> getLaunchEvents() {return launchEvents;}
 }

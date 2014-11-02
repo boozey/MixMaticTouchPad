@@ -26,6 +26,7 @@
     <string name="trim_progress_msg">Trimming</string>
     <string name="save_progress_msg">Preparing sample(s)</string>
     <string name="generating_waveform">Generating waveform</string>
+    <string name="file_export_msg">Exporting </string>
 
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_show_beats">Show beats</string>
@@ -43,6 +44,7 @@
     <string name="warning_remove_sample">Remove sample?</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="action_set_volume">Volume</string>
+    <string name="action_reset">Reset</string>
 
     <string name="button_slice_mode_title">Slice</string>
     <string name="slice_multi_select">Select pads to fill</string>
