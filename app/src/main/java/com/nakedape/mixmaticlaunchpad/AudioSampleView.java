@@ -27,7 +27,6 @@ import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.Oscilloscope;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
-import be.tarsos.dsp.onsets.BeatRootSpectralFluxOnsetDetector;
 import be.tarsos.dsp.onsets.ComplexOnsetDetector;
 import be.tarsos.dsp.onsets.OnsetHandler;
 import javazoom.jl.converter.WaveFile;
@@ -195,6 +194,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         data.setWaveData(waveFormData, beatsData, waveFormRender, beatsRender, beats);
         data.setTimes(sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime);
         data.setColor(color, backgroundColor, foregroundColor);
+        data.setShowBeats(showBeats);
     }
     public void loadAudioSampleData(AudioSampleData data){
         samplePath = data.getSamplePath();
@@ -211,6 +211,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         color = data.getColor();
         backgroundColor = data.getBackgroundColor();
         foregroundColor = data.getForegroundColor();
+        showBeats = data.getShowBeats();
     }
 
     public void setIsLoading(boolean loading){

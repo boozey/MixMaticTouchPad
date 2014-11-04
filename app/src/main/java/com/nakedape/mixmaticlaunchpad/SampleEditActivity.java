@@ -83,7 +83,8 @@ public class SampleEditActivity extends Activity {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.sample_edit_context, menu);
             MenuItem item = menu.findItem(R.id.action_show_beats);
-            item.setChecked(showBeats);
+            AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+            item.setChecked(sampleView.ShowBeats());
             item = menu.findItem(R.id.action_loop_selection);
             item.setChecked(loop);
             return true;
@@ -521,6 +522,7 @@ public class SampleEditActivity extends Activity {
             @Override
             public void onCancel(DialogInterface dialog) {
                 sample.dispatcher.stop();
+                sample.setShowBeats(false);
             }
         });
         dlg.show();
@@ -738,7 +740,8 @@ public class SampleEditActivity extends Activity {
     @Override
     public boolean onPrepareOptionsMenu(Menu menu){
         MenuItem item = menu.findItem(R.id.action_show_beats);
-        item.setChecked(showBeats);
+        AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+        item.setChecked(sampleView.ShowBeats());
         return true;
     }
     @Override

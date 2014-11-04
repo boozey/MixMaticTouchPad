@@ -36,6 +36,7 @@ public class AudioSampleData extends Fragment {
     private MediaPlayer mPlayer;
 
     private boolean isGeneratingWaveForm;
+    private boolean showBeats;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -100,5 +101,8 @@ public class AudioSampleData extends Fragment {
 
     public void setmPlayer(MediaPlayer mPlayer){this.mPlayer = mPlayer;}
     public MediaPlayer getmPlayer(){return mPlayer;}
+
+    public void setShowBeats(boolean showBeats) {this.showBeats = showBeats;}
+    public boolean getShowBeats() {return showBeats;}
 
 }
