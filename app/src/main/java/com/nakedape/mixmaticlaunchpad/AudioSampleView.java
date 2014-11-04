@@ -659,7 +659,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         if (Math.abs(selectionEndTime - selectionStartTime) < 0.1)
         {
             selectionStartTime = 0;
-            selectionEndTime = sampleLength;
+            selectionEndTime = 0;//sampleLength;
         }
         Log.d(LOG_TAG, "Selection End Time: " + String.valueOf(selectionEndTime));
     }

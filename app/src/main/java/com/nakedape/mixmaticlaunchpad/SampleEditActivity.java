@@ -84,6 +84,8 @@ public class SampleEditActivity extends Activity {
             inflater.inflate(R.menu.sample_edit_context, menu);
             MenuItem item = menu.findItem(R.id.action_show_beats);
             item.setChecked(showBeats);
+            item = menu.findItem(R.id.action_loop_selection);
+            item.setChecked(loop);
             return true;
         }
 
@@ -171,7 +173,7 @@ public class SampleEditActivity extends Activity {
                 // Stop playback
                 if (mPlayer != null) {
                     Log.d(LOG_TAG, "Audio focus lost, mediaplayer stopped");
-                    mPlayer.pause();
+                    //mPlayer.pause();
                     //mPlayer.stop();
                     //mPlayer.release();
                     //mPlayer = null;
@@ -591,8 +593,7 @@ public class SampleEditActivity extends Activity {
             if (savedData.isSliceMode()) {
                 setSliceMode(savedData.getNumSlices());
             }
-            //if (savedData.getSamplePath() != null)
-            //    LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+            // Show the action bar if there is a selection
             if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
                 sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
             }
@@ -1014,13 +1015,20 @@ public class SampleEditActivity extends Activity {
             AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
             audioSampleView.isPlaying = true;
             continuePlaying = true;
+            double startTime, endTime;
             try {
                 do {
                     if (mPlayer != null) {
                         // Start playing from beginning of selection
+                        startTime = Math.round(audioSampleView.getSelectionStartTime() * 1000);
+                        endTime = Math.round(audioSampleView.getSelectionEndTime() * 1000);
+                        if (!(endTime - startTime > 0)){
+                            startTime = 0;
+                            endTime = Math.round(audioSampleView.sampleLength * 1000);
+                        }
                         if (mPlayer.isPlaying()
-                                && (mPlayer.getCurrentPosition() >= audioSampleView.getSelectionEndTime() * 1000
-                                || mPlayer.getCurrentPosition() < audioSampleView.getSelectionStartTime() * 1000))
+                                && (mPlayer.getCurrentPosition() >= endTime
+                                || mPlayer.getCurrentPosition() < startTime))
                             mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
                         do { // Send an update to the play indicator
                             try {
@@ -1033,10 +1041,17 @@ public class SampleEditActivity extends Activity {
                             } catch (NullPointerException e) {
                                 e.printStackTrace();
                             }
+                            startTime = Math.round(audioSampleView.getSelectionStartTime() * 1000);
+                            endTime = Math.round(audioSampleView.getSelectionEndTime() * 1000);
+                            if (!(endTime - startTime > 0)){
+                                startTime = 0;
+                                endTime = Math.round(audioSampleView.sampleLength * 1000);
+                            }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
-                        while (mPlayer != null && continuePlaying && !stopPlayIndicatorThread && mPlayer.getCurrentPosition() < Math.round(audioSampleView.getSelectionEndTime() * 1000)
-                                && mPlayer.getCurrentPosition() >= Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                        while (mPlayer != null && continuePlaying && !stopPlayIndicatorThread &&
+                                mPlayer.getCurrentPosition() < endTime &&
+                                mPlayer.getCurrentPosition() >= startTime);
 
                         // Loop play if in loop mode and it hasn't been paused
                     }
