@@ -103,6 +103,7 @@ public class LaunchPadActivity extends Activity {
     private long counter;
     private int bpm = 120;
     private int timeSignature = 4;
+    private long recordingEndTime;
     private Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(Message msg){
@@ -179,6 +180,7 @@ public class LaunchPadActivity extends Activity {
     private int selectedSampleID;
     private boolean multiSelect = false;
     private ArrayList<String> selections = new ArrayList<String>();
+    private ArrayList<Integer> padIds = new ArrayList<Integer>(24);
     private ActionMode launchPadActionMode;
     private ActionMode emptyPadActionMode;
     private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
@@ -395,6 +397,7 @@ public class LaunchPadActivity extends Activity {
             if (!isEditMode && !isPlaying && samples.indexOfKey(v.getId()) >= 0) {
                 if (!isRecording){ // Start counter thread
                     isRecording = true;
+                    counter = recordingEndTime;
                     new Thread(new CounterThread()).start();
                 }
                 Sample s = samples.get(v.getId());
@@ -665,9 +668,12 @@ public class LaunchPadActivity extends Activity {
             int min = (int)Math.floor(sec / 60);
             counterTextView.setText(String.format(Locale.US, "%d BPM  %2d : %.2f", bpm, min, sec % 60));
             isEditMode = savedData.isEditMode();
+            padIds = savedData.getPadIds();
             activePads = savedData.getActivePads();
             isRecording = savedData.isRecording();
             isPlaying = savedData.isPlaying();
+            if (isPlaying)
+                disconnectTouchListeners();
             launchEvents = savedData.getLaunchEvents();
             playEventIndex = savedData.getPlayEventIndex();
             savedDataLoaded = true;
@@ -690,6 +696,7 @@ public class LaunchPadActivity extends Activity {
         activePads = new ArrayList<Integer>(24);
         resetRecording();
         TouchPad pad = (TouchPad) findViewById(R.id.touchPad1);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -697,6 +704,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad2);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) { // If the sample exists, load it
@@ -704,6 +712,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad3);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) { // If the sample exists, load it
@@ -711,6 +720,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad4);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) { // If the sample exists, load it
@@ -718,6 +728,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad5);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -725,6 +736,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad6);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -732,6 +744,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad7);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -739,6 +752,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad8);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -746,6 +760,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad9);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -753,6 +768,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad10);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -760,6 +776,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad11);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -767,6 +784,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad12);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -774,6 +792,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad13);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -781,6 +800,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad14);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -788,6 +808,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad15);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -795,6 +816,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad16);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -802,6 +824,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad17);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) { // If the sample exists, load it
@@ -809,6 +832,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad18);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -816,6 +840,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad19);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -823,6 +848,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad20);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -830,6 +856,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad21);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -837,6 +864,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad22);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -844,6 +872,7 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad23);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
@@ -851,12 +880,14 @@ public class LaunchPadActivity extends Activity {
             activePads.add(pad.getId());
         }
         pad = (TouchPad) findViewById(R.id.touchPad24);
+        padIds.add(pad.getId());
         pad.setOnTouchListener(TouchPadTouchListener);
         sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
         if (sampleFile.isFile()) {  // If the sample exists, load it
             loadSample(sampleFile.getAbsolutePath(), pad);
             activePads.add(pad.getId());
         }
+        savedData.setPadIds(padIds);
     }
     private void setupPadsFromFrag(){
         if (samples == null)
@@ -1170,6 +1201,25 @@ public class LaunchPadActivity extends Activity {
         dialog.show();
     }
 
+    private void playMix(){
+        disconnectTouchListeners();
+        isRecording = false;
+        new Thread(new playBackRecording()).start();
+    }
+    private void disconnectTouchListeners(){
+        for (Integer i : padIds){
+            TouchPad pad = (TouchPad)findViewById(i);
+            pad.setOnTouchListener(null);
+            pad.setClickable(false);
+        }
+    }
+    private void reconnectTouchListeners(){
+        for (Integer i : padIds) {
+            TouchPad pad = (TouchPad) findViewById(i);
+            pad.setOnTouchListener(TouchPadTouchListener);
+            pad.setClickable(true);
+        }
+    }
     private class playBackRecording implements Runnable {
         @Override
         public void run() {
@@ -1204,8 +1254,10 @@ public class LaunchPadActivity extends Activity {
                     message.sendToTarget();
                 }
             }
-            if (!stopPlaybackThread)
+            if (!stopPlaybackThread) {
                 isPlaying = false;
+                reconnectTouchListeners();
+            }
         }
     }
     private void resetRecording(){
@@ -1224,6 +1276,7 @@ public class LaunchPadActivity extends Activity {
                     launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
             }
         }
+        reconnectTouchListeners();
         isRecording = false;
     }
     public void Stop(View v){
@@ -1495,8 +1548,7 @@ public class LaunchPadActivity extends Activity {
             v.callOnClick();
         }
         else if (id == R.id.action_play){
-            isRecording = false;
-            new Thread(new playBackRecording()).start();
+            playMix();
         }
         else if (id == R.id.action_write_wav){
             stopPlayBack();
@@ -1574,6 +1626,8 @@ public class LaunchPadActivity extends Activity {
                 counter = SystemClock.elapsedRealtime() - startMillis;
                 Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
                 msg.sendToTarget();
+                if (isRecording)
+                    recordingEndTime = counter;
             } while ((isRecording || isPlaying) && !stopCounterThread);
         }
     }
@@ -1697,9 +1751,9 @@ public class LaunchPadActivity extends Activity {
         public void play(){
             played = true;
             resetMarker();
-            if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED)
+            if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
                 audioTrack.play();
-            else {
+            else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING){
                 Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
                 loadAudioTrack();
             }

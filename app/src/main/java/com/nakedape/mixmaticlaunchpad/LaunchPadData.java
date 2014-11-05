@@ -20,6 +20,7 @@ public class LaunchPadData extends Fragment {
     private ArrayList<Integer> activePads;
     private ArrayList<LaunchPadActivity.LaunchEvent> launchEvents;
     private int playEventIndex;
+    private ArrayList<Integer> padIds;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -44,4 +45,6 @@ public class LaunchPadData extends Fragment {
     public ArrayList<LaunchPadActivity.LaunchEvent> getLaunchEvents() {return launchEvents;}
     public void setPlayEventIndex(int playEventIndex) {this.playEventIndex = playEventIndex;}
     public int getPlayEventIndex() {return playEventIndex;}
+    public void setPadIds(ArrayList<Integer> padIds) {this.padIds = padIds;}
+    public ArrayList<Integer> getPadIds() {return  padIds;}
 }
