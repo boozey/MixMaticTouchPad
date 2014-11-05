@@ -1263,6 +1263,7 @@ public class LaunchPadActivity extends Activity {
     private void resetRecording(){
         isRecording = false;
         counter = 0;
+        recordingEndTime = 0;
         launchEvents = new ArrayList<LaunchEvent>(50);
         updateCounterMessage();
     }
