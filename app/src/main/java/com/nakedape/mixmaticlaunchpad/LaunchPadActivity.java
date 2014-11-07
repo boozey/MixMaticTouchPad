@@ -1299,6 +1299,8 @@ public class LaunchPadActivity extends Activity {
                     launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
             }
         }
+        View v = findViewById(R.id.button_play);
+        v.setBackgroundResource(R.drawable.ic_av_play_arrow);
         reconnectTouchListeners();
         isRecording = false;
     }
