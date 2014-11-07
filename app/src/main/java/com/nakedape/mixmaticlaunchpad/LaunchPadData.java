@@ -21,6 +21,7 @@ public class LaunchPadData extends Fragment {
     private ArrayList<LaunchPadActivity.LaunchEvent> launchEvents;
     private int playEventIndex;
     private ArrayList<Integer> padIds;
+    private long recordingEndTime;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -47,4 +48,6 @@ public class LaunchPadData extends Fragment {
     public int getPlayEventIndex() {return playEventIndex;}
     public void setPadIds(ArrayList<Integer> padIds) {this.padIds = padIds;}
     public ArrayList<Integer> getPadIds() {return  padIds;}
+    public void setRecordingEndTime(long recordingEndTime) {this.recordingEndTime = recordingEndTime;}
+    public long getRecordingEndTime() {return recordingEndTime;}
 }
