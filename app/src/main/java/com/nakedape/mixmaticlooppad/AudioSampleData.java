@@ -1,4 +1,4 @@
-package com.nakedape.mixmaticlaunchpad;
+package com.nakedape.mixmaticlooppad;
 
 import android.app.Fragment;
 import android.media.MediaPlayer;

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Mixmatic Launch Pad</string>
-    <string name="title_activity_launch_pad">Mixmatic Launch Pad</string>
+    <string name="app_name">Mixmatic Loop Pad</string>
+    <string name="title_activity_launch_pad">Mixmatic Loop Pad</string>
 
     <string name="unlicensed_message">This app is not properly licensed.  Go to Google Play Store to download a licensed version?</string>
     <string name="unlicensed_retry_message">Unable to verify license.  This is probably due to a network error.  Retry?</string>
 
     <string name="action_settings">Settings</string>
-    <string name="action_edit_mode">Configure launch pads</string>
+    <string name="action_edit_mode">Configure touch pads</string>
     <string name="action_play_mode">Exit edit mode</string>
     <string name="action_play_back">Play back mix</string>
     <string name="action_save_mix">Export mix as wav</string>

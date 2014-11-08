@@ -1,4 +1,4 @@
-package com.nakedape.mixmaticlaunchpad;
+package com.nakedape.mixmaticlooppad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -417,7 +417,7 @@ public class SampleEditActivity extends Activity {
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
+                        Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
                         result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
                         result.putExtra(LaunchPadActivity.COLOR, sample.color);
                         setResult(Activity.RESULT_OK, result);
@@ -448,7 +448,7 @@ public class SampleEditActivity extends Activity {
                         mHandler.post(new Runnable() {
                             @Override
                             public void run() {
-                                Intent result = new Intent("com.nakedape.mixmaticlaunchpad.RESULT_ACTION");
+                                Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION");
                                 result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
                                 result.putExtra(LaunchPadActivity.COLOR, sample.color);
                                 result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);

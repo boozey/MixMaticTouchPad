@@ -1,4 +1,4 @@
-package com.nakedape.mixmaticlaunchpad;
+package com.nakedape.mixmaticlooppad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -62,15 +62,15 @@ public class LaunchPadActivity extends Activity {
 
     private static final String LOG_TAG = "MixMatic Launch Pad Activity";
 
-    public static String TOUCHPAD_ID = "com.nakedape.mixmaticlaunchpad.touchpadid";
-    public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmaticlaunchpad.touchpadidarray";
-    public static String SAMPLE_PATH = "com.nakedape.mixmaticlaunchpad.samplepath";
-    public static String COLOR = "com.nakedape.mixmaticlaunchpad.color";
-    public static String LOOPMODE = "com.nakedape.mixmaticlaunchpad.loop";
-    public static String LAUNCHMODE = "com.nakedape.mixmaticlaunchpad.launchmode";
-    public static String NUM_SLICES = "com.nakedape.mixmaticlaunchpad.numslices";
-    public static String SLICE_PATHS = "com.nakedape.mixmaticlaunchpad.slicepaths";
-    public static String SAMPLE_VOLUME = "com.nakedape.mixmaticlaunchpad.volume";
+    public static String TOUCHPAD_ID = "com.nakedape.mixmaticlooppad.touchpadid";
+    public static String TOUCHPAD_ID_ARRAY = "com.nakedape.mixmaticlooppad.touchpadidarray";
+    public static String SAMPLE_PATH = "com.nakedape.mixmaticlooppad.samplepath";
+    public static String COLOR = "com.nakedape.mixmaticlooppad.color";
+    public static String LOOPMODE = "com.nakedape.mixmaticlooppad.loop";
+    public static String LAUNCHMODE = "com.nakedape.mixmaticlooppad.launchmode";
+    public static String NUM_SLICES = "com.nakedape.mixmaticlooppad.numslices";
+    public static String SLICE_PATHS = "com.nakedape.mixmaticlooppad.slicepaths";
+    public static String SAMPLE_VOLUME = "com.nakedape.mixmaticlooppad.volume";
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
     private static final int COUNTER_UPDATE = 3;
@@ -79,7 +79,7 @@ public class LaunchPadActivity extends Activity {
     private static final int SET_PRESSED_FALSE = 6;
 
     // Licensing
-    private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi8rbiVIkVPQvsF7d5CrHXnYeh/WsBRAUdjVADnto9X32e6q3O0aB0E4Kz4C7GuBV1dBvARWL7B1Cb4qI0zvjBi8fJT6/OxQDPssEFSdODXxY7xp6dexbJ1huBdGR8IVg5np06C20s9lH3iPuMdzRa26dP4xnP2vL2G90+msqpxpfR84TxG1sHrOM24o1yzg6pgGmFlHMXL7x+XDZyVZN3TNZR9CSeI+ygvVSg9DZPDQSz1T1cIebQ6MctvCQ0Vi17VT8pAnOM8BXUZUSuaetZHM/OXrhmk3MCFKW4RTrGf5NG1+3U0QQ6+wOkyJXwDdGLyz1/IEQTPCmqOs/LwYdFwIDAQAB";
+    private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjcQ7YSSmv5GSS3FrQ801508P/r5laGtv7GBG2Ax9ql6ZAJZI6UPrJIvN9gXjoRBnHOIphIg9HycJRxBwGfgcpEQ3F47uWJ/UvmPeQ3cVffFKIb/cAUqCS4puEtcDL2yDXoKjagsJNBjbRWz6tqDvzH5BtvdYoy4QUf8NqH8wd3/2R/m3PAVIr+lRlUAc1Dj2y40uOEdluDW+i9kbkMD8vrLKr+DGnB7JrKFAPaqxBNTeogv0vGNOWwJd3Tgx7VDm825Op/vyG9VQSM7W53TsyJE8NdwP8Q59B/WRlcsr+tHCyoQcjscrgVegiOyME1DfEUrQk/SPzr5AlCqa2AZ//wIDAQAB";
     private LicenseCheckerCallback mLicenseCheckerCallback;
     private LicenseChecker mChecker;
     // Generate 20 random bytes, and put them here.
@@ -399,9 +399,9 @@ public class LaunchPadActivity extends Activity {
                     isRecording = true;
                     counter = recordingEndTime;
                     new Thread(new CounterThread()).start();
-                    View playButton = findViewById(R.id.button_play);
-                    playButton.setBackgroundResource(R.drawable.ic_av_pause);
                 }
+                View playButton = findViewById(R.id.button_play);
+                playButton.setBackgroundResource(R.drawable.ic_av_pause);
                 Sample s = samples.get(v.getId());
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_UP:
@@ -1880,8 +1880,8 @@ public class LaunchPadActivity extends Activity {
     }
 
     public class LaunchEvent{
-        public static final String PLAY_START = "com.nakedape.mixmaticlaunchpad.playstart";
-        public static final String PLAY_STOP = "com.nakedape.mixmaticlaunchpad.playstop";
+        public static final String PLAY_START = "com.nakedape.mixmaticlooppad.playstart";
+        public static final String PLAY_STOP = "com.nakedape.mixmaticlooppad.playstop";
         private double timeStamp;
         private String eventType;
         private int sampleId;
@@ -1957,7 +1957,7 @@ public class LaunchPadActivity extends Activity {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 Intent intent = new Intent(Intent.ACTION_VIEW);
-                                intent.setData(Uri.parse("market://details?id=com.nakedape.mixmaticlaunchpad"));
+                                intent.setData(Uri.parse("market://details?id=com.nakedape.mixmaticlooppad"));
                                 startActivity(intent);
                                 finish();
                             }

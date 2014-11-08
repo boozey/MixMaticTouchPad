@@ -1,11 +1,10 @@
-package com.nakedape.mixmaticlaunchpad;
+package com.nakedape.mixmaticlooppad;
 
 import android.app.Fragment;
 import android.os.Bundle;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 /**
  * Created by Nathan on 10/11/2014.

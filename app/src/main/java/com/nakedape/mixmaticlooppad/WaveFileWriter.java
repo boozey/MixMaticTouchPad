@@ -1,4 +1,4 @@
-package com.nakedape.mixmaticlaunchpad;
+package com.nakedape.mixmaticlooppad;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

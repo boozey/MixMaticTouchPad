@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.nakedape.mixmaticlaunchpad" >
+    package="com.nakedape.mixmaticlooppad" >
     <!-- Required permission to check licensing. -->
     <uses-permission android:name="com.android.vending.CHECK_LICENSE" />
 
@@ -14,7 +14,7 @@
         android:largeHeap="true"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.nakedape.mixmaticlaunchpad.SampleEditActivity"
+            android:name="com.nakedape.mixmaticlooppad.SampleEditActivity"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.nakedape.mixmaticlaunchpad.LaunchPadActivity"
+            android:name="com.nakedape.mixmaticlooppad.LaunchPadActivity"
             android:label="@string/title_activity_launch_pad" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,7 +34,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.nakedape.mixmaticlaunchpad.EditPreferencesActivity"
+            android:name="com.nakedape.mixmaticlooppad.EditPreferencesActivity"
             android:label="@string/title_activity_sample_edit_preferences" >
         </activity>
     </application>
