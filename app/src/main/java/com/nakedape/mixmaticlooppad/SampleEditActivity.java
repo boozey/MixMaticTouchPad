@@ -144,7 +144,7 @@ public class SampleEditActivity extends Activity {
         @Override
         public void onClick(View v) {
             AudioSampleView sampleView = (AudioSampleView)v;
-            if (sampleView.getSelectionEndTime() - sampleView.getSelectionStartTime() > 0.025) {
+            if (sampleView.isSelection()) {
                 if (sampleEditActionMode == null)
                     sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
             }
@@ -521,8 +521,10 @@ public class SampleEditActivity extends Activity {
 
     public void ZoomOut(View view){
         AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
-        //a.zoomExtents();
         a.zoomOut();
+        if (!a.isSelection() && sampleEditActionMode != null) {
+            sampleEditActionMode.finish();
+        }
     }
 
     public void showBeats(){

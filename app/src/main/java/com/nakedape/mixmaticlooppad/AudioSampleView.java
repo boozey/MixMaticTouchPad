@@ -589,6 +589,11 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         selectionEndTime = 0;
         invalidate();
     }
+    public boolean isSelection(){
+        double selectionLength = getSelectionEndTime() - getSelectionStartTime();
+        double windowLength = windowEndTime - windowStartTime;
+        return selectionLength / windowLength > 0.01;
+    }
 
     public void updatePlayIndicator(double time){
         playPos.x = (float)(time);
