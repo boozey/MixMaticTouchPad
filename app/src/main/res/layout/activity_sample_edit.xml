@@ -17,47 +17,46 @@
         android:layout_alignParentStart="true"
         android:layout_above="@+id/buttonPlay" />
 
-    <Button
-        style="?android:attr/buttonStyleSmall"
+    <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Play"
-        android:id="@+id/buttonPlay"
-        android:onClick="Play"
+        android:background="@drawable/ic_action_previous"
+        android:contentDescription="Rewind"
+        android:id="@+id/buttonRewind"
+        android:onClick="Rewind"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true" />
 
-    <Button
-        style="?android:attr/buttonStyleSmall"
+    <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="[ + ]"
+        android:background="@drawable/ic_action_play"
+        android:contentDescription="@string/play"
+        android:id="@+id/buttonPlay"
+        android:onClick="Play"
+        android:layout_alignParentBottom="true"
+        android:layout_toRightOf="@id/buttonRewind"
+        android:layout_toEndOf="@id/buttonRewind"/>
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/zoom_in"
         android:id="@+id/buttonZoomIn"
         android:layout_alignTop="@+id/buttonPlay"
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
         android:onClick="ZoomIn" />
 
-    <Button
-        style="?android:attr/buttonStyleSmall"
+    <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="[ - ]"
+        android:background="@drawable/zoom_out"
         android:id="@+id/buttonZoomOut"
         android:layout_toStartOf="@+id/buttonZoomIn"
         android:layout_toLeftOf="@id/buttonZoomIn"
         android:layout_alignTop="@+id/buttonZoomIn"
         android:onClick="ZoomOut" />
-
-    <Button
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/save"
-        android:id="@+id/buttonSave"
-        android:layout_below="@+id/spectralView"
-        android:onClick="Save"
-        android:layout_toRightOf="@+id/buttonPlay" />
 
 </RelativeLayout>

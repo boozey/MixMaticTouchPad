@@ -26,6 +26,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -142,8 +143,15 @@ public class SampleEditActivity extends Activity {
     private View.OnClickListener sampleViewLongClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            if (sampleEditActionMode == null)
-                sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+            AudioSampleView sampleView = (AudioSampleView)v;
+            if (sampleView.getSelectionEndTime() - sampleView.getSelectionStartTime() > 0.025) {
+                if (sampleEditActionMode == null)
+                    sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+            }
+            else if (sampleEditActionMode != null)
+                sampleEditActionMode.finish();
+            else
+                sampleView.clearSelection();
         }
     };
 
@@ -193,8 +201,8 @@ public class SampleEditActivity extends Activity {
                     break;
                 case AUDIO_PLAY_COMPLETE:
                     audioSampleView.isPlaying = false;
-                    Button b = (Button)findViewById(R.id.buttonPlay);
-                    b.setText("Play");
+                    ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
+                    b.setBackgroundResource(R.drawable.ic_action_play);
                     break;
                 case AUDIO_PROCESSING_UPDATE:
                     dlg.setProgress(msg.arg1);
@@ -282,7 +290,7 @@ public class SampleEditActivity extends Activity {
     }
 
     public void LoadMediaPlayer(Uri uri){
-        Button b = (Button)findViewById(R.id.buttonPlay);
+        ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
         b.setEnabled(false);
         if (mPlayer != null){
             if (mPlayer.isPlaying()) mPlayer.stop();
@@ -296,7 +304,7 @@ public class SampleEditActivity extends Activity {
             mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(MediaPlayer mp) {
-                    Button b = (Button)findViewById(R.id.buttonPlay);
+                    ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
                     b.setEnabled(true);
                 }
             });
@@ -326,15 +334,15 @@ public class SampleEditActivity extends Activity {
                     AudioManager.AUDIOFOCUS_GAIN);
 
             if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                Button b = (Button) findViewById(R.id.buttonPlay);
+                ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
                 AudioSampleView audioSampleView = (AudioSampleView) findViewById(R.id.spectralView);
                 if (mPlayer != null) {
                     if (mPlayer.isPlaying()){ // If already playing, pause
                         continuePlaying = false;
-                        b.setText(getString(R.string.play));
+                        b.setBackgroundResource(R.drawable.ic_action_play);
                     }
                     else { // If not playing, start
-                        b.setText(getString(R.string.pause));
+                        b.setBackgroundResource(R.drawable.ic_action_pause);
                         audioSampleView.isPlaying = true;
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
@@ -344,7 +352,7 @@ public class SampleEditActivity extends Activity {
                     mPlayer = new MediaPlayer();
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
-                        b.setText(getString(R.string.pause));
+                        b.setBackgroundResource(R.drawable.ic_action_pause);
                         audioSampleView.isPlaying = true;
                         continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
@@ -356,6 +364,13 @@ public class SampleEditActivity extends Activity {
                     }
                 }
             }
+    }
+    public void Rewind(View view){
+        AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+        if (mPlayer != null){
+            mPlayer.seekTo((int)(sampleView.getSelectionStartTime() * 1000));
+            sampleView.redraw();
+        }
     }
 
     public void TarsosPlay(View view){
@@ -607,8 +622,8 @@ public class SampleEditActivity extends Activity {
             mPlayer = savedData.getmPlayer();
             if (mPlayer != null) {
                 if (mPlayer.isPlaying()) {
-                    Button b = (Button) findViewById(R.id.buttonPlay);
-                    b.setText(getString(R.string.pause));
+                    ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
+                    b.setBackgroundResource(R.drawable.ic_action_pause);
                     new Thread(new PlayIndicator()).start();
                 }
             }
@@ -690,8 +705,8 @@ public class SampleEditActivity extends Activity {
     private void setSliceMode(int numSlices){
         isSliceMode = true;
         this.numSlices = numSlices;
-        Button button = (Button)findViewById(R.id.buttonSave);
-        button.setText(getString(R.string.button_slice_mode_title));
+        //Button button = (Button)findViewById(R.id.buttonSave);
+        //button.setText(getString(R.string.button_slice_mode_title));
     }
 
     @Override
@@ -735,6 +750,11 @@ public class SampleEditActivity extends Activity {
         getMenuInflater().inflate(R.menu.sample_edit, menu);
         MenuItem item = menu.findItem(R.id.action_show_beats);
         item.setChecked(showBeats);
+        item = menu.findItem(R.id.action_save);
+        if (isSliceMode)
+            item.setTitle(getString(R.string.button_slice_mode_title));
+        else
+            item.setTitle(getString(R.string.save));
         return true;
     }
     @Override
@@ -742,6 +762,11 @@ public class SampleEditActivity extends Activity {
         MenuItem item = menu.findItem(R.id.action_show_beats);
         AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
         item.setChecked(sampleView.ShowBeats());
+        item = menu.findItem(R.id.action_save);
+        if (isSliceMode)
+            item.setTitle(getString(R.string.button_slice_mode_title));
+        else
+            item.setTitle(getString(R.string.save));
         return true;
     }
     @Override
@@ -790,6 +815,8 @@ public class SampleEditActivity extends Activity {
             case R.id.action_play_tarsos:
                 sample.Play(sample.getSelectionStartTime(), sample.getSelectionEndTime());
                 return true;
+            case R.id.action_save:
+                Save(null);
             default:
                 return super.onOptionsItemSelected(item);
         }
