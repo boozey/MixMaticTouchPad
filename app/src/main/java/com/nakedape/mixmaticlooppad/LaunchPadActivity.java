@@ -401,7 +401,7 @@ public class LaunchPadActivity extends Activity {
                     new Thread(new CounterThread()).start();
                 }
                 View playButton = findViewById(R.id.button_play);
-                playButton.setBackgroundResource(R.drawable.ic_av_pause);
+                playButton.setBackgroundResource(R.drawable.button_pause);
                 Sample s = samples.get(v.getId());
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_UP:
@@ -684,12 +684,12 @@ public class LaunchPadActivity extends Activity {
             savedDataLoaded = true;
             if (isRecording) {
                 View v = findViewById(R.id.button_play);
-                v.setBackgroundResource(R.drawable.ic_av_pause);
+                v.setBackgroundResource(R.drawable.button_pause);
                 new Thread(new CounterThread()).start();
             }
             if (isPlaying) {
                 View v = findViewById(R.id.button_play);
-                v.setBackgroundResource(R.drawable.ic_av_pause);
+                v.setBackgroundResource(R.drawable.button_pause);
                 new Thread(new playBackRecording()).start();
             }
             // Setup touch pads from retained fragment
@@ -1237,12 +1237,11 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void run() {
             isRecording = false;
-            if (!isPlaying) {
-                playEventIndex = 0;
-                counter = 0;
-            }
             isPlaying = true;
             new Thread(new CounterThread()).start();
+            for (int i = 0; i < launchEvents.size() && launchEvents.get(i).getTimeStamp() < counter; i++){
+                playEventIndex = i;
+            }
             for (int i = playEventIndex; i < launchEvents.size() && isPlaying && !stopPlaybackThread; i++) {
                 LaunchEvent event = launchEvents.get(i);
                 playEventIndex = i;
@@ -1274,7 +1273,7 @@ public class LaunchPadActivity extends Activity {
                     @Override
                     public void run() {
                         View v = findViewById(R.id.button_play);
-                        v.setBackgroundResource(R.drawable.ic_av_play_arrow);
+                        v.setBackgroundResource(R.drawable.button_play);
                     }
                 });
             }
@@ -1300,28 +1299,30 @@ public class LaunchPadActivity extends Activity {
             }
         }
         View v = findViewById(R.id.button_play);
-        v.setBackgroundResource(R.drawable.ic_av_play_arrow);
+        v.setBackgroundResource(R.drawable.button_play);
         reconnectTouchListeners();
         isRecording = false;
     }
     public void PlayButtonClick(View v){
         if (isPlaying || isRecording) {
             stopPlayBack();
-            v.setBackgroundResource(R.drawable.ic_av_play_arrow);
+            v.setBackgroundResource(R.drawable.button_play);
         }
-        else if (launchEvents.size() > 0) {
-            v.setBackgroundResource(R.drawable.ic_av_pause);
+        else if (launchEvents.size() > 0 && playEventIndex < launchEvents.size()){
+            v.setBackgroundResource(R.drawable.button_pause);
             playMix();
         }
     }
     public void RewindButtonClick(View v){
         stopPlayBack();
         counter = 0;
+        playEventIndex = 0;
         updateCounterMessage();
     }
     public void FastForwardButtonClick(View v){
         stopPlayBack();
         counter = recordingEndTime;
+        playEventIndex = Math.max(launchEvents.size() - 1, 0);
         updateCounterMessage();
     }
     public void Stop(View v){
@@ -1593,6 +1594,10 @@ public class LaunchPadActivity extends Activity {
             v.callOnClick();
         }
         else if (id == R.id.action_play){
+            counter = 0;
+            playEventIndex = 0;
+            View v = findViewById(R.id.button_play);
+            v.setBackgroundResource(R.drawable.button_pause);
             playMix();
         }
         else if (id == R.id.action_write_wav){
@@ -1740,10 +1745,10 @@ public class LaunchPadActivity extends Activity {
                     audioTrack.flush();
                     audioTrack.reloadStaticData();
                     played = false;
-                }
+                }*/
                 if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED)
                     loadAudioTrack();
-                */
+
                 audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
                 audioTrack.setNotificationMarkerPosition(0);
                 audioTrack.setPlaybackPositionUpdateListener(null);
@@ -1802,6 +1807,8 @@ public class LaunchPadActivity extends Activity {
             else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING){
                 Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
                 loadAudioTrack();
+                if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+                    audioTrack.play();
             }
         }
         public void stop(){

@@ -46,7 +46,7 @@
     <string name="warning_remove_sample">Remove sample?</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="action_set_volume">Volume</string>
-    <string name="action_reset">Reset</string>
+    <string name="action_reset">Reset recording</string>
 
     <string name="button_slice_mode_title">Slice</string>
     <string name="slice_multi_select">Select pads to fill</string>

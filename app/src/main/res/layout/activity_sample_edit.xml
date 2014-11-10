@@ -20,7 +20,7 @@
     <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/ic_action_previous"
+        android:background="@drawable/button_skip_back_large"
         android:contentDescription="Rewind"
         android:id="@+id/buttonRewind"
         android:onClick="Rewind"
@@ -31,7 +31,7 @@
     <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/ic_action_play"
+        android:background="@drawable/button_play_large"
         android:contentDescription="@string/play"
         android:id="@+id/buttonPlay"
         android:onClick="Play"

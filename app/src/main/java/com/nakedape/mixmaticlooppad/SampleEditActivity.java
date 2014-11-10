@@ -202,7 +202,7 @@ public class SampleEditActivity extends Activity {
                 case AUDIO_PLAY_COMPLETE:
                     audioSampleView.isPlaying = false;
                     ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
-                    b.setBackgroundResource(R.drawable.ic_action_play);
+                    b.setBackgroundResource(R.drawable.button_play_large);
                     break;
                 case AUDIO_PROCESSING_UPDATE:
                     dlg.setProgress(msg.arg1);
@@ -339,10 +339,10 @@ public class SampleEditActivity extends Activity {
                 if (mPlayer != null) {
                     if (mPlayer.isPlaying()){ // If already playing, pause
                         continuePlaying = false;
-                        b.setBackgroundResource(R.drawable.ic_action_play);
+                        b.setBackgroundResource(R.drawable.button_play_large);
                     }
                     else { // If not playing, start
-                        b.setBackgroundResource(R.drawable.ic_action_pause);
+                        b.setBackgroundResource(R.drawable.button_pause_large);
                         audioSampleView.isPlaying = true;
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
@@ -352,7 +352,7 @@ public class SampleEditActivity extends Activity {
                     mPlayer = new MediaPlayer();
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
-                        b.setBackgroundResource(R.drawable.ic_action_pause);
+                        b.setBackgroundResource(R.drawable.button_pause_large);
                         audioSampleView.isPlaying = true;
                         continuePlaying = true;
                         mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
@@ -625,7 +625,7 @@ public class SampleEditActivity extends Activity {
             if (mPlayer != null) {
                 if (mPlayer.isPlaying()) {
                     ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
-                    b.setBackgroundResource(R.drawable.ic_action_pause);
+                    b.setBackgroundResource(R.drawable.button_pause_large);
                     new Thread(new PlayIndicator()).start();
                 }
             }
