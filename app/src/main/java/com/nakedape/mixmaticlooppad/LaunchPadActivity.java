@@ -143,6 +143,7 @@ public class LaunchPadActivity extends Activity {
     }
     private ArrayList<LaunchEvent> launchEvents = new ArrayList<LaunchEvent>(50);
     private int playEventIndex = 0;
+    private ArrayList<LaunchEvent> loopingSamplesPlaying = new ArrayList<LaunchEvent>(5);
     private ArrayList<Integer> activePads;
 
     // Listener to turn off touch pads when sound is finished
@@ -1186,6 +1187,7 @@ public class LaunchPadActivity extends Activity {
                 f.delete();
                 // Remove the sample from the list of active samples
                 samples.remove(sampleId);
+                activePads.remove(sampleId);
                 // Set the launchpad background to empty
                 View v = findViewById(sampleId);
                 v.setBackgroundResource(R.drawable.launch_pad_empty);
@@ -1243,6 +1245,18 @@ public class LaunchPadActivity extends Activity {
                 playEventIndex = i;
             }
             for (int i = playEventIndex; i < launchEvents.size() && isPlaying && !stopPlaybackThread; i++) {
+                ArrayList<LaunchEvent> tempArray = new ArrayList<LaunchEvent>(loopingSamplesPlaying.size());
+                tempArray.addAll(loopingSamplesPlaying);
+                for (LaunchEvent l : tempArray){
+                    if (l.timeStamp <= counter) {
+                        samples.get(l.getSampleId()).play();
+                        Message message = playHandler.obtainMessage(SET_PRESSED_TRUE);
+                        message.arg1 = l.getSampleId();
+                        message.sendToTarget();
+                        loopingSamplesPlaying.remove(l);
+                        Log.d(LOG_TAG, "Restarting looped sample");
+                    }
+                }
                 LaunchEvent event = launchEvents.get(i);
                 playEventIndex = i;
                 while (event.timeStamp > counter)
@@ -1284,18 +1298,26 @@ public class LaunchPadActivity extends Activity {
         counter = 0;
         recordingEndTime = 0;
         launchEvents = new ArrayList<LaunchEvent>(50);
+        loopingSamplesPlaying = new ArrayList<LaunchEvent>(5);
         updateCounterMessage();
     }
     private void stopPlayBack(){
+        isPlaying = false;
+        loopingSamplesPlaying = new ArrayList<LaunchEvent>(5);
         for (Integer i : activePads) {
             Sample s = samples.get(i);
-            isPlaying = false;
             View v = findViewById(i);
             v.setPressed(false);
             if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                s.stop();
                 if (isRecording)
                     launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
+                else if (s.getLoopMode()){
+                    Log.d(LOG_TAG, "Counter: " + String.valueOf(counter));
+                    double newTime = counter - s.audioTrack.getPlaybackHeadPosition() * 4 / (8 * 44100) * 1000 + s.getSampleLengthMillis();
+                    loopingSamplesPlaying.add(new LaunchEvent(newTime, LaunchEvent.PLAY_START, i));
+                    Log.d(LOG_TAG, "New loop sample time: " + String.valueOf(newTime));
+                }
+                s.stop();
             }
         }
         View v = findViewById(R.id.button_play);
@@ -1317,12 +1339,14 @@ public class LaunchPadActivity extends Activity {
         stopPlayBack();
         counter = 0;
         playEventIndex = 0;
+        loopingSamplesPlaying = new ArrayList<LaunchEvent>(5);
         updateCounterMessage();
     }
     public void FastForwardButtonClick(View v){
         stopPlayBack();
         counter = recordingEndTime;
         playEventIndex = Math.max(launchEvents.size() - 1, 0);
+        loopingSamplesPlaying = new ArrayList<LaunchEvent>(5);
         updateCounterMessage();
     }
     public void Stop(View v){
@@ -1788,6 +1812,9 @@ public class LaunchPadActivity extends Activity {
         public int getLaunchMode(){
             return launchMode;
         }
+        public double getSampleLengthMillis(){
+            return (double)sampleByteLength / (8 *44100) * 1000;
+        }
         public byte[] getAudioBytes(){
             InputStream stream = null;
             byte[] bytes = null;
@@ -1800,16 +1827,18 @@ public class LaunchPadActivity extends Activity {
             return bytes;
         }
         public void play(){
-            played = true;
-            resetMarker();
-            if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
-                audioTrack.play();
-            else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING){
-                Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
-                loadAudioTrack();
-                if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+            try {
+                played = true;
+                if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+                    resetMarker();
                     audioTrack.play();
-            }
+                } else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+                    Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
+                    loadAudioTrack();
+                    if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
+                        audioTrack.play();
+                }
+            }catch (IllegalStateException e) {e.printStackTrace();}
         }
         public void stop(){
             if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
