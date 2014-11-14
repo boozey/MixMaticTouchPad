@@ -478,6 +478,7 @@ public class LaunchPadActivity extends Activity {
                     editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
                 }
                 samples.put(id, sample);
+                activePads.add(id);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -526,6 +527,7 @@ public class LaunchPadActivity extends Activity {
                     editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
                     editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
                     samples.put(id, sample);
+                    activePads.add(id);
                     TouchPad t = (TouchPad) findViewById(id);
                     switch (data.getIntExtra(COLOR, 0)) { // Set and save color
                         case 0:
@@ -1187,7 +1189,12 @@ public class LaunchPadActivity extends Activity {
                 f.delete();
                 // Remove the sample from the list of active samples
                 samples.remove(sampleId);
-                activePads.remove(sampleId);
+                int index = 0;
+                for (int i = 0; i < activePads.size(); i++)
+                        if (activePads.get(i) == sampleId)
+                            index = i;
+                if (activePads.size() > index)
+                    activePads.remove(index);
                 // Set the launchpad background to empty
                 View v = findViewById(sampleId);
                 v.setBackgroundResource(R.drawable.launch_pad_empty);
