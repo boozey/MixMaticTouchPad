@@ -25,8 +25,10 @@ import java.util.List;
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.Oscilloscope;
+import be.tarsos.dsp.beatroot.BeatRootOnsetEventHandler;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
+import be.tarsos.dsp.onsets.BeatRootSpectralFluxOnsetDetector;
 import be.tarsos.dsp.onsets.ComplexOnsetDetector;
 import be.tarsos.dsp.onsets.OnsetHandler;
 import javazoom.jl.converter.WaveFile;
@@ -458,89 +460,21 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         return sliceFile.getAbsolutePath();
     }
-    public boolean TarsosTrim(double startTime, final double endTime) {
-        InputStream wavStream = null; // InputStream to stream the wav to trim
-        File trimmedSample = null;  // File to contain the trimmed down sample
-        File sampleFile = new File(samplePath); // File pointer to the current wav sample
-
-        // If the sample file exists, try to trim it
-        if (sampleFile.isFile()) {
-            trimmedSample = new File(CACHE_PATH + "trimmed_wav_cache.wav");
-            if (trimmedSample.isFile()) trimmedSample.delete();
-
-            // Trim the sample down and write it to file
-            try {
-                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
-                UniversalAudioInputStream audioStream = new UniversalAudioInputStream(wavStream, audioFormat);
-                dispatcher = new AudioDispatcher(audioStream, bufferSize, overLap);
-                WaveFileWriter writer = new WaveFileWriter(trimmedSample.getAbsolutePath(),
-                        44100,
-                        (short) 16,
-                        (short) 1);
-                dispatcher.addAudioProcessor(writer);
-                dispatcher.skip(startTime);
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (dispatcher.secondsProcessed() < endTime) {
-                            try {
-                                Thread.sleep(1);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        dispatcher.stop();
-                    }
-                }).start();
-                dispatcher.run();
-                //writer.processingFinished();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            // Delete the original wav sample
-            sampleFile.delete();
-            // Copy the trimmed wav over to replace the sample
-            trimmedSample.renameTo(sampleFile);
-            // Set the new sample length
-            sampleLength = selectionEndTime - selectionStartTime;
-            Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
-            // Copy data over for only the trimmed section
-            List<Line> temp = new ArrayList<Line>();
-            temp.addAll(waveFormData);
-            waveFormData.clear();
-            for (Line l : temp) {
-                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
-                    waveFormData.add(new Line((l.getX() - (float)selectionStartTime), l.getY()));
-                }
-            }
-            waveFormRender.clear();
-            waveFormRender.addAll(waveFormData);
-            temp.clear();
-            temp.addAll(beatsData);
-            beatsData.clear();
-            for (Line l : temp) {
-                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
-                    beatsData.add(new Line(l.getX() - (float)selectionStartTime, l.getY()));
-                }
-            }
-            beatsRender.clear();
-            beatsRender.addAll(beatsData);
-            windowStartTime = 0;
-            windowEndTime = sampleLength;
-            selectionStartTime = 0;
-            selectionEndTime = sampleLength;
-            selectStart = 0;
-            selectEnd = getWidth();
-        }
-        return true;
-    }
     public void identifyBeats(double beatThreshold){
         dispatcher = getDispatcher(1024);
         beats = new ArrayList<BeatInfo>(500);
         beatsData = new ArrayList<Line>(500);
         ComplexOnsetDetector onsetDetector = new ComplexOnsetDetector(1024, beatThreshold);
-        //BeatRootSpectralFluxOnsetDetector onsetDetector = new BeatRootSpectralFluxOnsetDetector(dispatcher, 256, 8);
         onsetDetector.setHandler(this);
+        //BeatRootSpectralFluxOnsetDetector onsetDetector = new BeatRootSpectralFluxOnsetDetector(dispatcher, 256, 512);
+        BeatRootOnsetEventHandler handler = new BeatRootOnsetEventHandler() {
+          @Override
+          public void handleOnset(double time, double salience){
+              beats.add(new BeatInfo(time, salience));
+              beatsData.add(new Line((float) time, (float) getHeight()));
+          }
+        };
+        //onsetDetector.setHandler(handler);
         dispatcher.addAudioProcessor(onsetDetector);
         dispatcher.run();
         beatsRender.addAll(beatsData);

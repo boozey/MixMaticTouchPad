@@ -46,7 +46,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -1410,7 +1409,7 @@ public class LaunchPadActivity extends Activity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                WriteWavFile2(fileName);
+                WriteWavFile(fileName);
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -1520,7 +1519,7 @@ public class LaunchPadActivity extends Activity {
             } catch (IOException e) {e.printStackTrace();}
         }
     }
-    private void WriteWavFile(String fileName){
+    private void WriteWavFileOld(String fileName){
         // Wave file to write
         File waveFileTemp = new File(homeDirectory, fileName + ".wav");
         if (waveFileTemp.isFile())
@@ -1598,6 +1597,118 @@ public class LaunchPadActivity extends Activity {
             bytesWritten += length;
         } while (i < launchEvents.size() && !dialogCanceled);
         waveFile.Close();
+    }
+    private void WriteWavFile(String fileName){
+        // Wave file to write
+        File tempFile = new File(homeDirectory, fileName + ".mix");
+        if (tempFile.isFile())
+            tempFile.delete();
+        OutputStream outputStream = null;
+        float max = 0;
+        try {
+            tempFile.createNewFile();
+            outputStream = new BufferedOutputStream(new FileOutputStream(tempFile));
+            // Array holds all the samples that are being played at a given time
+            ArrayList<String> playingSamples = new ArrayList<String>(24);
+            // Array to contain offsets for samples that play longer than the next event.  Stored as strings
+            SparseArray<String> playingSampleOffsets = new SparseArray<String>(24);
+            int bytesWritten = 0; // Total bytes written, also used to track time
+            int i = 0;
+            int length = 0;
+            do {
+                LaunchEvent event = launchEvents.get(i);
+                if (event.eventType.equals(LaunchEvent.PLAY_START))
+                    playingSamples.add(String.valueOf(event.getSampleId()));
+                else {
+                    playingSamples.remove(String.valueOf(event.getSampleId()));
+                    playingSampleOffsets.put(event.getSampleId(), String.valueOf(0));
+                }
+                // Figure out how much can be written before the next start/stop event
+                if (i < launchEvents.size() - 1) {
+                    length = (int) (launchEvents.get(i + 1).timeStamp / 1000 * 44100) * 16 / 4 - bytesWritten;
+                } else
+                    length = 0;
+                // short array to hold that data to be written before the next event
+                float[] mixedBuffer = new float[length / 2];
+                // For each sample that is playing load its data and add it to the array to be written
+                for (String idString : playingSamples) {
+                    // byte array to hold that data to be written before the next event for this sample
+                    int id = Integer.parseInt(idString);
+                    byte[] byteData = new byte[length];
+                    byte[] sampleBytes = samples.get(id).getAudioBytes();
+                    int bytesCopied = 0;
+                    int offset = Integer.parseInt(playingSampleOffsets.get(id, "0"));
+                    if (offset > sampleBytes.length)
+                        offset -= sampleBytes.length;
+                    if (sampleBytes.length - offset <= byteData.length) {
+                        // Fill the byte array with copies of the sample until it is full
+                        do {
+                            ByteBuffer.wrap(sampleBytes, offset, sampleBytes.length - offset).get(byteData, bytesCopied, sampleBytes.length - offset);
+                            bytesCopied += sampleBytes.length - offset;
+                            offset = 0;
+                        } while (bytesCopied + sampleBytes.length <= byteData.length);
+                        ByteBuffer.wrap(sampleBytes, 0, byteData.length - bytesCopied).get(byteData, bytesCopied, byteData.length - bytesCopied);
+                        playingSampleOffsets.put(id, String.valueOf((byteData.length - bytesCopied)));
+                    } else {
+                        ByteBuffer.wrap(sampleBytes, offset, byteData.length).get(byteData);
+                        playingSampleOffsets.put(Integer.parseInt(idString), String.valueOf(sampleBytes.length + offset + byteData.length));
+                    }
+                    // Convert byte data to shorts
+                    short[] shorts = new short[byteData.length / 2];
+                    ByteBuffer.wrap(byteData).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    // Add the sample short data to the total data to be written to file
+                    float volume = samples.get(id).getVolume();
+                    for (int j = 0; j < shorts.length; j++) {
+                        mixedBuffer[j] = mixedBuffer[j] + shorts[j] * volume;
+                        max = Math.max(mixedBuffer[j], max);
+                    }
+                    ByteBuffer buffer = ByteBuffer.allocate(4 * mixedBuffer.length);
+                    for (float value : mixedBuffer){
+                        buffer.putFloat(value);
+                    }
+                    byte[] bytes = new byte[4 * mixedBuffer.length];
+                    buffer.rewind();
+                    buffer.get(bytes);
+                    outputStream.write(bytes);
+                }
+                Message m = mHandler.obtainMessage(WAV_FILE_WRITE_PROGRESS);
+                m.arg1 = i;
+                m.sendToTarget();
+                i++;
+                bytesWritten += length;
+            } while (i < launchEvents.size() && !dialogCanceled);
+            outputStream.close();
+        } catch (FileNotFoundException e){e.printStackTrace();}
+        catch (IOException e) {e.printStackTrace();}
+        finally {
+            if (outputStream != null)
+                try {
+                    outputStream.close();
+                } catch(IOException e) {}
+        }
+        InputStream inputStream = null;
+        try {
+            inputStream = new BufferedInputStream(new FileInputStream(tempFile));
+            File waveFileFinal = new File(homeDirectory, fileName + ".wav");
+            if (waveFileFinal.isFile())
+                waveFileFinal.delete();
+            WaveFile waveFile = new WaveFile();
+            waveFile.OpenForWrite(waveFileFinal.getAbsolutePath(), 44100, (short)16, (short)2);
+            int numBytes = inputStream.available();
+            while (numBytes > 0){
+                byte[] bytes = new byte[numBytes];
+                float[] floats = new float[bytes.length / 4];
+                short[] shorts = new short[floats.length];
+                inputStream.read(bytes);
+                ByteBuffer.wrap(bytes).asFloatBuffer().get(floats);
+                for (int j = 0; j < floats.length; j++) {
+                    shorts[j] = (short) (floats[j] * 32767 / max);
+                }
+                waveFile.WriteData(shorts, shorts.length);
+                numBytes = inputStream.available();
+            }
+            waveFile.Close();
+        }catch (IOException e) {e.printStackTrace();}
     }
     private void WriteWavFile2(String fileName){
         // Wave file to write
@@ -1711,6 +1822,7 @@ public class LaunchPadActivity extends Activity {
             waveFile.Close();
         }catch (IOException e) {e.printStackTrace();}
     }
+
 
     // Activity lifecycle
     @Override
@@ -2006,36 +2118,43 @@ public class LaunchPadActivity extends Activity {
 
         // Private methods
         private void loadAudioTrack() {
-            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
-                    44100,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT,
-                    sampleByteLength,
-                    AudioTrack.MODE_STATIC, id);
-            InputStream stream = null;
             try {
-                stream = new BufferedInputStream(new FileInputStream(sampleFile));
-                stream.skip(44);
-                byte[] bytes = new byte[sampleByteLength];
-                stream.read(bytes);
-                short[] shorts = new short[bytes.length / 2];
-                ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                audioTrack.write(shorts, 0, shorts.length);
-                stream.close();
-                played = false;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            audioTrack.setStereoVolume(volume, volume);
-            if (listener != null) {
-                audioTrack.setPlaybackPositionUpdateListener(listener);
-                resetMarker();
-            }
+                audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                        44100,
+                        AudioFormat.CHANNEL_OUT_STEREO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        sampleByteLength,
+                        AudioTrack.MODE_STATIC, id);
+                InputStream stream = null;
+                try {
+                    stream = new BufferedInputStream(new FileInputStream(sampleFile));
+                    stream.skip(44);
+                    byte[] bytes = new byte[sampleByteLength];
+                    stream.read(bytes);
+                    short[] shorts = new short[bytes.length / 2];
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    audioTrack.write(shorts, 0, shorts.length);
+                    stream.close();
+                    played = false;
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                audioTrack.setStereoVolume(volume, volume);
+                if (listener != null) {
+                    audioTrack.setPlaybackPositionUpdateListener(listener);
+                    resetMarker();
+                }
 
-            if (loop) {
-                setLoopMode(true);
+                if (loop) {
+                    setLoopMode(true);
+                }
+            } catch (IllegalArgumentException e){
+                File file = new File(path);
+                if (file.isFile()){
+                    file.delete();
+                }
             }
         }
     }

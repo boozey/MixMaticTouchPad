@@ -707,8 +707,6 @@ public class SampleEditActivity extends Activity {
     private void setSliceMode(int numSlices){
         isSliceMode = true;
         this.numSlices = numSlices;
-        //Button button = (Button)findViewById(R.id.buttonSave);
-        //button.setText(getString(R.string.button_slice_mode_title));
     }
 
     @Override
@@ -836,48 +834,6 @@ public class SampleEditActivity extends Activity {
                 outChannel.close();
         }
     }
-
-    /** Thread to convert mp3 to wav
-    public class ConvertMp3Thread implements Runnable{
-        @Override
-        public void run(){
-            // Convert mp3 to wav
-            Converter c = new Converter();
-            Converter.ProgressListener listener = new Converter.ProgressListener() {
-                @Override
-                public void converterUpdate(int updateID, int param1, int param2) {
-                }
-
-                @Override
-                public void parsedFrame(int frameNo, Header header) {
-
-                }
-
-                @Override
-                public void readFrame(int frameNo, Header header) {
-
-                }
-
-                @Override
-                public void decodedFrame(int frameNo, Header header, Obuffer o) {
-                    Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
-                    m.arg1 = frameNo;
-                    m.sendToTarget();
-                }
-
-                @Override
-                public boolean converterException(Throwable t) {
-                    return false;
-                }
-            };
-            try {
-                c.convert(musicStream, WAV_CACHE_PATH, listener, null);
-            } catch (JavaLayerException e){e.printStackTrace();}
-            Message m = mHandler.obtainMessage(MP3_CONVERSION_COMPLETE);
-            m.sendToTarget();
-        }
-    }
-*/ //Old mp3 decode thread
 
     private void readMediaFormat(){
         MediaExtractor extractor = new MediaExtractor();
