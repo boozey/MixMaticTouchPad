@@ -8,6 +8,8 @@
                 android:title="@string/action_load_sample"/>
             <item android:id="@+id/action_multi_select"
                 android:title="@string/action_load_sample_slice"/>
+            <item android:id="@+id/action_record_sample"
+                android:title="@string/action_record_sample"/>
         </menu>
     </item>
 </menu>

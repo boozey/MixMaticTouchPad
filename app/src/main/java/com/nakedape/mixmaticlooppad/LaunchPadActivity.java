@@ -11,11 +11,13 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.*;
 import android.preference.PreferenceManager;
@@ -31,6 +33,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -95,6 +98,7 @@ public class LaunchPadActivity extends Activity {
     private boolean isEditMode = false;
     private boolean isRecording = false;
     private boolean isPlaying = false;
+    private boolean isMicRecording = false;
     private boolean dialogCanceled = false;
     private boolean stopCounterThread = false;
     private boolean stopPlaybackThread = false;
@@ -223,6 +227,9 @@ public class LaunchPadActivity extends Activity {
                     newItem = menu.findItem(R.id.action_multi_select);
                     newItem.setVisible(false);
                     Toast.makeText(context, R.string.slice_multi_select, Toast.LENGTH_SHORT).show();
+                    return true;
+                case R.id.action_record_sample:
+                    recordSample();
                     return true;
                 case R.id.action_load_sample_mode:
                     if (multiSelect){
@@ -1131,6 +1138,68 @@ public class LaunchPadActivity extends Activity {
     }
 
     // Methods for managing launchpads
+    private void preparePad(String path, int id, int color) {
+        File f = new File(path); // File to contain the new sample
+        if (!sampleDirectory.isDirectory()) // If the home directory doesn't exist, create it
+            sampleDirectory.mkdir();
+        // Create a new file to contain the new sample
+        File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(id) + ".wav");
+        // If the file already exists, delete, but remember to keep its configuration
+        boolean keepSettings = false;
+        if (sampleFile.isFile()) {
+            sampleFile.delete();
+            keepSettings = true;
+        }
+        // Copy new sample over
+        try {
+            CopyFile(f, sampleFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (sampleFile.isFile()) { // If successful, prepare touchpad
+            Sample sample = new Sample(sampleFile.getAbsolutePath(), id);
+            sample.setOnPlayFinishedListener(samplePlayListener);
+            TouchPad t = (TouchPad) findViewById(id);
+            // Set sample properties and save to shared preferences
+            SharedPreferences.Editor editor = launchPadprefs.edit();
+            if (keepSettings) {
+                sample.setLaunchMode(launchPadprefs.getInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
+                sample.setLoopMode(launchPadprefs.getBoolean(String.valueOf(id) + LOOPMODE, false));
+                sample.setVolume(launchPadprefs.getFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
+            } else { // Default properties
+                sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
+                editor.putInt(String.valueOf(id) + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
+                editor.putBoolean(String.valueOf(id) + LOOPMODE, false);
+                editor.putFloat(String.valueOf(id) + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
+            }
+            samples.put(id, sample);
+            activePads.add(id);
+            switch (color) { // Set and save color
+                case 0:
+                    t.setBackgroundResource(R.drawable.launch_pad_blue);
+                    editor.putInt(String.valueOf(id) + COLOR, 0);
+                    break;
+                case 1:
+                    t.setBackgroundResource(R.drawable.launch_pad_red);
+                    editor.putInt(String.valueOf(id) + COLOR, 1);
+                    break;
+                case 2:
+                    t.setBackgroundResource(R.drawable.launch_pad_green);
+                    editor.putInt(String.valueOf(id) + COLOR, 2);
+                    break;
+                case 3:
+                    t.setBackgroundResource(R.drawable.launch_pad_orange);
+                    editor.putInt(String.valueOf(id) + COLOR, 3);
+                    break;
+            }
+            editor.apply();
+            // Show the action bar for pads with loaded samples
+            if (emptyPadActionMode != null)
+                emptyPadActionMode = null;
+            if (launchPadActionMode == null)
+                launchPadActionMode = startActionMode(launchPadActionModeCallback);
+        }
+    }
     private void loadSample(String path, TouchPad pad){
         int id = pad.getId();
         pad.setOnTouchListener(TouchPadTouchListener);
@@ -1223,7 +1292,65 @@ public class LaunchPadActivity extends Activity {
         AlertDialog dialog = builder.create();
         dialog.show();
     }
+    private void recordSample(){
+        final File micAudioFile = new File(getExternalCacheDir(), "mic_audio_recording.wav");
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        LayoutInflater inflater = getLayoutInflater();
+        final View view = inflater.inflate(R.layout.audio_record_dialog, null);
+        final ImageButton recButton = (ImageButton)view.findViewById(R.id.recordButton);
+        recButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!recButton.isSelected()) {
+                    recButton.setSelected(true);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            recordAudio(micAudioFile);
+                        }
+                    }).start();
+                }
+                else {
+                    isMicRecording = false;
+                    recButton.setSelected(false);
+                }
+            }
+        });
+        builder.setView(view);
+        builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                isMicRecording = false;
+                preparePad(micAudioFile.getAbsolutePath(), selectedSampleID, 0);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                isMicRecording = false;
+                micAudioFile.delete();
+                dialog.cancel();
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    private void recordAudio(File recordingFile){
+        int bufferSize = AudioRecord.getMinBufferSize(44100, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 44100, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        isMicRecording = true;
+        short[] audioShorts = new short[bufferSize / 2];
+        WaveFile waveFile = new WaveFile();
+        waveFile.OpenForWrite(recordingFile.getAbsolutePath(), 44100, (short)16, (short)2);
+        recorder.startRecording();
+        while (isMicRecording){
+            recorder.read(audioShorts, 0, audioShorts.length);
+            waveFile.WriteData(audioShorts, audioShorts.length);
+        }
+        waveFile.Close();
+    }
 
+    // Methods for handling playback of mix
     private void playMix(){
         if (launchEvents.size() > 0) {
             disconnectTouchListeners();
@@ -1231,6 +1358,7 @@ public class LaunchPadActivity extends Activity {
             new Thread(new playBackRecording()).start();
         }
     }
+    // Disables pads during playback
     private void disconnectTouchListeners(){
         for (Integer i : padIds){
             TouchPad pad = (TouchPad)findViewById(i);
@@ -1238,6 +1366,7 @@ public class LaunchPadActivity extends Activity {
             pad.setClickable(false);
         }
     }
+    // Enables pads after playback is finished
     private void reconnectTouchListeners(){
         for (Integer i : padIds) {
             TouchPad pad = (TouchPad) findViewById(i);

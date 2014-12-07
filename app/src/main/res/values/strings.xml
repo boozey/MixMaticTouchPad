@@ -35,6 +35,7 @@
     <string name="action_edit_sample">Edit sample</string>
     <string name="action_load_sample">Load sample</string>
     <string name="action_load_sample_slice">Load sample to slice</string>
+    <string name="action_record_sample">Record new sample</string>
     <string name="action_loop_mode">Loop</string>
     <string name="action_launch_mode">Launch mode</string>
     <string name="action_launch_mode_trigger">Trigger</string>
