@@ -11,4 +11,5 @@
         android:layout_gravity="center_horizontal"
         android:cropToPadding="false"
         android:background="@drawable/mic_button" />
+
 </LinearLayout>
