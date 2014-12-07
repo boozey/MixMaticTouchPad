@@ -1323,6 +1323,7 @@ public class LaunchPadActivity extends Activity {
             public void onClick(DialogInterface dialog, int which) {
                 isMicRecording = false;
                 preparePad(micAudioFile.getAbsolutePath(), selectedSampleID, 0);
+                micAudioFile.delete();
             }
         });
         builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
