@@ -25,7 +25,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 
 import java.io.File;
@@ -547,7 +546,8 @@ public class SampleEditActivity extends Activity {
             @Override
             public void run() {
                 double beatThreshold = (double)pref.getInt("pref_beat_threshold", 30) / 100;
-                sample.identifyBeats(beatThreshold);
+                //sample.identifyBeats(beatThreshold);
+                sample.identifyBeats();
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {

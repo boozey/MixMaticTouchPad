@@ -231,6 +231,13 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
     public boolean ShowBeats(){
         return showBeats;
     }
+    public void identifyBeats(){
+        AudioProcessor processor = new AudioProcessor(samplePath);
+        ArrayList<BeatInfo> beats = processor.detectBeats();
+        for (BeatInfo b : beats)
+            beatsData.add(new Line((float)b.getTime(), (float)getHeight()));
+        beatsRender.addAll(beatsData);
+    }
 
     public void zoomSelection(){
         // Make sure there is a selection
@@ -460,7 +467,7 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
         }
         return sliceFile.getAbsolutePath();
     }
-    public void identifyBeats(double beatThreshold){
+    public void identifyBeatsOld(double beatThreshold){
         dispatcher = getDispatcher(1024);
         beats = new ArrayList<BeatInfo>(500);
         beatsData = new ArrayList<Line>(500);
