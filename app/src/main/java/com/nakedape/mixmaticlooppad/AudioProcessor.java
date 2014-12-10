@@ -138,7 +138,7 @@ public class AudioProcessor {
                     else {
                         BeatInfo nextBeat = beats.get(i);
                         BeatInfo lastBeat = finalBeatList.get(finalBeatList.size() - 1);
-                        if (Math.abs(lastBeat.getTime() - nextBeat.getTime()) < 0.2 * lastBeat.getTime()) {
+                        if (Math.abs(lastBeat.getTime() - nextBeat.getTime()) < 0.15) {
                             nextBeat = new BeatInfo((nextBeat.getTime() + lastBeat.getTime()) / 2, (nextBeat.getSalience() + lastBeat.getSalience()) / 2);
                             finalBeatList.set(finalBeatList.size() - 1, nextBeat);
                         }

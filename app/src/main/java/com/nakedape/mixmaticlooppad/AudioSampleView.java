@@ -664,8 +664,10 @@ public class AudioSampleView extends View implements View.OnTouchListener, Onset
             if (showBeats) {
                 // Draw beat marks
                 paintBrush.setColor(Color.DKGRAY);
+                paintSelect.setColor(Color.YELLOW);
                 for (Line line : beatsRender) {
                     canvas.drawLine((float)(line.x - windowStartTime) * dpPerSec, 0, (float)(line.x - windowStartTime) * dpPerSec, line.y, paintBrush);
+                    canvas.drawCircle((float)(line.x - windowStartTime) * dpPerSec, getHeight() / 2, 6, paintSelect);
                 }
             }
             /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
