@@ -387,6 +387,9 @@ public class LaunchPadActivity extends Activity {
                 case R.id.action_set_volume:
                     setSampleVolume(selectedSampleID);
                     return true;
+                case R.id.action_set_tempo:
+                    matchTempo();
+                    return true;
                 default:
                     return true;
             }
@@ -1352,6 +1355,70 @@ public class LaunchPadActivity extends Activity {
         waveFile.Close();
     }
 
+    // Helper methods for menu commands
+    private void matchTempo(){
+        // Determine tempo of sample and re-sample scale factor
+        AudioProcessor processor = new AudioProcessor(samples.get(selectedSampleID).getPath());
+        ArrayList<BeatInfo> beats = processor.detectBeats();
+        double sampleTempo = 60 * beats.size() / (samples.get(selectedSampleID).getSampleLengthMillis() / 1000);
+        final double ratio = (double)bpm / sampleTempo;
+        Log.d(LOG_TAG, "Sample tempo: " + String.valueOf(sampleTempo));
+        Log.d(LOG_TAG, "Tempo ratio: " + String.valueOf(ratio));
+
+        // Show re-sample dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Re-sample");
+        LayoutInflater inflater = getLayoutInflater();
+        final View view = inflater.inflate(R.layout.resample_dialog, null);
+        TextView textGlobalTempo = (TextView)view.findViewById(R.id.textGlobalTempo);
+        textGlobalTempo.setText(getString(R.string.global_tempo_msg, bpm));
+        TextView textSampleTempo = (TextView)view.findViewById(R.id.textSampleTempo);
+        textSampleTempo.setText(getString(R.string.sample_tempo_msg, (int)sampleTempo));
+        TextView textRatio = (TextView)view.findViewById(R.id.textRatio);
+        textRatio.setText(getString(R.string.resample_ratio, ratio));
+        builder.setView(view);
+        builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                progressDialog = new ProgressDialog(context);
+                progressDialog.setMessage(getString(R.string.resample_msg));
+                progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                progressDialog.setIndeterminate(true);
+                progressDialog.setCancelable(false);
+                progressDialog.setCanceledOnTouchOutside(false);
+                dialogCanceled = false;
+                progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        progressDialog.dismiss();
+                        dialogCanceled = true;
+                    }
+                });
+                progressDialog.show();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        samples.get(selectedSampleID).matchTempo(ratio);
+                        mHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                progressDialog.dismiss();
+                            }
+                        });
+                    }
+                }).start();
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
     // Methods for handling playback of mix
     private void playMix(){
         if (launchEvents.size() > 0) {
@@ -1817,6 +1884,7 @@ public class LaunchPadActivity extends Activity {
                     outputStream.close();
                 } catch(IOException e) {}
         }
+        // Write wav file from temp mix file
         InputStream inputStream = null;
         try {
             inputStream = new BufferedInputStream(new FileInputStream(tempFile));
@@ -2181,7 +2249,8 @@ public class LaunchPadActivity extends Activity {
             return launchMode;
         }
         public double getSampleLengthMillis(){
-            return (double)sampleByteLength / (8 *44100) * 1000;
+            //return (double)sampleByteLength / (8 *44100) * 1000;
+            return  1000 * (double)sampleByteLength / (44100 * 16 / 4);
         }
         public byte[] getAudioBytes(){
             InputStream stream = null;
@@ -2245,6 +2314,13 @@ public class LaunchPadActivity extends Activity {
         }
         public void resetMarker(){
             audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
+        }
+        public void matchTempo(double tempo){
+            AudioProcessor processor = new AudioProcessor(path);
+            int L, M;
+            M = (int)(tempo * 100);
+            L = 100;
+            processor.resample(L, M, homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav");
         }
 
         // Private methods

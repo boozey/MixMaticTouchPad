@@ -18,6 +18,8 @@
             </group>
         </menu>
     </item>
+    <item android:id="@+id/action_set_tempo"
+        android:title="Match Tempo" />
     <item android:id="@+id/action_set_volume"
         android:title="@string/action_set_volume" />
     <item android:id="@+id/action_pick_color"

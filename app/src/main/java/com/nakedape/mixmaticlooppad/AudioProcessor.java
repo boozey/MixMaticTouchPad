@@ -9,7 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
+
+import javazoom.jl.converter.WaveFile;
 
 /**
  * Created by Nathan on 12/7/2014.
@@ -152,6 +156,136 @@ public class AudioProcessor {
             }
         }
         return finalBeatList;
+    }
+    public void stretchTempo(double tempo, String fileName){
+        WaveformSimilarityBasedOverlapAdd WSOLA = new WaveformSimilarityBasedOverlapAdd(WaveformSimilarityBasedOverlapAdd.Parameters.automaticDefaults(tempo, 44100));
+        WaveFile waveFile = new WaveFile();
+        waveFile.OpenForWrite(fileName, 44100, (short)16, (short)2);
+        InputStream wavStream = null;
+        File sampleFile = new File(wavPath); // File pointer to the current wav sample
+        // If the sample file exists, try to process
+        if (sampleFile.isFile()) {// Trim the sample down and write it to file
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+
+                // Determine length of wav file
+                long length;
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                length = bb.getInt();
+                int bufferSize = WSOLA.getInputBufferSize() * 2;
+                byte[] bytesBuffer;
+
+                // Tempo stretch loop
+                int numBytesRead = 0;
+                while (numBytesRead > -1) {
+                    bytesBuffer = new byte[bufferSize];
+                    numBytesRead = wavStream.read(bytesBuffer);
+                    Log.d(LOG_TAG, "Tempo loop bytes read: " + String.valueOf(numBytesRead));
+                    short[] stereoShorts = new short[bytesBuffer.length / 2];
+                    ByteBuffer.wrap(bytesBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(stereoShorts);
+                    float[] leftFloats = new float[stereoShorts.length / 2]; // Buffer for left channel
+                    float[] rightFloats = new float[stereoShorts.length / 2]; // Buffer for right channel
+                    float[] stereoFloats = new float[stereoShorts.length];
+
+                    // Convert to floats and separate into left and right channel buffers
+                    /*
+                    int index = 0;
+                    for (int i = 0; i < stereoShorts.length; i += 2) {
+                        leftFloats[index] = (float)stereoShorts[i] / Short.MAX_VALUE;
+                        rightFloats[index] = (float)stereoShorts[i + 1] / Short.MAX_VALUE;
+                        index++;
+                    }
+                    */
+                    for (int i = 0; i < stereoShorts.length; i++)
+                            stereoFloats[i] = (float)stereoShorts[i] / Short.MAX_VALUE;
+                    // Perform stretch
+                    //float[] leftFloatsOutput = WSOLA.process(leftFloats);
+                    //float[] rightFloatsOutput = WSOLA.process(rightFloats);
+                    float[] stereoFloatsOutput = WSOLA.process(stereoFloats);
+
+                    // Convert floats back to shorts
+                    // Recombine left and right buffers
+                    /*stereoShorts = new short[leftFloatsOutput.length + rightFloatsOutput.length];
+                    index = 0;
+                    for (int i = 0; i < stereoShorts.length; i += 2) {
+                        stereoShorts[i] = (short)(leftFloatsOutput[index] * Short.MAX_VALUE);
+                        stereoShorts[i + 1] = (short)(rightFloatsOutput[index] * Short.MAX_VALUE);
+                        index++;
+                    }
+                    */
+                    stereoShorts = new short[stereoFloatsOutput.length];
+                    for (int i = 0; i < stereoFloatsOutput.length; i++)
+                        stereoShorts[i] = (short)(stereoFloatsOutput[i] * Short.MAX_VALUE);
+
+                    // Write to file
+                    waveFile.WriteData(stereoShorts, stereoShorts.length);
+                }
+                waveFile.Close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    public void resample(int L, int M, String outputPath){
+        InputStream wavStream = null;
+        File sampleFile = new File(wavPath); // File pointer to the current wav sample
+        // If the sample file exists, try to generate the waveform
+        if (sampleFile.isFile()) {
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                // Write to wav file
+                WaveFile waveFile = new WaveFile();
+                waveFile.OpenForWrite(outputPath, 44100, (short)16, (short)2);
+
+                // Determine length of wav file
+                int length;
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                length = bb.getInt();
+
+                // upsample by L
+                int byteBufferSize = 8 * M * L;  // Default buffer size
+                byte[] bytes;  // Array buffer to hold bytes read from wav file
+                short[] shorts, upsampledShorts, downsampledShorts;  // Array buffers to hold bytes converted to shorts and upsampled
+                int bytesRead = 0;
+                while (bytesRead > -1){
+                    bytes = new byte[byteBufferSize];
+                    shorts = new short[bytes.length / 2];
+                    upsampledShorts = new short[shorts.length * L];
+                    bytesRead = wavStream.read(bytes);
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    for (int i = 0; i < shorts.length; i++){
+                        short currentAmp = shorts[i];
+                        short nextAmp;
+                        if (i < shorts.length - 1)
+                            nextAmp = shorts[i + 1];
+                        else
+                            nextAmp = currentAmp;
+                        int x = 0;
+                        for (int j = L * i; j < L * (i + 1); j++){
+                            //upsampledShorts[j] = shorts[i];
+                            upsampledShorts[j] = (short)(currentAmp + x++ * (double)(nextAmp - currentAmp) / L);
+                        }
+                    }
+                    downsampledShorts = new short[upsampledShorts.length / M];
+                    int index = 0;
+                    for (int i = 0; i < upsampledShorts.length; i++){
+                        if (i % M == 0 && index < downsampledShorts.length){
+                            downsampledShorts[index++] = upsampledShorts[i];
+                        }
+                    }
+                    waveFile.WriteData(downsampledShorts, index);
+                }
+                waveFile.Close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 }
