@@ -3,10 +3,8 @@
 
     <string name="app_name">Mixmatic Loop Pad</string>
     <string name="title_activity_launch_pad">Mixmatic Loop Pad</string>
-
     <string name="unlicensed_message">This app is not properly licensed.  Go to Google Play Store to download a licensed version?</string>
     <string name="unlicensed_retry_message">Unable to verify license.  This is probably due to a network error.  Retry?</string>
-
 
     <!-- Main loop pad activity menu -->
     <string name="action_settings">Settings</string>
@@ -23,11 +21,9 @@
     <string name="cancel">Cancel</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
-
     <string name="load_audio_file">Load audio file</string>
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
-
     <string name="trim_progress_msg">Trimming</string>
     <string name="save_progress_msg">Preparing sample(s)</string>
     <string name="generating_waveform">Generating waveform</string>
@@ -63,10 +59,8 @@
     <!-- Preference strings -->
     <string name="pref_beat_threshold">Beat detection threshold</string>
     <string name="title_activity_sample_edit_preferences">Preferences</string>
-
     <string name="pref_bpm">Beats per minute</string>
     <string name="pref_time_signature">Time signature</string>
-
     <string name="numberpicker_textview">Selected value: </string>
 
     <!-- Strings for re-sample dialog -->
@@ -75,4 +69,6 @@
     <string name="resample_ratio" formatted="false">Re-sample ratio: %.3f</string>
     <string name="resample_prompt">Re-sample to match tempo?</string>
     <string name="resample_msg">Re-sampling</string>
+    <string name="save_resample_msg">Save sample?</string>
+
 </resources>

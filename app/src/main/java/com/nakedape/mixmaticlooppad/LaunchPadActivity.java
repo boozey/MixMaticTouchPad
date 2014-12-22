@@ -2,6 +2,7 @@ package com.nakedape.mixmaticlooppad;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DialogFragment;
 import android.app.FragmentManager;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -17,7 +18,6 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.*;
@@ -1362,8 +1362,6 @@ public class LaunchPadActivity extends Activity {
         ArrayList<BeatInfo> beats = processor.detectBeats();
         double sampleTempo = 60 * beats.size() / (samples.get(selectedSampleID).getSampleLengthMillis() / 1000);
         final double ratio = (double)bpm / sampleTempo;
-        Log.d(LOG_TAG, "Sample tempo: " + String.valueOf(sampleTempo));
-        Log.d(LOG_TAG, "Tempo ratio: " + String.valueOf(ratio));
 
         // Show re-sample dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -1398,11 +1396,12 @@ public class LaunchPadActivity extends Activity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        samples.get(selectedSampleID).matchTempo(ratio);
+                        final String stretchedSamplePath = samples.get(selectedSampleID).matchTempo(ratio);
                         mHandler.post(new Runnable() {
                             @Override
                             public void run() {
                                 progressDialog.dismiss();
+                                playSampleDialog(stretchedSamplePath);
                             }
                         });
                     }
@@ -1417,6 +1416,28 @@ public class LaunchPadActivity extends Activity {
         });
         AlertDialog dialog = builder.create();
         dialog.show();
+    }
+    private void playSampleDialog(final String samplePath){
+        final SamplePlayerFragment playerFragment = new SamplePlayerFragment();
+        SamplePlayerFragment.SamplePlayerListener listener = new SamplePlayerFragment.SamplePlayerListener() {
+            @Override
+            public void positiveButtonClick(View v) {
+                preparePad(samplePath, selectedSampleID, launchPadprefs.getInt(String.valueOf(selectedSampleID) + COLOR, 0));
+                playerFragment.dismiss();
+            }
+
+            @Override
+            public void negativeButtonClick(View v) {
+                File newSample = new File(samplePath);
+                newSample.delete();
+                playerFragment.getDialog().cancel();
+            }
+        };
+        playerFragment.setOnClickListener(listener);
+        Bundle args = new Bundle();
+        args.putString(SamplePlayerFragment.WAV_PATH, samplePath);
+        playerFragment.setArguments(args);
+        playerFragment.show(getFragmentManager(), "PlayFragment");
     }
 
     // Methods for handling playback of mix
@@ -2315,12 +2336,13 @@ public class LaunchPadActivity extends Activity {
         public void resetMarker(){
             audioTrack.setNotificationMarkerPosition(sampleByteLength / 4 - 2000);
         }
-        public void matchTempo(double tempo){
+        public String matchTempo(double tempo){
             AudioProcessor processor = new AudioProcessor(path);
             int L, M;
             M = (int)(tempo * 100);
             L = 100;
             processor.resample(L, M, homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav");
+            return homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav";
         }
 
         // Private methods
