@@ -249,7 +249,7 @@ public class AudioProcessor {
                 length = bb.getInt();
 
                 // upsample by L
-                int byteBufferSize = 8 * M * L;  // Default buffer size
+                int byteBufferSize = 2 * M * L;  // Default buffer size
                 byte[] bytes;  // Array buffer to hold bytes read from wav file
                 short[] shorts, upsampledShorts, downsampledShorts;  // Array buffers to hold bytes converted to shorts and upsampled
                 int bytesRead = 0;
@@ -267,9 +267,9 @@ public class AudioProcessor {
                         else
                             nextAmp = currentAmp;
                         int x = 0;
+                        double linearScaleFactor = (double)(nextAmp - currentAmp) / L;
                         for (int j = L * i; j < L * (i + 1); j++){
-                            //upsampledShorts[j] = shorts[i];
-                            upsampledShorts[j] = (short)(currentAmp + x++ * (double)(nextAmp - currentAmp) / L);
+                            upsampledShorts[j] = (short)(currentAmp + x++ * linearScaleFactor);
                         }
                     }
                     downsampledShorts = new short[upsampledShorts.length / M];

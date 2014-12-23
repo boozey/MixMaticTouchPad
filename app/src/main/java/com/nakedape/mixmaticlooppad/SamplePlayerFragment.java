@@ -33,6 +33,7 @@ public class SamplePlayerFragment extends DialogFragment {
     private static final int PLAY_COMPLETE = 1;
 
     private MediaPlayer mPlayer;
+    private boolean isPaused;
     private ProgressBar progressBar;
     private ImageButton playButton;
     private Button positiveButton, negativeButton;
@@ -118,13 +119,14 @@ public class SamplePlayerFragment extends DialogFragment {
         if (playButton.isSelected()){
             playButton.setSelected(false);
             playButton.setBackgroundResource(R.drawable.button_play_large);
-            progressBar.setProgress(mPlayer.getCurrentPosition());
+            isPaused = true;
             if (mPlayer.isPlaying())
                 mPlayer.pause();
         }
         else {
             playButton.setSelected(true);
             playButton.setBackgroundResource(R.drawable.button_pause_large);
+            isPaused = false;
             mPlayer.start();
             new Thread(new AudioProgressThread()).start();
         }
@@ -142,8 +144,10 @@ public class SamplePlayerFragment extends DialogFragment {
                     e.printStackTrace();
                 }
             } while (mPlayer.isPlaying());
-            Message m = mHandler.obtainMessage(PLAY_COMPLETE);
-            m.sendToTarget();
+            if (!isPaused) {
+                Message m = mHandler.obtainMessage(PLAY_COMPLETE);
+                m.sendToTarget();
+            }
         }
     }
 
