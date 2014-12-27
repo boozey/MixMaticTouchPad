@@ -146,6 +146,7 @@ public class SampleEditActivity extends Activity {
                     sample.redraw();
                     break;
                 case R.id.action_insert_beat:
+                    sample.insertBeat();
                     break;
             }
             return false;

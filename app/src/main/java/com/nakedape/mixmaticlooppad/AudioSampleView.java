@@ -191,20 +191,27 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             if (beatsData.get(i).getTime() == selectedBeat.getTime())
                 index = i;
         }
-        if (index > 0)
+        if (index >= 0)
             beatsData.remove(index);
         index = -1;
         for (int i = 0; i < beatsRender.size(); i++){
             if (beatsRender.get(i).getTime() == selectedBeat.getTime())
                 index = i;
         }
-        if (index > 0)
+        if (index >= 0)
             beatsRender.remove(index);
         selectedBeat = null;
         invalidate();
     }
     public void insertBeat(){
-
+        double newBeatTime = selectedBeat.getTime() - 0.2;
+        if (newBeatTime > windowStartTime)
+            selectedBeat = new BeatInfo(newBeatTime, 1);
+        else
+            selectedBeat = new BeatInfo(windowStartTime, 1);
+        beatsRender.add(selectedBeat);
+        beatsData.add(selectedBeat);
+        invalidate();
     }
 
     // Zoom methods
