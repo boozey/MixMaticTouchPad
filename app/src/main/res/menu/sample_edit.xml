@@ -7,11 +7,8 @@
         android:title="@string/save" />
     <item android:id="@+id/action_pick_color"
        android:title="@string/action_pick_color" />
-    <item android:id="@+id/action_show_beats"
-        android:title="@string/action_show_beats"
-        android:checkable="true"/>
-    <item android:id="@+id/action_play_tarsos"
-        android:title="Play Tarsos (Experimental)" />
+    <item android:id="@+id/action_edit_beats"
+        android:title="@string/action_edit_beats"/>
     <item android:id="@+id/action_settings"
         android:title="@string/action_settings"
         android:orderInCategory="100"

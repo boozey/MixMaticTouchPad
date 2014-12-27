@@ -21,6 +21,16 @@
     <string name="cancel">Cancel</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
+
+    <!-- Strings for Sample Edit Activity main menu -->
+    <string name="action_trim_wav">Trim to selection</string>
+    <string name="action_edit_beats">Edit beats</string>
+
+    <!-- Strings for beat edit context menu -->
+    <string name="action_insert_beat">Insert beat</string>
+    <string name="action_remove_beat">Remove beat</string>
+    <string name="action_identify_beats">Re-calculate beats</string>
+
     <string name="load_audio_file">Load audio file</string>
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
@@ -30,8 +40,6 @@
     <string name="file_export_msg">Exporting </string>
 
     <!-- Strings for edit loop pad menu -->
-    <string name="action_trim_wav">Trim to selection</string>
-    <string name="action_show_beats">Show beats</string>
     <string name="action_edit_sample">Edit sample</string>
     <string name="action_load_sample">Load sample</string>
     <string name="action_load_sample_slice">Load sample to slice</string>

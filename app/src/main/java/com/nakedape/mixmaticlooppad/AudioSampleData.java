@@ -17,10 +17,9 @@ public class AudioSampleData extends Fragment {
     private double sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
 
     private List<Line> waveFormData = new ArrayList<Line>();
-    private List<Line> beatsData = new ArrayList<Line>();
+    private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
     private List<Line> waveFormRender = new ArrayList<Line>();
-    private List<Line> beatsRender = new ArrayList<Line>();
-    private List<BeatInfo> beats;
+    private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
 
     public int color = 0;
     private String backgroundColor;
@@ -61,18 +60,16 @@ public class AudioSampleData extends Fragment {
     public double getWindowStartTime() {return windowStartTime;}
     public double getWindowEndTime() {return windowEndTime;}
 
-    public void setWaveData(List<Line> waveFormData, List<Line> beatsData, List<Line> waveFormRender, List<Line> beatsRender, List<BeatInfo> beats){
+    public void setWaveData(List<Line> waveFormData, List<BeatInfo> beatsData, List<Line> waveFormRender, List<BeatInfo> beatsRender){
         this.waveFormData = waveFormData;
         this.beatsData = beatsData;
         this.waveFormRender = waveFormRender;
         this.beatsRender = beatsRender;
-        this.beats = beats;
     }
     public List<Line> getWaveFormData() {return waveFormData;}
-    public List<Line> getBeatsData() {return beatsData;}
+    public List<BeatInfo> getBeatsData() {return beatsData;}
     public List<Line> getWaveFormRender() {return waveFormRender;}
-    public List<Line> getBeatsRender() {return beatsRender;}
-    public List<BeatInfo> getBeats() {return beats;}
+    public List<BeatInfo> getBeatsRender() {return beatsRender;}
 
     public void setColor(int colorInt, String backgroundColor, String foregroundColor){
         this.color = colorInt;
