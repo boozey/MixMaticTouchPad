@@ -148,6 +148,9 @@ public class SampleEditActivity extends Activity {
                 case R.id.action_insert_beat:
                     sample.insertBeat();
                     break;
+                case R.id.action_adjust_tempo:
+                    matchTempo();
+                    break;
             }
             return false;
         }
@@ -595,6 +598,38 @@ public class SampleEditActivity extends Activity {
             }
         }).start();
     }
+    public void matchTempo(){
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        int numBeats = sample.getNumBeats();
+        final int bpm = pref.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+        final double sampleTempo = 60 * numBeats / (sample.getSampleLength());
+        dlg = new ProgressDialog(context);
+        dlg.setMessage("Processing audio");
+        dlg.setIndeterminate(true);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setCancelable(true);
+        dlg.setCanceledOnTouchOutside(false);
+        dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                sample.setShowBeats(false);
+            }
+        });
+        dlg.show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                sample.resample((double)bpm / sampleTempo);
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        dlg.dismiss();
+                        sample.redraw();
+                    }
+                });
+            }
+        }).start();
+    }
 
     public void pickColor(){
         final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
@@ -627,7 +662,7 @@ public class SampleEditActivity extends Activity {
         // Store a reference to the path for the temporary cache of the wav file
         WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
 
-        // Setup audiosample view
+        // Setup audio sample view
         AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         sample.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
         sample.setFocusable(true);
@@ -646,6 +681,7 @@ public class SampleEditActivity extends Activity {
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
+        // If there is saved data, load it, otherwise determine the mode for the activity
         if (savedData != null) {
             loop = savedData.getLoop();
             if (savedData.isSliceMode()) {

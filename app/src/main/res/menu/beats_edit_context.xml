@@ -5,6 +5,8 @@
         android:title="@string/action_insert_beat" />
     <item android:id="@+id/action_remove_beat"
         android:title="@string/action_remove_beat"/>
+    <item android:id="@+id/action_adjust_tempo"
+        android:title="@string/action_adjust_tempo" />
     <item android:id="@+id/action_identify_beats"
         android:title="@string/action_identify_beats"/>
 </menu>

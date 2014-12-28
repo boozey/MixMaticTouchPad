@@ -14,10 +14,12 @@ import android.view.View;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +39,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
 
     private String CACHE_PATH;
     private String samplePath;
+    private String backupPath;
     private BeatInfo selectedBeat;
     public double sampleLength;
     private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
@@ -82,6 +85,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
 
     public void setCACHE_PATH(String path){
         CACHE_PATH = path;
+        backupPath = path + "/backup.wav";
     }
     public void createWaveForm(String source){
         InputStream wavStream = null;
@@ -133,7 +137,14 @@ public class AudioSampleView extends View implements View.OnTouchListener {
 
         }
     }
+    public String getSamplePath(){
+        return samplePath;
+    }
+    public void undo(){
+        createWaveForm(backupPath);
+    }
 
+    // Methods to save/load data from retained fragment
     public void saveAudioSampleData(AudioSampleData data){
         data.setSamplePath(samplePath);
         data.setWaveData(waveFormData, beatsData, waveFormRender, beatsRender);
@@ -166,6 +177,10 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         return isLoading;
     }
 
+    public double getSampleLength(){
+        return sampleLength;
+    }
+
     // Beat editing methods
     public void setShowBeats(boolean showBeats){
         this.showBeats = showBeats;
@@ -184,6 +199,9 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     }
     public boolean hasBeatInfo(){
         return (beatsData != null && beatsData.size() > 0);
+    }
+    public int getNumBeats(){
+        return beatsData.size();
     }
     public void removeSelectedBeat(){
         int index = -1;
@@ -212,6 +230,18 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         beatsRender.add(selectedBeat);
         beatsData.add(selectedBeat);
         invalidate();
+    }
+    public void resample(double factor){
+        File backup = new File(backupPath);
+        if (backup.isFile())
+            backup.delete();
+        File current = new File(samplePath);
+        try {
+            CopyFile(current, backup);
+        } catch (IOException e) {e.printStackTrace();}
+        AudioProcessor processor = new AudioProcessor(backupPath);
+        processor.resample(100, (int)(factor * 100), samplePath);
+        createWaveForm(samplePath);
     }
 
     // Zoom methods
@@ -413,9 +443,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         return sliceFile.getAbsolutePath();
     }
 
-    public String getSamplePath(){
-        return samplePath;
-    }
 
     // Selection methods
     public double getSelectionStartTime(){
@@ -663,6 +690,20 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 paintSelect.setColor(Color.RED);
                 canvas.drawLine((float)(playPos.x - windowStartTime) * dpPerSec, 0, (float)(playPos.x - windowStartTime) * dpPerSec, getHeight(), paintSelect);
             }
+        }
+    }
+
+    // Utility methods
+    private void CopyFile(File src, File dst) throws IOException {
+        FileChannel inChannel = new FileInputStream(src).getChannel();
+        FileChannel outChannel = new FileOutputStream(dst).getChannel();
+        try {
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+        } finally {
+            if (inChannel != null)
+                inChannel.close();
+            if (outChannel != null)
+                outChannel.close();
         }
     }
 

@@ -30,6 +30,7 @@
     <string name="action_insert_beat">Insert beat</string>
     <string name="action_remove_beat">Remove beat</string>
     <string name="action_identify_beats">Re-calculate beats</string>
+    <string name="action_adjust_tempo">Match global tempo</string>
 
     <string name="load_audio_file">Load audio file</string>
     <string name="show_beats">Show beat marks</string>
