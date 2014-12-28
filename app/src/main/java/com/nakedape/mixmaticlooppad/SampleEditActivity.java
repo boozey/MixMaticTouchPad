@@ -607,7 +607,7 @@ public class SampleEditActivity extends Activity {
         dlg.setMessage("Processing audio");
         dlg.setIndeterminate(true);
         dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        dlg.setCancelable(true);
+        dlg.setCancelable(false);
         dlg.setCanceledOnTouchOutside(false);
         dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override
@@ -620,11 +620,13 @@ public class SampleEditActivity extends Activity {
             @Override
             public void run() {
                 sample.resample((double)bpm / sampleTempo);
+                sample.identifyBeats();
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         dlg.dismiss();
                         sample.redraw();
+                        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
                     }
                 });
             }

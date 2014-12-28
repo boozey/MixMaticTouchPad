@@ -105,6 +105,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 length = bb.getInt();
 
                 // Draw the waveform
+                waveFormData.clear();
                 byte[] buffer = new byte[1024];
                 int i = 0;
                 while (i < length){
@@ -129,6 +130,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 windowStartTime = 0;
                 windowEndTime = sampleLength;
                 isLoading = false;
+                waveFormRender.clear();
                 waveFormRender.addAll(waveFormData);
             } catch (IOException e) {e.printStackTrace();}
             finally {
@@ -222,6 +224,8 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         invalidate();
     }
     public void insertBeat(){
+        if (selectedBeat == null)
+            selectedBeat = beatsRender.get(0);
         double newBeatTime = selectedBeat.getTime() - 0.2;
         if (newBeatTime > windowStartTime)
             selectedBeat = new BeatInfo(newBeatTime, 1);
@@ -235,10 +239,11 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         File backup = new File(backupPath);
         if (backup.isFile())
             backup.delete();
-        File current = new File(samplePath);
+        File currentSamplePath = new File(samplePath);
         try {
-            CopyFile(current, backup);
+            CopyFile(currentSamplePath, backup);
         } catch (IOException e) {e.printStackTrace();}
+        currentSamplePath.delete();
         AudioProcessor processor = new AudioProcessor(backupPath);
         processor.resample(100, (int)(factor * 100), samplePath);
         createWaveForm(samplePath);
