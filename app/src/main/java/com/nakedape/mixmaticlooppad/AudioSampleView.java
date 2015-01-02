@@ -23,7 +23,6 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import javazoom.jl.converter.WaveFile;
 
 /**
@@ -44,8 +43,9 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public double sampleLength;
     private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
     private int sampleRate = 44100;
+    private short bitsPerSample = 16;
+    private short numChannels = 2;
     private int selectionMode;
-    private TarsosDSPAudioFormat audioFormat = new TarsosDSPAudioFormat(sampleRate, 16, 2, false, false);
     private Paint paintBrush = new Paint(), paintSelect = new Paint(), paintBackground = new Paint();
     private LinearGradient gradient;
     private float selectStart, selectEnd;
@@ -124,6 +124,54 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                     }
                     i += buffer.length;
                     waveFormData.add(new Line((float) i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
+                }
+                sampleLength = length / 44100 / 4;
+                Log.d(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
+                windowStartTime = 0;
+                windowEndTime = sampleLength;
+                isLoading = false;
+                waveFormRender.clear();
+                waveFormRender.addAll(waveFormData);
+            } catch (IOException e) {e.printStackTrace();}
+            finally {
+                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+            }
+
+        }
+    }
+    public void createWaveFormNew(String source){
+        InputStream wavStream = null;
+        samplePath = source;
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+        // If the sample file exists, try to generate the waveform
+        if (sampleFile.isFile()) {// Trim the sample down and write it to file
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                long length;// = sampleFile.length() - 44;
+
+                // Determine length of wav file
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                length = bb.getInt();
+
+                // Draw the waveform
+                waveFormData.clear();
+                byte[] buffer = new byte[1024];
+                int i = 0;
+                while (i < length){
+                    if (length - i >= buffer.length) {
+                        wavStream.read(buffer);
+                    }
+                    else { // Write the remaining number of bytes
+                        buffer = new byte[(int)length - i];
+                        wavStream.read(buffer);
+                    }
+                    short[] shorts = new short[buffer.length / 2];
+                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    i += buffer.length;
+                    waveFormData.add(new Line((float)i / 44100 / 4, shorts[64] / Short.MAX_VALUE));
                 }
                 sampleLength = length / 44100 / 4;
                 Log.d(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
@@ -330,11 +378,11 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
                 // Javazoom WaveFile class is used to write the wav
                 WaveFile waveFile = new WaveFile();
-                waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
+                waveFile.OpenForWrite(trimmedSample.getAbsolutePath(), 44100, (short)16, (short)2);
                 // The number of bytes of wav data to trim off the beginning
-                long startOffset = (long)(startTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4;
+                long startOffset = (long)(startTime * 44100) * 16 / 4;
                 // The number of bytes to copy
-                long length = ((long)(endTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4) - startOffset;
+                long length = ((long)(endTime * 44100) * 16 / 4) - startOffset;
                 wavStream.skip(44); // Skip the header
                 wavStream.skip(startOffset);
                 byte[] buffer = new byte[1024];
@@ -420,11 +468,11 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
                 // Javazoom WaveFile class is used to write the wav
                 WaveFile waveFile = new WaveFile();
-                waveFile.OpenForWrite(sliceFile.getAbsolutePath(), (int)audioFormat.getSampleRate(), (short)audioFormat.getSampleSizeInBits(), (short)audioFormat.getChannels());
+                waveFile.OpenForWrite(sliceFile.getAbsolutePath(), 44100, (short)16, (short)2);
                 // The number of bytes of wav data to trim off the beginning
-                long startOffset = (long)(startTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4;
+                long startOffset = (long)(startTime * 44100) * 16 / 4;
                 // The number of bytes to copy
-                long length = ((long)(endTime * audioFormat.getSampleRate()) * audioFormat.getSampleSizeInBits() / 4) - startOffset;
+                long length = ((long)(endTime * 44100) * 16 / 4) - startOffset;
                 wavStream.skip(44); // Skip the header
                 wavStream.skip(startOffset);
                 byte[] buffer = new byte[1024];
