@@ -20,8 +20,10 @@ public class AudioSampleData extends Fragment {
     private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
     private List<Line> waveFormRender = new ArrayList<Line>();
     private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
+    private BeatInfo selectedBeat;
 
     public int color = 0;
+    private int selectionMode;
     private String backgroundColor;
     private String foregroundColor;
 
@@ -70,6 +72,8 @@ public class AudioSampleData extends Fragment {
     public List<BeatInfo> getBeatsData() {return beatsData;}
     public List<Line> getWaveFormRender() {return waveFormRender;}
     public List<BeatInfo> getBeatsRender() {return beatsRender;}
+    public void setSelectedBeat(BeatInfo selectedBeat) {this.selectedBeat = selectedBeat;}
+    public BeatInfo getSelectedBeat(){return selectedBeat;}
 
     public void setColor(int colorInt, String backgroundColor, String foregroundColor){
         this.color = colorInt;
@@ -77,6 +81,8 @@ public class AudioSampleData extends Fragment {
         this.foregroundColor = foregroundColor;
     }
     public int getColor() {return color;}
+    public void setSelectionMode(int selectionMode){ this.selectionMode = selectionMode;}
+    public int getSelectionMode() {return selectionMode;}
     public String getBackgroundColor() {return backgroundColor;}
     public String getForegroundColor() {return foregroundColor;}
 

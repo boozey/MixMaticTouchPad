@@ -689,9 +689,15 @@ public class SampleEditActivity extends Activity {
             if (savedData.isSliceMode()) {
                 setSliceMode(savedData.getNumSlices());
             }
-            // Show the action bar if there is a selection
-            if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
-                sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+            switch (savedData.getSelectionMode()) {
+                case AudioSampleView.DEFAULT_SELECTION_MODE:
+                    // Show the action bar if there is a selection
+                    if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
+                        sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+                    }
+                    break;
+                case AudioSampleView.BEAT_SELECTION_MODE:
+                    beatEditActionMode = startActionMode(beatEditActionModeCallback);
             }
             sample.loadAudioSampleData(savedData);
             if (savedData.isDecoding())

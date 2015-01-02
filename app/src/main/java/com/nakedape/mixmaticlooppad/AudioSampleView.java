@@ -153,12 +153,16 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         data.setTimes(sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime);
         data.setColor(color, backgroundColor, foregroundColor);
         data.setShowBeats(showBeats);
+        data.setSelectionMode(selectionMode);
+        data.setSelectedBeat(selectedBeat);
     }
     public void loadAudioSampleData(AudioSampleData data){
         samplePath = data.getSamplePath();
         sampleLength = data.getSampleLength();
+        selectionMode = data.getSelectionMode();
         selectionStartTime = data.getSelectionStartTime();
         selectionEndTime = data.getSelectionEndTime();
+        selectedBeat = data.getSelectedBeat();
         windowStartTime = data.getWindowStartTime();
         windowEndTime = data.getWindowEndTime();
         waveFormData = data.getWaveFormData();
