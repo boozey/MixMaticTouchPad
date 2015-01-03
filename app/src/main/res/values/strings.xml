@@ -2,6 +2,8 @@
 <resources>
 
     <string name="app_name">Mixmatic Loop Pad</string>
+    <string name="mixmatic">Mixmatic</string>
+    <string name="loop_pad">Loop Pad</string>
     <string name="title_activity_launch_pad">Mixmatic Loop Pad</string>
     <string name="unlicensed_message">This app is not properly licensed.  Go to Google Play Store to download a licensed version?</string>
     <string name="unlicensed_retry_message">Unable to verify license.  This is probably due to a network error.  Retry?</string>
