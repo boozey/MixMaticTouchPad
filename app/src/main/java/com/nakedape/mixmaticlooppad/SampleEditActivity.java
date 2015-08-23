@@ -216,7 +216,7 @@ public class SampleEditActivity extends Activity {
                 am.abandonAudioFocus(afChangeListener);
                 // Stop playback
                 if (mPlayer != null) {
-                    Log.d(LOG_TAG, "Audio focus lost, mediaplayer stopped");
+                    Log.d(LOG_TAG, "Audio focus lost");
                     //mPlayer.pause();
                     //mPlayer.stop();
                     //mPlayer.release();
@@ -936,73 +936,75 @@ public class SampleEditActivity extends Activity {
                     format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
                     (short)(8 * format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)),
                     (short)format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
-            codec = MediaCodec.createDecoderByType(mime);
-            codec.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
-            codec.start();
-            codecInputBuffers = codec.getInputBuffers();
-            codecOutputBuffers = codec.getOutputBuffers();
-            extractor.selectTrack(0);
-            boolean sawInputEOS = false;
-            boolean sawOutputEOS = false;
-            do {
-                // Load input buffer
-                int inputBufIndex = codec.dequeueInputBuffer(TIMEOUT_US);
-                if (inputBufIndex >= 0) {
-                    ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
+            try {
+                codec = MediaCodec.createDecoderByType(mime);
+                codec.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
+                codec.start();
+                codecInputBuffers = codec.getInputBuffers();
+                codecOutputBuffers = codec.getOutputBuffers();
+                extractor.selectTrack(0);
+                boolean sawInputEOS = false;
+                boolean sawOutputEOS = false;
+                do {
+                    // Load input buffer
+                    int inputBufIndex = codec.dequeueInputBuffer(TIMEOUT_US);
+                    if (inputBufIndex >= 0) {
+                        ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
 
-                    int sampleSize = extractor.readSampleData(dstBuf, 0);
-                    long presentationTimeUs = 0;
-                    if (sampleSize < 0) {
-                        sawInputEOS = true;
-                        sampleSize = 0;
-                    } else {
-                        presentationTimeUs = extractor.getSampleTime();
-                    }
-
-                    codec.queueInputBuffer(inputBufIndex,
-                            0, //offset
-                            sampleSize,
-                            presentationTimeUs,
-                            sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
-                    // Upddate progress
-                    Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
-                    bytesProcessed += sampleSize;
-                    m.arg1 = bytesProcessed;
-                    m.sendToTarget();
-                    if (!sawInputEOS) {
-                        extractor.advance();
-                    }
-                    // Process output buffer
-                    final int res = codec.dequeueOutputBuffer(info, TIMEOUT_US);
-                    if (res >= 0) {
-                        int outputBufIndex = res;
-                        ByteBuffer buf = codecOutputBuffers[outputBufIndex];
-
-                        final byte[] chunk = new byte[info.size];
-                        buf.get(chunk); // Read the buffer all at once
-                        buf.clear(); // ** MUST DO!!! OTHERWISE THE NEXT TIME YOU GET THIS SAME BUFFER BAD THINGS WILL HAPPEN
-
-                        if (chunk.length > 0) {
-                            short[] shorts = new short[chunk.length / 2];
-                            ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                            waveFile.WriteData(shorts, shorts.length);
-
+                        int sampleSize = extractor.readSampleData(dstBuf, 0);
+                        long presentationTimeUs = 0;
+                        if (sampleSize < 0) {
+                            sawInputEOS = true;
+                            sampleSize = 0;
+                        } else {
+                            presentationTimeUs = extractor.getSampleTime();
                         }
-                        codec.releaseOutputBuffer(outputBufIndex, false /* render */);
 
-                        if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                            sawOutputEOS = true;
+                        codec.queueInputBuffer(inputBufIndex,
+                                0, //offset
+                                sampleSize,
+                                presentationTimeUs,
+                                sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                        // Upddate progress
+                        Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
+                        bytesProcessed += sampleSize;
+                        m.arg1 = bytesProcessed;
+                        m.sendToTarget();
+                        if (!sawInputEOS) {
+                            extractor.advance();
                         }
-                    } else if (res == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                        codecOutputBuffers = codec.getOutputBuffers();
+                        // Process output buffer
+                        final int res = codec.dequeueOutputBuffer(info, TIMEOUT_US);
+                        if (res >= 0) {
+                            int outputBufIndex = res;
+                            ByteBuffer buf = codecOutputBuffers[outputBufIndex];
+
+                            final byte[] chunk = new byte[info.size];
+                            buf.get(chunk); // Read the buffer all at once
+                            buf.clear(); // ** MUST DO!!! OTHERWISE THE NEXT TIME YOU GET THIS SAME BUFFER BAD THINGS WILL HAPPEN
+
+                            if (chunk.length > 0) {
+                                short[] shorts = new short[chunk.length / 2];
+                                ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                                waveFile.WriteData(shorts, shorts.length);
+
+                            }
+                            codec.releaseOutputBuffer(outputBufIndex, false /* render */);
+
+                            if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                                sawOutputEOS = true;
+                            }
+                        } else if (res == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                            codecOutputBuffers = codec.getOutputBuffers();
+                        }
                     }
-                }
-            }while (!sawInputEOS && !dlgCanceled);
-            waveFile.Close();
-            codec.stop();
-            codec.release();
-            codec = null;
-            isDecoding = false;
+                } while (!sawInputEOS && !dlgCanceled);
+                waveFile.Close();
+                codec.stop();
+                codec.release();
+                codec = null;
+                isDecoding = false;
+            }catch (IOException e){ e.printStackTrace();}
             Message m = mHandler.obtainMessage(MP3_CONVERSION_COMPLETE);
             m.sendToTarget();
         }

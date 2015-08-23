@@ -2,11 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/MixMaticTouchPad.iml" filepath="$PROJECT_DIR$/MixMaticTouchPad.iml" />
-      <module fileurl="file://$PROJECT_DIR$/MixmaticLaunchPad.iml" filepath="$PROJECT_DIR$/MixmaticLaunchPad.iml" />
+      <module fileurl="file://$PROJECT_DIR$/MixMaticLoopPad.iml" filepath="$PROJECT_DIR$/MixMaticLoopPad.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/library/library.iml" filepath="$PROJECT_DIR$/library/library.iml" />
+      <module fileurl="file://$PROJECT_DIR$/license_library/license_library.iml" filepath="$PROJECT_DIR$/license_library/license_library.iml" />
     </modules>
   </component>
 </project>
-
