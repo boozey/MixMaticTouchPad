@@ -1,5 +1,6 @@
 package com.nakedape.mixmaticlooppad;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DialogFragment;
@@ -200,6 +201,7 @@ public class LaunchPadActivity extends Activity {
             R.id.touchPad19, R.id.touchPad20, R.id.touchPad21, R.id.touchPad22, R.id.touchPad23, R.id.touchPad24};
     private ActionMode launchPadActionMode;
     private ActionMode emptyPadActionMode;
+    private Menu actionBarMenu;
 
     // Activity lifecycle
     // On create methods
@@ -260,10 +262,21 @@ public class LaunchPadActivity extends Activity {
 
 
         // Setup counter
-        counterTextView = (TextView)mainView.findViewById(R.id.textViewCounter);
-        bpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
-        timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
-        updateCounterMessage();
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null){
+            actionBar.setCustomView(R.layout.counter_bar);
+            counterTextView = (TextView)actionBar.getCustomView().findViewById(R.id.textViewCounter);
+            bpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+            timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+            updateCounterMessage();
+            actionBar.setDisplayShowCustomEnabled(true);
+        } else {
+            findViewById(R.id.counter_bar).setVisibility(View.VISIBLE);
+            counterTextView = (TextView) mainView.findViewById(R.id.textViewCounter);
+            bpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+            timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+            updateCounterMessage();
+        }
 
         // Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -421,6 +434,7 @@ public class LaunchPadActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.touch_pad, menu);
+        actionBarMenu = menu;
         return true;
     }
     @Override
@@ -434,31 +448,45 @@ public class LaunchPadActivity extends Activity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            isRecording = false;
-            Intent intent = new Intent(EditPreferencesActivity.LAUNCHPAD_PREFS, null, context, EditPreferencesActivity.class);
-            startActivity(intent);
-            return true;
-        }
-        else if (id == R.id.action_edit_mode) {
-            isEditMode = true;
-            isRecording = false;
-            View v = findViewById(R.id.touchPad1);
-            v.callOnClick();
-        }
-        else if (id == R.id.action_play){
-            counter = 0;
-            playEventIndex = 0;
-            View v = findViewById(R.id.button_play);
-            v.setBackgroundResource(R.drawable.button_pause);
-            playMix();
-        }
-        else if (id == R.id.action_write_wav){
-            stopPlayBack();
-            promptForFilename();
-        }
-        else if (id == R.id.action_reset) {
-            resetRecording();
+        switch (id) {
+            case R.id.action_settings:
+                isRecording = false;
+                Intent intent = new Intent(EditPreferencesActivity.LAUNCHPAD_PREFS, null, context, EditPreferencesActivity.class);
+                startActivity(intent);
+                return true;
+            case R.id.action_edit_mode:
+                isEditMode = true;
+                isRecording = false;
+                View v = findViewById(R.id.touchPad1);
+                v.callOnClick();
+                return true;
+            case R.id.action_play:
+                if (isPlaying || isRecording) {
+                    item.setIcon(R.drawable.ic_action_av_play_arrow);
+                    stopPlayBack();
+                }
+                else if (launchEvents.size() > 0 && playEventIndex < launchEvents.size()){
+                    item.setIcon(R.drawable.ic_action_av_pause);
+                    playMix();
+                } else if (launchEvents.size() > 0){
+                    RewindButtonClick(null);
+                    item.setIcon(R.drawable.ic_action_av_pause);
+                    playMix();
+                }
+                return true;
+            case R.id.action_rewind:
+                RewindButtonClick(null);
+                return true;
+            case R.id.action_fast_forward:
+                FastForwardButtonClick(null);
+                return true;
+            case R.id.action_write_wav:
+                stopPlayBack();
+                promptForFilename();
+                return true;
+            case R.id.action_reset:
+                resetRecording();
+                return true;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1106,10 +1134,9 @@ public class LaunchPadActivity extends Activity {
             if (!isRecording){ // Start counter thread
                 isRecording = true;
                 counter = recordingEndTime;
+                actionBarMenu.findItem(R.id.action_play).setIcon(R.drawable.ic_action_av_pause);
                 new Thread(new CounterThread()).start();
             }
-            View playButton = findViewById(R.id.button_play);
-            playButton.setBackgroundResource(R.drawable.button_pause);
             Sample s = samples.get(v.getId());
             switch (event.getAction()) {
                 case MotionEvent.ACTION_UP:
@@ -1289,8 +1316,11 @@ public class LaunchPadActivity extends Activity {
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        View v = findViewById(R.id.button_play);
-                        v.setBackgroundResource(R.drawable.button_play);
+                        ActionBar actionBar = getActionBar();
+                        if (actionBar != null){
+                            MenuItem item = actionBarMenu.findItem(R.id.action_play);
+                            item.setIcon(R.drawable.ic_action_av_play_arrow);
+                        }
                     }
                 });
             }
@@ -1331,10 +1361,8 @@ public class LaunchPadActivity extends Activity {
     public void PlayButtonClick(View v){
         if (isPlaying || isRecording) {
             stopPlayBack();
-            v.setBackgroundResource(R.drawable.button_play);
         }
         else if (launchEvents.size() > 0 && playEventIndex < launchEvents.size()){
-            v.setBackgroundResource(R.drawable.button_pause);
             playMix();
         }
     }

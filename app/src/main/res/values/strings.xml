@@ -13,6 +13,8 @@
     <string name="action_edit_mode">Configure touch pads</string>
     <string name="action_play_mode">Exit edit mode</string>
     <string name="action_play_back">Play back mix</string>
+    <string name="action_fast_forward">Fast forward</string>
+    <string name="action_rewind">Rewind</string>
     <string name="action_save_mix">Export mix as wav</string>
 
     <!-- Common strings dialog -->
