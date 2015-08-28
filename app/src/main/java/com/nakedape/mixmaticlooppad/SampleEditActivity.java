@@ -26,6 +26,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageButton;
+import android.widget.RelativeLayout;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,19 +42,15 @@ import javazoom.jl.converter.WaveFile;
 
 public class SampleEditActivity extends Activity {
 
-    private static final String LOG_TAG = "MixMatic Sample Edit Activity";
+    private static final String LOG_TAG = "SampleEditActivity";
 
     static final int REQUEST_MUSIC_GET = 0;
-    static final int AUDIO_PLAY_PROGRESS = 1;
-    static final int AUDIO_PLAY_COMPLETE = 2;
-    static final int AUDIO_PROCESSING_UPDATE = 3;
-    static final int AUDIO_PROCESSING_COMPLETE = 4;
-    static final int MP3_CONVERTER_UPDATE = 5;
-    static final int MP3_CONVERSION_COMPLETE = 6;
 
     private String WAV_CACHE_PATH;
     private File CACHE_PATH;
     private SharedPreferences pref;
+    private RelativeLayout rootLayout;
+    private AudioSampleView sampleView;
     private float sampleRate = 44100;
     private int sampleLength;
     private long encodedFileSize;
@@ -166,7 +163,6 @@ public class SampleEditActivity extends Activity {
     private View.OnClickListener sampleViewClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            AudioSampleView sampleView = (AudioSampleView)v;
             if (sampleView.isSelection()) {
                 if (sampleEditActionMode == null)
                     sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
@@ -180,7 +176,6 @@ public class SampleEditActivity extends Activity {
     private View.OnLongClickListener sampleViewLongClickListener = new View.OnLongClickListener() {
         @Override
         public boolean onLongClick(View v) {
-            AudioSampleView sampleView = (AudioSampleView)v;
             if (sampleView.getSelectionMode() == AudioSampleView.BEAT_SELECTION_MODE){
                 Vibrator vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
                 sampleView.setSelectionMode(AudioSampleView.BEAT_MOVE_MODE);
@@ -226,38 +221,6 @@ public class SampleEditActivity extends Activity {
         }
     };
 
-    Handler mHandler = new Handler(Looper.getMainLooper()){
-        @Override
-        public void handleMessage(Message msg){
-            AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
-            switch (msg.what){
-                case AUDIO_PLAY_PROGRESS:
-                    audioSampleView.updatePlayIndicator((double)msg.arg1 / 1000);
-                    break;
-                case AUDIO_PLAY_COMPLETE:
-                    audioSampleView.isPlaying = false;
-                    ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
-                    b.setBackgroundResource(R.drawable.button_play_large);
-                    break;
-                case AUDIO_PROCESSING_UPDATE:
-                    dlg.setProgress(msg.arg1);
-                    break;
-                case AUDIO_PROCESSING_COMPLETE:
-                    dlg.dismiss();
-                    audioSampleView.redraw();
-                    LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
-                    break;
-                case MP3_CONVERTER_UPDATE:
-                    dlg.setProgress(msg.arg1);
-                    break;
-                case MP3_CONVERSION_COMPLETE:
-                    loadSample();
-                    break;
-            }
-        }
-    };
-
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_MUSIC_GET && resultCode == RESULT_OK) {
@@ -299,8 +262,7 @@ public class SampleEditActivity extends Activity {
             dlg.setOnCancelListener(dlgCancelListener);
             dlg.setMessage("Decoding audio ...");
             dlg.show();
-            mp3ConvertThread = new Thread(new DecodeAudioThread());
-            mp3ConvertThread.start();
+            new Thread(new DecodeAudioThread()).start();
         }
         catch (IOException e){
             e.printStackTrace();
@@ -459,7 +421,7 @@ public class SampleEditActivity extends Activity {
             @Override
             public void run() {
                 dlg.dismiss();
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
@@ -490,7 +452,7 @@ public class SampleEditActivity extends Activity {
                     public void run() {
                         final String[] slicePaths = sample.Slice(numSlices);
                         dlg.dismiss();
-                        mHandler.post(new Runnable() {
+                        runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION");
@@ -532,7 +494,7 @@ public class SampleEditActivity extends Activity {
             public void run() {
                 sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
                 //sample.TarsosTrim(sample.getSelectionStartTime(), sample.getSelectionEndTime());
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
@@ -587,7 +549,7 @@ public class SampleEditActivity extends Activity {
             @Override
             public void run() {
                 sample.identifyBeats();
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         dlg.dismiss();
@@ -621,7 +583,7 @@ public class SampleEditActivity extends Activity {
             public void run() {
                 sample.resample((double)bpm / sampleTempo);
                 sample.identifyBeats();
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         dlg.dismiss();
@@ -652,6 +614,7 @@ public class SampleEditActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
+        rootLayout = (RelativeLayout)findViewById(R.id.rootLayout);
         if (getExternalCacheDir() != null)
             CACHE_PATH = getExternalCacheDir();
         else
@@ -665,13 +628,13 @@ public class SampleEditActivity extends Activity {
         WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
 
         // Setup audio sample view
-        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        sample.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
-        sample.setFocusable(true);
-        sample.setFocusableInTouchMode(true);
-        sample.setOnTouchListener(sample);
-        sample.setOnClickListener(sampleViewClickListener);
-        sample.setOnLongClickListener(sampleViewLongClickListener);
+        sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+        sampleView.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
+        sampleView.setFocusable(true);
+        sampleView.setFocusableInTouchMode(true);
+        sampleView.setOnTouchListener(sampleView);
+        sampleView.setOnClickListener(sampleViewClickListener);
+        sampleView.setOnLongClickListener(sampleViewLongClickListener);
 
         //Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -699,7 +662,7 @@ public class SampleEditActivity extends Activity {
                 case AudioSampleView.BEAT_SELECTION_MODE:
                     beatEditActionMode = startActionMode(beatEditActionModeCallback);
             }
-            sample.loadAudioSampleData(savedData);
+            sampleView.loadAudioSampleData(savedData);
             if (savedData.isDecoding())
                 decodeAudio(savedData.getFullMusicUri());
             else if (savedData.isGeneratingWaveForm())
@@ -965,11 +928,14 @@ public class SampleEditActivity extends Activity {
                                 sampleSize,
                                 presentationTimeUs,
                                 sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
-                        // Upddate progress
-                        Message m = mHandler.obtainMessage(MP3_CONVERTER_UPDATE);
                         bytesProcessed += sampleSize;
-                        m.arg1 = bytesProcessed;
-                        m.sendToTarget();
+                        // Update progress
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                dlg.setProgress(bytesProcessed);
+                            }
+                        });
                         if (!sawInputEOS) {
                             extractor.advance();
                         }
@@ -1005,8 +971,14 @@ public class SampleEditActivity extends Activity {
                 codec = null;
                 isDecoding = false;
             }catch (IOException e){ e.printStackTrace();}
-            Message m = mHandler.obtainMessage(MP3_CONVERSION_COMPLETE);
-            m.sendToTarget();
+            // Close dialog and prepare sampleView
+            rootLayout.post(new Runnable() {
+                @Override
+                public void run() {
+                    dlg.dismiss();
+                    loadSample();
+                }
+            });
         }
     }
 
@@ -1019,8 +991,14 @@ public class SampleEditActivity extends Activity {
             AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
             v.createWaveForm(WAV_CACHE_PATH);
             isGeneratingWaveForm = false;
-            Message m = mHandler.obtainMessage(AUDIO_PROCESSING_COMPLETE);
-            m.sendToTarget();
+            rootLayout.post(new Runnable() {
+                @Override
+                public void run() {
+                    dlg.dismiss();
+                    sampleView.requestLayout();
+                    LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
+                }
+            });
         }
     }
 
@@ -1049,9 +1027,15 @@ public class SampleEditActivity extends Activity {
                             mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
                         do { // Send an update to the play indicator
                             try {
-                                Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
-                                m.arg1 = mPlayer.getCurrentPosition();
-                                m.sendToTarget();
+                                //Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
+                                //m.arg1 = mPlayer.getCurrentPosition();
+                                //m.sendToTarget();
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        sampleView.updatePlayIndicator((double)mPlayer.getCurrentPosition() / 1000);
+                                    }
+                                });
                                 Thread.sleep(5);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
@@ -1080,13 +1064,17 @@ public class SampleEditActivity extends Activity {
                 if (mPlayer != null && mPlayer.isPlaying())
                     mPlayer.pause();
                 continuePlaying = false;
-                Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
-                m.sendToTarget();
+                //Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
+                //m.sendToTarget();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        sampleView.isPlaying = false;
+                        ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
+                        b.setBackgroundResource(R.drawable.button_play_large);
+                    }
+                });
             }
-        }
-
-        public Thread getCurrentThread(){
-            return Thread.currentThread();
         }
     }
 }
