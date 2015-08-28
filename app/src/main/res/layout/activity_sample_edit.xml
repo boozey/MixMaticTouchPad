@@ -2,11 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:id="@+id/RelativeLayout"
+    android:id="@+id/rootLayout"
     tools:context=".MainActivity">
 
     <com.nakedape.mixmaticlooppad.AudioSampleView
@@ -38,25 +34,5 @@
         android:layout_alignParentBottom="true"
         android:layout_toRightOf="@id/buttonRewind"
         android:layout_toEndOf="@id/buttonRewind"/>
-
-    <ImageButton
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/zoom_in"
-        android:id="@+id/buttonZoomIn"
-        android:layout_alignTop="@+id/buttonPlay"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true"
-        android:onClick="ZoomIn" />
-
-    <ImageButton
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/zoom_out"
-        android:id="@+id/buttonZoomOut"
-        android:layout_toStartOf="@+id/buttonZoomIn"
-        android:layout_toLeftOf="@id/buttonZoomIn"
-        android:layout_alignTop="@+id/buttonZoomIn"
-        android:onClick="ZoomOut" />
 
 </RelativeLayout>

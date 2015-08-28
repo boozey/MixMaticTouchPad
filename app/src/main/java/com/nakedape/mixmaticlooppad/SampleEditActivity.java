@@ -506,18 +506,6 @@ public class SampleEditActivity extends Activity {
         }).start();
     }
 
-    public void ZoomIn(View view){
-        AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
-        a.zoomSelection();
-    }
-    public void ZoomOut(View view){
-        AudioSampleView a = (AudioSampleView)findViewById(R.id.spectralView);
-        a.zoomOut();
-        if (!a.isSelection() && sampleEditActionMode != null) {
-            sampleEditActionMode.finish();
-        }
-    }
-
     public void enableEditBeatsMode() {
         AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
         if (sampleView.hasBeatInfo()){
