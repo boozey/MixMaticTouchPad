@@ -1,14 +1,18 @@
 package com.nakedape.mixmaticlooppad;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 
 import java.io.BufferedInputStream;
@@ -34,45 +38,74 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public static final int BEAT_SELECTION_MODE = 1;
     public static final int BEAT_MOVE_MODE = 2;
 
-    private static final String LOG_TAG = "MixMatic AudioSampleView";
+    private static final String LOG_TAG = "AudioSampleView";
 
+    private Context mContext;
     private String CACHE_PATH;
     private String samplePath;
     private String backupPath;
     private BeatInfo selectedBeat;
     public double sampleLength;
     private double selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
+    private float windowStart, windowEnd;
     private int sampleRate = 44100;
     private short bitsPerSample = 16;
     private short numChannels = 2;
     private int selectionMode;
-    private Paint paintBrush = new Paint(), paintSelect = new Paint(), paintBackground = new Paint();
+    private Paint paintWave, paintSelect, paintBackground;
     private LinearGradient gradient;
     private float selectStart, selectEnd;
     private List<Line> waveFormData = new ArrayList<Line>();
     private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
     private List<Line> waveFormRender = new ArrayList<Line>();
     private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
-    private Line playPos = new Line(0, 0);
+    private Bitmap wavBitmap;
+    private float[] playPos = {0, 0};
     public boolean isPlaying = false;
     private boolean showBeats = false;
     public boolean isLoading = false;
     public int color = 0;
     private String backgroundColor = "#ff000046";
     private String foregroundColor = "#0000FF";
+    private Matrix zoomMatrix;
+    private float zoomFactor;
+    private float zoomMin;
+    private ScaleGestureDetector scaleGestureDetector;
 
     public AudioSampleView(Context context) {
         super(context);
+        mContext = context;
+        initialize();
     }
     public AudioSampleView(Context context, AttributeSet attrs){
         super(context, attrs);
+        mContext = context;
+        initialize();
     }
     public AudioSampleView(Context context, AttributeSet attrs, int defStyle){
         super (context, attrs, defStyle);
+        mContext = context;
+        initialize();
+    }
+    private void initialize(){
         setFocusable(true);
         setFocusableInTouchMode(true);
         this.setOnTouchListener(this);
         setDrawingCacheEnabled(true);
+
+        // Initialize paint fields
+        paintWave = new Paint();
+        paintWave.setColor(Color.parseColor(foregroundColor));
+        paintSelect = new Paint();
+        paintBackground = new Paint();
+
+        // Initialize zoom matrix
+        zoomFactor = 1f;
+        zoomMatrix = new Matrix();
+        zoomMatrix.setScale(zoomFactor, 1f);
+
+        // Initialize scale gesture detector
+        scaleGestureDetector = new ScaleGestureDetector(mContext, new ScaleListener());
     }
 
     public void setSelectionMode(int selectionMode){
@@ -132,11 +165,64 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 isLoading = false;
                 waveFormRender.clear();
                 waveFormRender.addAll(waveFormData);
+                if (getHeight() > 0 && getWidth() > 0)
+                    getWaveBitmap(getWidth(), getHeight());
             } catch (IOException e) {e.printStackTrace();}
             finally {
                 try {if (wavStream != null) wavStream.close();} catch (IOException e){}
             }
 
+        }
+    }
+    private void getWaveBitmap(int w, int h){
+        if (waveFormData.size() > 0) {
+            // Set paint color
+            paintWave.setColor(Color.parseColor(foregroundColor));
+            paintWave.setStrokeCap(Paint.Cap.ROUND);
+            // Draw wave form
+            int bitmapHeight = h;
+            int bitmapWidth = waveFormData.size() / 2;
+            if (bitmapWidth > w) {
+                // If bigger than the view width, determine skip size
+                int skipSize = bitmapWidth / w;
+                bitmapWidth = bitmapWidth / skipSize;
+                paintWave.setStrokeWidth(1f);
+                wavBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+                wavBitmap.setHasAlpha(true);
+                Canvas canvas = new Canvas(wavBitmap);
+                float axis = bitmapHeight / 2;
+                for (int i = 0, x = 0; i < waveFormData.size(); i += 2 * skipSize, x++) {
+                    canvas.drawLine(x, axis, x, axis - waveFormData.get(i).y * bitmapHeight, paintWave);
+                    if (i + 1 < waveFormData.size())
+                        canvas.drawLine(x, axis, x, axis - waveFormData.get(i + 1).y * bitmapHeight, paintWave);
+                }
+            } else {
+                // If smaller than view width, determine size of stroke per sample to fill view
+                bitmapWidth = w;
+                float strokeWidth = (float)bitmapWidth / waveFormData.size() * 2;
+                paintWave.setStrokeWidth(strokeWidth);
+                wavBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+                wavBitmap.setHasAlpha(true);
+                Canvas canvas = new Canvas(wavBitmap);
+                float axis = bitmapHeight / 2;
+                int x = 0;
+                for (int i = 0; i < waveFormData.size(); i += 2, x += strokeWidth) {
+                    canvas.drawLine(x, axis, x, axis - waveFormData.get(i).y * bitmapHeight, paintWave);
+                    if (i + 1 < waveFormData.size())
+                        canvas.drawLine(x, axis, x, axis - waveFormData.get(i + 1).y * bitmapHeight, paintWave);
+                }
+                // adjust bitmap size to compensate for rounding inaccuracies
+                if (x < bitmapWidth){
+                    wavBitmap = Bitmap.createBitmap(wavBitmap, 0, 0, x, bitmapHeight);
+                }
+            }
+            windowStart = 0;
+            windowEnd = getWidth();
+            Log.d(LOG_TAG, "window start = " + windowStart);
+            Log.d(LOG_TAG, "window end = " + windowEnd);
+            zoomFactor = (float)getWidth() / wavBitmap.getWidth();
+            zoomMin = zoomFactor;
+            zoomMatrix.setScale(zoomFactor, 1f);
         }
     }
     public void createWaveFormNew(String source){
@@ -524,24 +610,28 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     }
 
     public void updatePlayIndicator(double time){
-        playPos.x = (float)(time);
+        playPos[0] = (float)(time / sampleLength * getWidth());
+        zoomMatrix.mapPoints(playPos);
         invalidate();
     }
 
     // Touch interaction methods
     public boolean onTouch(View view, MotionEvent event) {
-        switch (selectionMode) {
-            case DEFAULT_SELECTION_MODE:
-                defaultSelectionMode(view, event);
-                break;
-            case BEAT_SELECTION_MODE:
-                beatSelectionMode(view, event);
-                break;
-            case BEAT_MOVE_MODE:
-                beatMoveMode(view, event);
-                break;
+        scaleGestureDetector.onTouchEvent(event);
+        if (event.getPointerCount() == 1) {
+            switch (selectionMode) {
+                case DEFAULT_SELECTION_MODE:
+                    defaultSelectionMode(view, event);
+                    break;
+                case BEAT_SELECTION_MODE:
+                    beatSelectionMode(view, event);
+                    break;
+                case BEAT_MOVE_MODE:
+                    beatMoveMode(view, event);
+                    break;
+            }
+            invalidate();
         }
-        invalidate();
         return false;
     }
     private void defaultSelectionMode(View view, MotionEvent event){
@@ -602,12 +692,12 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
             selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
         }
+        // Remove selection if it gets too small
         if (Math.abs(selectionEndTime - selectionStartTime) < 0.1)
         {
             selectionStartTime = 0;
-            selectionEndTime = 0;//sampleLength;
+            selectionEndTime = 0;
         }
-        Log.d(LOG_TAG, "Selection End Time: " + String.valueOf(selectionEndTime));
     }
     private void beatSelectionMode(View view, MotionEvent event){
         float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
@@ -647,8 +737,44 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             setSelectionMode(BEAT_SELECTION_MODE);
         }
     }
+    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            zoomFactor *= detector.getScaleFactor();
+            // Don't let the object get too small or too large.
+            zoomFactor = Math.max(zoomMin, Math.min(zoomFactor, 10.0f));
+            zoomMatrix.setScale(zoomFactor, 1f, detector.getFocusX(), detector.getFocusY());
+            invalidate();
+            requestLayout();
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector){
+            // Adjust zoom if it is very close to completely zoomed out
+            if (Math.abs(zoomFactor - zoomMin) < 0.1) {
+                zoomFactor = zoomMin;
+                zoomMatrix.setScale(zoomFactor, 1f, 0, 0);
+            }
+            // Map window start and end point
+            Matrix invert = new Matrix(zoomMatrix);
+            invert.invert(invert);
+            float[] point = {0, 0};
+            invert.mapPoints(point);
+            windowStart = point[0];
+            point[0] = (float)getWidth();
+            invert.mapPoints(point);
+            windowEnd = point[0];
+            // Set window start and end times
+            windowStartTime = windowStart / getWidth() * sampleLength;
+            windowEndTime = windowEnd / getWidth() * sampleLength;
+            Log.d(LOG_TAG, "window start = " + windowStart);
+            Log.d(LOG_TAG, "window end = " + windowEnd);
+        }
+    }
 
     public void redraw(){
+        requestLayout();
         invalidate();
     }
 
@@ -658,19 +784,34 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         backgroundColor = backgroundColors[colorIndex];
         String[] foregroundColors = getResources().getStringArray(R.array.foreground_color_values);
         foregroundColor = foregroundColors[colorIndex];
+        paintBackground = new Paint();
+        paintBackground.setStyle(Paint.Style.FILL);
+        gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
+        paintBackground.setShader(gradient);
+        getWaveBitmap(getWidth(), getHeight());
         invalidate();
     }
 
+    @Override
+    protected void onSizeChanged (int w, int h, int oldw, int oldh){
+        if (w != oldw || h != oldh)
+            getWaveBitmap(w, h);
+    }
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (waveFormRender.size() > 0 ) {
             // Draw background
-            paintBackground.setStyle(Paint.Style.FILL);
-            gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
-            paintBackground.setShader(gradient);
+            if (gradient == null) {
+                paintBackground.setStyle(Paint.Style.FILL);
+                gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
+                paintBackground.setShader(gradient);
+            }
             canvas.drawPaint(paintBackground);
             // Draw waveform
+            if (wavBitmap != null) {
+                canvas.drawBitmap(wavBitmap, zoomMatrix, null);
+            }
             float axis = getHeight() / 2;
             float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
             float dpPerSample = getWidth() / waveFormRender.size();
@@ -678,41 +819,22 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             if (dpPerSample < 0.1){
                 increment = Math.max(1, Math.round(waveFormRender.size() / getWidth()) / 5);
             }
-            paintBrush.setColor(Color.parseColor(foregroundColor));
-            if (dpPerSample <= 1) {
-                for (int i = 0; i < waveFormRender.size(); i += increment) {
-                    canvas.drawLine((float) (waveFormRender.get(i).x - windowStartTime) * dpPerSec,
-                            axis,
-                            (float) (waveFormRender.get(i).x - windowStartTime) * dpPerSec,
-                            axis - waveFormRender.get(i).y * getHeight(), paintBrush);
-                }
-            }
-            else {
-                float width = getWidth() / waveFormRender.size() / increment;
-                for (int i = 0; i < waveFormRender.size(); i += increment) {
-                    canvas.drawRect((float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec,
-                    axis,
-                    (float)(waveFormRender.get(i).x - windowStartTime) * dpPerSec + width,
-                    axis - waveFormRender.get(i).y * getHeight(),
-                    paintBrush);
-                }
-            }
 
             switch (selectionMode) {
                 case BEAT_MOVE_MODE:
                 case BEAT_SELECTION_MODE:
                     // Draw beat marks
-                    paintBrush.setColor(Color.DKGRAY);
+                    paintWave.setColor(Color.DKGRAY);
                     paintSelect.setColor(Color.YELLOW);
                     for (BeatInfo beatInfo : beatsRender) {
-                        canvas.drawLine((float) (beatInfo.getTime() - windowStartTime) * dpPerSec, 0, (float) (beatInfo.getTime() - windowStartTime) * dpPerSec, getHeight(), paintBrush);
+                        canvas.drawLine((float) (beatInfo.getTime() - windowStartTime) * dpPerSec, 0, (float) (beatInfo.getTime() - windowStartTime) * dpPerSec, getHeight(), paintWave);
                         canvas.drawCircle((float) (beatInfo.getTime() - windowStartTime) * dpPerSec, getHeight() / 2, 6, paintSelect);
                     }
                     // Draw selected beat
                     if (selectedBeat != null){
-                        paintBrush.setColor(Color.CYAN);
+                        paintWave.setColor(Color.CYAN);
                         paintSelect.setColor(Color.CYAN);
-                        canvas.drawLine((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, 0, (float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight(), paintBrush);
+                        canvas.drawLine((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, 0, (float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight(), paintWave);
                         canvas.drawCircle((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight() / 2, 8, paintSelect);
                     }
                     break;
@@ -745,7 +867,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             // Draw play position indicator
             if (isPlaying) {
                 paintSelect.setColor(Color.RED);
-                canvas.drawLine((float)(playPos.x - windowStartTime) * dpPerSec, 0, (float)(playPos.x - windowStartTime) * dpPerSec, getHeight(), paintSelect);
+                canvas.drawLine(playPos[0], 0, playPos[0], getHeight(), paintSelect);
             }
         }
     }
