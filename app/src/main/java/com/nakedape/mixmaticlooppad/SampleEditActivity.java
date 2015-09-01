@@ -981,10 +981,8 @@ public class SampleEditActivity extends Activity {
                                         sampleView.updatePlayIndicator((double)mPlayer.getCurrentPosition() / 1000);
                                     }
                                 });
-                                Thread.sleep(5);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            } catch (NullPointerException e) {
+                                Thread.sleep(50);
+                            } catch (InterruptedException | NullPointerException e) {
                                 e.printStackTrace();
                             }
                             startTime = Math.round(sampleView.getSelectionStartTime() * 1000);
@@ -1002,8 +1000,7 @@ public class SampleEditActivity extends Activity {
                         // Loop play if in loop mode and it hasn't been paused
                     }
                 } while (mPlayer != null && loop && !stopPlayIndicatorThread && continuePlaying);
-            } catch (IllegalStateException e){e.printStackTrace();}
-            catch (NullPointerException e) {e.printStackTrace();}
+            } catch (IllegalStateException | NullPointerException e){e.printStackTrace();}
             if (!stopPlayIndicatorThread) {
                 // Done with play, pause the player and send final update
                 if (mPlayer != null && mPlayer.isPlaying())
