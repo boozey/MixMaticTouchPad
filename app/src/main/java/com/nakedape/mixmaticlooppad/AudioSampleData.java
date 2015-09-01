@@ -1,6 +1,7 @@
 package com.nakedape.mixmaticlooppad;
 
 import android.app.Fragment;
+import android.graphics.Matrix;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,31 +14,32 @@ import java.util.List;
  */
 public class AudioSampleData extends Fragment {
 
-    private String samplePath;
-    private double sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
+    String samplePath;
+    double sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
 
-    private List<Line> waveFormData = new ArrayList<Line>();
-    private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
-    private List<Line> waveFormRender = new ArrayList<Line>();
-    private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
-    private BeatInfo selectedBeat;
+    List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
+    List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
+    BeatInfo selectedBeat;
+    Matrix zoomMatrix;
+    float zoomMin;
+    float zoomFactor;
 
-    public int color = 0;
-    private int selectionMode;
-    private String backgroundColor;
-    private String foregroundColor;
+    int color = 0;
+    int selectionMode;
+    String backgroundColor;
+    String foregroundColor;
 
-    private boolean loop;
+    boolean loop;
 
-    private boolean isSliceMode;
-    private int numSlices;
+    boolean isSliceMode;
+    int numSlices;
 
-    private boolean isDecoding;
-    private Uri fullMusicUri;
-    private MediaPlayer mPlayer;
+    boolean isDecoding;
+    Uri fullMusicUri;
+    MediaPlayer mPlayer;
 
-    private boolean isGeneratingWaveForm;
-    private boolean showBeats;
+    boolean isGeneratingWaveForm;
+    boolean showBeats;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -62,15 +64,11 @@ public class AudioSampleData extends Fragment {
     public double getWindowStartTime() {return windowStartTime;}
     public double getWindowEndTime() {return windowEndTime;}
 
-    public void setWaveData(List<Line> waveFormData, List<BeatInfo> beatsData, List<Line> waveFormRender, List<BeatInfo> beatsRender){
-        this.waveFormData = waveFormData;
+    public void setWaveData(List<BeatInfo> beatsData, List<BeatInfo> beatsRender){
         this.beatsData = beatsData;
-        this.waveFormRender = waveFormRender;
         this.beatsRender = beatsRender;
     }
-    public List<Line> getWaveFormData() {return waveFormData;}
     public List<BeatInfo> getBeatsData() {return beatsData;}
-    public List<Line> getWaveFormRender() {return waveFormRender;}
     public List<BeatInfo> getBeatsRender() {return beatsRender;}
     public void setSelectedBeat(BeatInfo selectedBeat) {this.selectedBeat = selectedBeat;}
     public BeatInfo getSelectedBeat(){return selectedBeat;}

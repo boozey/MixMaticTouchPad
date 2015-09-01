@@ -29,6 +29,7 @@
     <!-- Strings for Sample Edit Activity main menu -->
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_edit_beats">Edit beats</string>
+    <string name="action_pan_zoom">Zoom</string>
 
     <!-- Strings for beat edit context menu -->
     <string name="action_insert_beat">Insert beat</string>

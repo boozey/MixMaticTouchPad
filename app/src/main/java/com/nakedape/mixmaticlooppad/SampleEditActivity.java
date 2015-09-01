@@ -89,7 +89,6 @@ public class SampleEditActivity extends Activity {
 
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
             switch (item.getItemId()){
                 case R.id.action_trim_wav:
                     Trim();
@@ -98,10 +97,12 @@ public class SampleEditActivity extends Activity {
                     if (item.isChecked()){
                         loop = false;
                         item.setChecked(false);
+                        item.setIcon(R.drawable.ic_action_av_loop);
                     }
                     else {
                         loop = true;
                         item.setChecked(true);
+                        item.setIcon(R.drawable.ic_action_av_loop_selected);
                     }
                     return true;
             }
@@ -156,7 +157,7 @@ public class SampleEditActivity extends Activity {
         public void onDestroyActionMode(ActionMode mode) {
             beatEditActionMode = null;
             AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-            sample.setSelectionMode(AudioSampleView.DEFAULT_SELECTION_MODE);
+            sample.setSelectionMode(AudioSampleView.SELECTION_MODE);
         }
     };
 
@@ -221,13 +222,230 @@ public class SampleEditActivity extends Activity {
         }
     };
 
+    // Activity overrides
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_sample_edit);
+        rootLayout = (RelativeLayout)findViewById(R.id.rootLayout);
+        if (getExternalCacheDir() != null)
+            CACHE_PATH = getExternalCacheDir();
+        else
+            CACHE_PATH = getCacheDir();
+
+        PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
+        pref = PreferenceManager.getDefaultSharedPreferences(this);
+        // Store reference to activity context to use inside event handlers
+        context = this;
+        // Store a reference to the path for the temporary cache of the wav file
+        WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
+
+        // Setup audio sample view
+        sampleView = (AudioSampleView)findViewById(R.id.spectralView);
+        sampleView.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
+        sampleView.setFocusable(true);
+        sampleView.setFocusableInTouchMode(true);
+        sampleView.setOnTouchListener(sampleView);
+        sampleView.setOnClickListener(sampleViewClickListener);
+        sampleView.setOnLongClickListener(sampleViewLongClickListener);
+
+        //Set up audio
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+
+        // Get data from intent
+        Intent intent = getIntent();
+        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
+        // find the retained fragment on activity restarts
+        FragmentManager fm = getFragmentManager();
+        savedData = (AudioSampleData) fm.findFragmentByTag("data");
+        // If there is saved data, load it, otherwise determine the mode for the activity
+        if (savedData != null) {
+            loop = savedData.getLoop();
+            if (savedData.isSliceMode()) {
+                setSliceMode(savedData.getNumSlices());
+            }
+            switch (savedData.getSelectionMode()) {
+                case AudioSampleView.SELECTION_MODE:
+                    // Show the action bar if there is a selection
+                    if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
+                        sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+                    }
+                    break;
+                case AudioSampleView.BEAT_SELECTION_MODE:
+                    beatEditActionMode = startActionMode(beatEditActionModeCallback);
+            }
+            sampleView.loadAudioSampleData(savedData);
+            if (savedData.isDecoding())
+                decodeAudio(savedData.getFullMusicUri());
+            else if (savedData.isGeneratingWaveForm())
+                loadSample();
+            mPlayer = savedData.getmPlayer();
+            if (mPlayer != null) {
+                if (mPlayer.isPlaying()) {
+                    ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
+                    b.setBackgroundResource(R.drawable.button_pause_large);
+                    new Thread(new PlayIndicator()).start();
+                }
+            }
+            else
+                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+        }
+        else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
+            // sample edit is loading a sample from a launch pad
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            LoadSampleFromIntent(intent);
+        }
+        else if (intent.hasExtra(LaunchPadActivity.NUM_SLICES)){
+            // Sample Edit should operate in slice mode
+            setSliceMode(intent.getIntExtra(LaunchPadActivity.NUM_SLICES, 1));
+            // If the cache file already exists from a previous edit, delete it
+            File temp = new File(WAV_CACHE_PATH);
+            if (temp.isFile())
+                temp.delete();
+            // Create fragment to persist data during runtime changes
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            SelectAudioFile();
+        }
+        else{
+            // If the cache file already exists from a previous edit, delete it
+            File temp = new File(WAV_CACHE_PATH);
+            if (temp.isFile())
+                temp.delete();
+            // Create fragment to persist data during runtime changes
+            savedData = new AudioSampleData();
+            fm.beginTransaction().add(savedData, "data").commit();
+            // Start intent to select an audio file to edit
+            SelectAudioFile();
+        }
+    }
+    private void LoadSampleFromIntent(Intent intent){
+        sampleView.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
+        File temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
+        if (temp.isFile()){ // If a sample is being passed, load it and process
+            File loadedSample = new File(WAV_CACHE_PATH);
+            try {
+                CopyFile(temp, loadedSample);
+            }catch (IOException e){e.printStackTrace();}
+            LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
+
+            rootLayout.post(new Runnable() {
+                @Override
+                public void run() {
+                    sampleView.loadFile(WAV_CACHE_PATH);
+                    sampleView.redraw();
+                }
+            });
+        }
+
+    }
+    private void setSliceMode(int numSlices){
+        isSliceMode = true;
+        this.numSlices = numSlices;
+    }
+    @Override
+    protected void onStop(){
+        super.onStop();
+        if (isFinishing()){
+            dlgCanceled = true;
+            stopPlayIndicatorThread = true;
+            if (mPlayer != null){
+                mPlayer.stop();
+                mPlayer.release();
+                mPlayer = null;
+            }
+        }
+        else {
+            dlgCanceled = true;
+            stopPlayIndicatorThread = true;
+            sampleView.saveAudioSampleData(savedData);
+            savedData.setLoop(loop);
+            savedData.setNumSlices(numSlices);
+            savedData.setSliceMode(isSliceMode);
+            savedData.setDecoding(isDecoding);
+            savedData.setFullMusicUri(fullMusicUri);
+            savedData.setGeneratingWaveForm(isGeneratingWaveForm);
+            if (mPlayer != null) {
+                if (mPlayer.isPlaying())
+                    savedData.setmPlayer(mPlayer);
+                else {
+                    mPlayer.stop();
+                    mPlayer.release();
+                    mPlayer = null;
+                    savedData.setmPlayer(null);
+                }
+            }
+        }
+    }
+    @Override
+    protected void onDestroy(){
+        super.onDestroy();
+
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.sample_edit, menu);
+        MenuItem item = menu.findItem(R.id.action_save);
+        if (isSliceMode)
+            item.setTitle(getString(R.string.button_slice_mode_title));
+        else
+            item.setTitle(getString(R.string.save));
+        return true;
+    }
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu){
+        MenuItem item = menu.findItem(R.id.action_save);
+        if (isSliceMode)
+            item.setTitle(getString(R.string.button_slice_mode_title));
+        else
+            item.setTitle(getString(R.string.save));
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+        switch (id){
+            case R.id.action_settings:
+                Intent intent = new Intent(EditPreferencesActivity.SAMPLE_EDIT_PREFS, null, context, EditPreferencesActivity.class);
+                startActivity(intent);
+                return true;
+            case R.id.action_load_file:
+                SelectAudioFile();
+                return true;
+            case R.id.action_edit_beats:
+                enableEditBeatsMode();
+                return true;
+            case R.id.action_pick_color:
+                pickColor();
+                return true;
+            case R.id.action_save:
+                Save(null);
+                return true;
+            case R.id.action_pan_zoom:
+                if (item.isChecked()){
+                    sampleView.setSelectionMode(AudioSampleView.SELECTION_MODE);
+                    item.setChecked(false);
+                    item.setIcon(R.drawable.ic_action_pan_zoom);
+                } else {
+                    sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
+                    item.setChecked(true);
+                    item.setIcon(R.drawable.ic_action_pan_zoom_selected);
+                }
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_MUSIC_GET && resultCode == RESULT_OK) {
             decodeAudio(data.getData());
-        }
-        else if (requestCode == REQUEST_MUSIC_GET && resultCode == RESULT_CANCELED){
-            finish();
         }
     }
 
@@ -272,18 +490,8 @@ public class SampleEditActivity extends Activity {
         if (dlg != null)
             if (dlg.isShowing())
                 dlg.dismiss();
-        // Display indeterminate progress dialog
-        dlg = new ProgressDialog(context);
-        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        dlg.setIndeterminate(true);
-        dlg.setCancelable(true);
-        dlg.setCanceledOnTouchOutside(false);
-        dlgCanceled = false;
-        dlg.setOnCancelListener(dlgCancelListener);
-        dlg.setMessage(getString(R.string.generating_waveform));
-        dlg.show();
-        // Generate waveform
-        new Thread(new LoadAudioThread()).start();
+        sampleView.loadFile(WAV_CACHE_PATH);
+        sampleView.redraw();
     }
 
     public void LoadMediaPlayer(Uri uri){
@@ -597,233 +805,6 @@ public class SampleEditActivity extends Activity {
         dialog.show();
     }
 
-    // Activity life cycle overrides
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_sample_edit);
-        rootLayout = (RelativeLayout)findViewById(R.id.rootLayout);
-        if (getExternalCacheDir() != null)
-            CACHE_PATH = getExternalCacheDir();
-        else
-            CACHE_PATH = getCacheDir();
-
-        PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
-        pref = PreferenceManager.getDefaultSharedPreferences(this);
-        // Store reference to activity context to use inside event handlers
-        context = this;
-        // Store a reference to the path for the temporary cache of the wav file
-        WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
-
-        // Setup audio sample view
-        sampleView = (AudioSampleView)findViewById(R.id.spectralView);
-        sampleView.setCACHE_PATH(CACHE_PATH.getAbsolutePath());
-        sampleView.setFocusable(true);
-        sampleView.setFocusableInTouchMode(true);
-        sampleView.setOnTouchListener(sampleView);
-        sampleView.setOnClickListener(sampleViewClickListener);
-        sampleView.setOnLongClickListener(sampleViewLongClickListener);
-
-        //Set up audio
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-
-        // Get data from intent
-        Intent intent = getIntent();
-        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
-        // find the retained fragment on activity restarts
-        FragmentManager fm = getFragmentManager();
-        savedData = (AudioSampleData) fm.findFragmentByTag("data");
-        // If there is saved data, load it, otherwise determine the mode for the activity
-        if (savedData != null) {
-            loop = savedData.getLoop();
-            if (savedData.isSliceMode()) {
-                setSliceMode(savedData.getNumSlices());
-            }
-            switch (savedData.getSelectionMode()) {
-                case AudioSampleView.DEFAULT_SELECTION_MODE:
-                    // Show the action bar if there is a selection
-                    if ((savedData.getSelectionEndTime() - savedData.getSelectionStartTime()) > 0) {
-                        sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
-                    }
-                    break;
-                case AudioSampleView.BEAT_SELECTION_MODE:
-                    beatEditActionMode = startActionMode(beatEditActionModeCallback);
-            }
-            sampleView.loadAudioSampleData(savedData);
-            if (savedData.isDecoding())
-                decodeAudio(savedData.getFullMusicUri());
-            else if (savedData.isGeneratingWaveForm())
-                loadSample();
-            mPlayer = savedData.getmPlayer();
-            if (mPlayer != null) {
-                if (mPlayer.isPlaying()) {
-                    ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
-                    b.setBackgroundResource(R.drawable.button_pause_large);
-                    new Thread(new PlayIndicator()).start();
-                }
-            }
-            else
-                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
-        }
-        else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
-            // sample edit is loading a sample from a launch pad
-            savedData = new AudioSampleData();
-            fm.beginTransaction().add(savedData, "data").commit();
-            LoadSampleFromIntent(intent);
-        }
-        else if (intent.hasExtra(LaunchPadActivity.NUM_SLICES)){
-            // Sample Edit should operate in slice mode
-            setSliceMode(intent.getIntExtra(LaunchPadActivity.NUM_SLICES, 1));
-            // If the cache file already exists from a previous edit, delete it
-            File temp = new File(WAV_CACHE_PATH);
-            if (temp.isFile())
-                temp.delete();
-            // Create fragment to persist data during runtime changes
-            savedData = new AudioSampleData();
-            fm.beginTransaction().add(savedData, "data").commit();
-            SelectAudioFile();
-        }
-        else{
-            // If the cache file already exists from a previous edit, delete it
-            File temp = new File(WAV_CACHE_PATH);
-            if (temp.isFile())
-                temp.delete();
-            // Create fragment to persist data during runtime changes
-            savedData = new AudioSampleData();
-            fm.beginTransaction().add(savedData, "data").commit();
-            // Start intent to select an audio file to edit
-            SelectAudioFile();
-        }
-    }
-    private void LoadSampleFromIntent(Intent intent){
-        AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        sample.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
-        File temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
-        if (temp.isFile()){ // If a sample is being passed, load it and process
-            File loadedSample = new File(WAV_CACHE_PATH);
-            try {
-                CopyFile(temp, loadedSample);
-            }catch (IOException e){e.printStackTrace();}
-            LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
-            // Display determinate progress dialog
-            dlg = new ProgressDialog(context);
-            dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            dlg.setIndeterminate(true);
-            InputStream wavStream;
-            long len = 0;
-            try {
-                File file = new File(WAV_CACHE_PATH);
-                wavStream = new FileInputStream(file);
-                byte[] lenInt = new byte[4];
-                wavStream.skip(40);
-                wavStream.read(lenInt, 0, 4);
-                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
-                len = bb.getInt();
-                sampleLength = (int)len / 4 / (int)sampleRate;
-                Log.d("Wave duration", String.valueOf(sampleLength));
-                wavStream.close();
-            } catch (IOException e) {e.printStackTrace();}
-
-            if (len > 0)
-                dlg.setMax(sampleLength);
-            else
-                dlg.setMax(Math.round(mPlayer.getDuration() / 1000));
-            dlg.setCancelable(false);
-            dlg.setMessage(getString(R.string.generating_waveform));
-            dlg.show();
-            // Generate the waveform
-            new Thread(new LoadAudioThread()).start();
-        }
-
-    }
-    private void setSliceMode(int numSlices){
-        isSliceMode = true;
-        this.numSlices = numSlices;
-    }
-    @Override
-    protected void onDestroy(){
-        super.onDestroy();
-        if (isFinishing()){
-            dlgCanceled = true;
-            stopPlayIndicatorThread = true;
-            if (mPlayer != null){
-                mPlayer.stop();
-                mPlayer.release();
-                mPlayer = null;
-            }
-        }
-        else {
-            dlgCanceled = true;
-            stopPlayIndicatorThread = true;
-            AudioSampleView sampleView = (AudioSampleView) findViewById(R.id.spectralView);
-            sampleView.saveAudioSampleData(savedData);
-            savedData.setLoop(loop);
-            savedData.setNumSlices(numSlices);
-            savedData.setSliceMode(isSliceMode);
-            savedData.setDecoding(isDecoding);
-            savedData.setFullMusicUri(fullMusicUri);
-            savedData.setGeneratingWaveForm(isGeneratingWaveForm);
-            if (mPlayer != null) {
-                if (mPlayer.isPlaying())
-                    savedData.setmPlayer(mPlayer);
-                else {
-                    mPlayer.stop();
-                    mPlayer.release();
-                    mPlayer = null;
-                    savedData.setmPlayer(null);
-                }
-            }
-        }
-    }
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.sample_edit, menu);
-        MenuItem item = menu.findItem(R.id.action_save);
-        if (isSliceMode)
-            item.setTitle(getString(R.string.button_slice_mode_title));
-        else
-            item.setTitle(getString(R.string.save));
-        return true;
-    }
-    @Override
-    public boolean onPrepareOptionsMenu(Menu menu){
-        MenuItem item = menu.findItem(R.id.action_save);
-        if (isSliceMode)
-            item.setTitle(getString(R.string.button_slice_mode_title));
-        else
-            item.setTitle(getString(R.string.save));
-        return true;
-    }
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        switch (id){
-            case R.id.action_settings:
-                Intent intent = new Intent(EditPreferencesActivity.SAMPLE_EDIT_PREFS, null, context, EditPreferencesActivity.class);
-                startActivity(intent);
-                return true;
-            case R.id.action_load_file:
-                SelectAudioFile();
-                return true;
-            case R.id.action_edit_beats:
-                enableEditBeatsMode();
-                return true;
-            case R.id.action_pick_color:
-                pickColor();
-                return true;
-            case R.id.action_save:
-                Save(null);
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
     // Utility methods
     private void CopyFile(File src, File dst) throws IOException {
         FileChannel inChannel = new FileInputStream(src).getChannel();
@@ -970,54 +951,30 @@ public class SampleEditActivity extends Activity {
         }
     }
 
-    // Thread to process audio
-    public class LoadAudioThread implements Runnable{
-        @Override
-        public void run() {
-            isGeneratingWaveForm = true;
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSampleView v = (AudioSampleView) findViewById(R.id.spectralView);
-            v.createWaveForm(WAV_CACHE_PATH);
-            isGeneratingWaveForm = false;
-            rootLayout.post(new Runnable() {
-                @Override
-                public void run() {
-                    dlg.dismiss();
-                    sampleView.requestLayout();
-                    LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
-                }
-            });
-        }
-    }
-
     // Thread to update play indicator in waveform view
     public class PlayIndicator implements Runnable {
         @Override
         public void run(){
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-            AudioSampleView audioSampleView = (AudioSampleView)findViewById(R.id.spectralView);
-            audioSampleView.isPlaying = true;
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY);
+            sampleView.isPlaying = true;
             continuePlaying = true;
             double startTime, endTime;
             try {
                 do {
                     if (mPlayer != null) {
                         // Start playing from beginning of selection
-                        startTime = Math.round(audioSampleView.getSelectionStartTime() * 1000);
-                        endTime = Math.round(audioSampleView.getSelectionEndTime() * 1000);
+                        startTime = Math.round(sampleView.getSelectionStartTime() * 1000);
+                        endTime = Math.round(sampleView.getSelectionEndTime() * 1000);
                         if (!(endTime - startTime > 0)){
                             startTime = 0;
-                            endTime = Math.round(audioSampleView.sampleLength * 1000);
+                            endTime = Math.round(sampleView.sampleLength * 1000);
                         }
                         if (mPlayer.isPlaying()
                                 && (mPlayer.getCurrentPosition() >= endTime
                                 || mPlayer.getCurrentPosition() < startTime))
-                            mPlayer.seekTo((int) Math.round(audioSampleView.getSelectionStartTime() * 1000));
+                            mPlayer.seekTo((int) Math.round(sampleView.getSelectionStartTime() * 1000));
                         do { // Send an update to the play indicator
                             try {
-                                //Message m = mHandler.obtainMessage(AUDIO_PLAY_PROGRESS);
-                                //m.arg1 = mPlayer.getCurrentPosition();
-                                //m.sendToTarget();
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
@@ -1030,11 +987,11 @@ public class SampleEditActivity extends Activity {
                             } catch (NullPointerException e) {
                                 e.printStackTrace();
                             }
-                            startTime = Math.round(audioSampleView.getSelectionStartTime() * 1000);
-                            endTime = Math.round(audioSampleView.getSelectionEndTime() * 1000);
+                            startTime = Math.round(sampleView.getSelectionStartTime() * 1000);
+                            endTime = Math.round(sampleView.getSelectionEndTime() * 1000);
                             if (!(endTime - startTime > 0)){
                                 startTime = 0;
-                                endTime = Math.round(audioSampleView.sampleLength * 1000);
+                                endTime = Math.round(sampleView.sampleLength * 1000);
                             }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
@@ -1052,12 +1009,11 @@ public class SampleEditActivity extends Activity {
                 if (mPlayer != null && mPlayer.isPlaying())
                     mPlayer.pause();
                 continuePlaying = false;
-                //Message m = mHandler.obtainMessage(AUDIO_PLAY_COMPLETE);
-                //m.sendToTarget();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         sampleView.isPlaying = false;
+                        sampleView.invalidate();
                         ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
                         b.setBackgroundResource(R.drawable.button_play_large);
                     }

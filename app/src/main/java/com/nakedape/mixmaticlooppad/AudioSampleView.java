@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -34,9 +33,10 @@ import javazoom.jl.converter.WaveFile;
  */
 public class AudioSampleView extends View implements View.OnTouchListener {
 
-    public static final int DEFAULT_SELECTION_MODE = 0;
-    public static final int BEAT_SELECTION_MODE = 1;
-    public static final int BEAT_MOVE_MODE = 2;
+    public static final int SELECTION_MODE = 4000;
+    public static final int BEAT_SELECTION_MODE = 4001;
+    public static final int BEAT_MOVE_MODE = 4002;
+    public static final int PAN_ZOOM_MODE = 4003;
 
     private static final String LOG_TAG = "AudioSampleView";
 
@@ -51,13 +51,11 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     private int sampleRate = 44100;
     private short bitsPerSample = 16;
     private short numChannels = 2;
-    private int selectionMode;
+    private int selectionMode = SELECTION_MODE;
     private Paint paintWave, paintSelect, paintBackground;
     private LinearGradient gradient;
     private float selectStart, selectEnd;
-    private List<Line> waveFormData = new ArrayList<Line>();
     private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
-    private List<Line> waveFormRender = new ArrayList<Line>();
     private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
     private Bitmap wavBitmap;
     private float[] playPos = {0, 0};
@@ -70,6 +68,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     private Matrix zoomMatrix;
     private float zoomFactor;
     private float zoomMin;
+    private float xStart, yStart;
     private ScaleGestureDetector scaleGestureDetector;
 
     public AudioSampleView(Context context) {
@@ -120,15 +119,16 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         CACHE_PATH = path;
         backupPath = path + "/backup.wav";
     }
-    public void createWaveForm(String source){
+    public void loadFile(String source){
         InputStream wavStream = null;
         samplePath = source;
         File sampleFile = new File(samplePath); // File pointer to the current wav sample
         // If the sample file exists, try to generate the waveform
-        if (sampleFile.isFile()) {// Trim the sample down and write it to file
+        if (sampleFile.isFile() && getWidth() > 0) {
             try {
                 wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
-                long length;// = sampleFile.length() - 44;
+                long length;
+                int sampleSize = 1024;
 
                 // Determine length of wav file
                 byte[] lenInt = new byte[4];
@@ -137,158 +137,95 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
                 length = bb.getInt();
 
+                // Prepare bitmap
+                int numSamples = (int)(length / sampleSize);
+                int skipSize = Math.max(1, numSamples / getWidth());
+                int bitmapHeight = getHeight();
+                int bitmapWidth;
+                if (skipSize > 1)
+                    bitmapWidth = numSamples / skipSize;
+                else
+                    bitmapWidth = getWidth();
+                wavBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+                wavBitmap.setHasAlpha(true);
+                Canvas canvas = new Canvas(wavBitmap);
+
+                // Prepare paint
+                float strokeWidth = Math.max(1, (float)bitmapWidth / numSamples);
+                paintWave.setStrokeWidth(strokeWidth);
+                paintWave.setColor(Color.parseColor(foregroundColor));
+                paintWave.setStrokeCap(Paint.Cap.ROUND) ;
+
                 // Draw the waveform
-                waveFormData.clear();
-                byte[] buffer = new byte[1024];
-                int i = 0;
-                while (i < length){
+                float axis = bitmapHeight / 2;
+                byte[] buffer = new byte[sampleSize];
+                int i = 0, x = 0;
+                while (i < length) {
                     if (length - i >= buffer.length) {
                         wavStream.read(buffer);
-                    }
-                    else { // Write the remaining number of bytes
-                        buffer = new byte[(int)length - i];
+                    } else { // Read the remaining number of bytes
+                        buffer = new byte[(int) length - i];
                         wavStream.read(buffer);
                     }
                     short[] shorts = new short[buffer.length / 2];
                     ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                    float total = 0;
-                    for (short s : shorts){
-                        total += s;
+                    float leftTotal = 0, rightTotal = 0;
+                    for (int n = 0; n + 1 < shorts.length; n += 2){
+                        leftTotal += shorts[n];
+                        rightTotal += shorts[n + 1];
                     }
-                    i += buffer.length;
-                    waveFormData.add(new Line((float) i / 44100 / 4, total / shorts.length / Short.MAX_VALUE));
-                }
-                sampleLength = length / 44100 / 4;
-                Log.d(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
-                windowStartTime = 0;
-                windowEndTime = sampleLength;
-                isLoading = false;
-                waveFormRender.clear();
-                waveFormRender.addAll(waveFormData);
-                if (getHeight() > 0 && getWidth() > 0)
-                    getWaveBitmap(getWidth(), getHeight());
-            } catch (IOException e) {e.printStackTrace();}
-            finally {
-                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
-            }
-
-        }
-    }
-    private void getWaveBitmap(int w, int h){
-        if (waveFormData.size() > 0) {
-            // Set paint color
-            paintWave.setColor(Color.parseColor(foregroundColor));
-            paintWave.setStrokeCap(Paint.Cap.ROUND);
-            // Draw wave form
-            int bitmapHeight = h;
-            int bitmapWidth = waveFormData.size() / 2;
-            if (bitmapWidth > w) {
-                // If bigger than the view width, determine skip size
-                int skipSize = bitmapWidth / w;
-                bitmapWidth = bitmapWidth / skipSize;
-                paintWave.setStrokeWidth(1f);
-                wavBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
-                wavBitmap.setHasAlpha(true);
-                Canvas canvas = new Canvas(wavBitmap);
-                float axis = bitmapHeight / 2;
-                for (int i = 0, x = 0; i < waveFormData.size(); i += 2 * skipSize, x++) {
-                    canvas.drawLine(x, axis, x, axis - waveFormData.get(i).y * bitmapHeight, paintWave);
-                    if (i + 1 < waveFormData.size())
-                        canvas.drawLine(x, axis, x, axis - waveFormData.get(i + 1).y * bitmapHeight, paintWave);
-                }
-            } else {
-                // If smaller than view width, determine size of stroke per sample to fill view
-                bitmapWidth = w;
-                float strokeWidth = (float)bitmapWidth / waveFormData.size() * 2;
-                paintWave.setStrokeWidth(strokeWidth);
-                wavBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
-                wavBitmap.setHasAlpha(true);
-                Canvas canvas = new Canvas(wavBitmap);
-                float axis = bitmapHeight / 2;
-                int x = 0;
-                for (int i = 0; i < waveFormData.size(); i += 2, x += strokeWidth) {
-                    canvas.drawLine(x, axis, x, axis - waveFormData.get(i).y * bitmapHeight, paintWave);
-                    if (i + 1 < waveFormData.size())
-                        canvas.drawLine(x, axis, x, axis - waveFormData.get(i + 1).y * bitmapHeight, paintWave);
+                    canvas.drawLine(x, axis, x, axis - leftTotal / (shorts.length / 2) / Short.MAX_VALUE * bitmapHeight, paintWave);
+                    canvas.drawLine(x, axis, x, axis + rightTotal / (shorts.length / 2) / Short.MAX_VALUE * bitmapHeight, paintWave);
+                    x += strokeWidth;
+                    i += buffer.length * skipSize;
+                    if (skipSize > 1)
+                        wavStream.skip(buffer.length * (skipSize - 1));
                 }
                 // adjust bitmap size to compensate for rounding inaccuracies
                 if (x < bitmapWidth){
                     wavBitmap = Bitmap.createBitmap(wavBitmap, 0, 0, x, bitmapHeight);
                 }
-            }
-            windowStart = 0;
-            windowEnd = getWidth();
-            Log.d(LOG_TAG, "window start = " + windowStart);
-            Log.d(LOG_TAG, "window end = " + windowEnd);
-            zoomFactor = (float)getWidth() / wavBitmap.getWidth();
-            zoomMin = zoomFactor;
-            zoomMatrix.setScale(zoomFactor, 1f);
-        }
-    }
-    public void createWaveFormNew(String source){
-        InputStream wavStream = null;
-        samplePath = source;
-        File sampleFile = new File(samplePath); // File pointer to the current wav sample
-        // If the sample file exists, try to generate the waveform
-        if (sampleFile.isFile()) {// Trim the sample down and write it to file
-            try {
-                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
-                long length;// = sampleFile.length() - 44;
-
-                // Determine length of wav file
-                byte[] lenInt = new byte[4];
-                wavStream.skip(40);
-                wavStream.read(lenInt, 0, 4);
-                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
-                length = bb.getInt();
-
-                // Draw the waveform
-                waveFormData.clear();
-                byte[] buffer = new byte[1024];
-                int i = 0;
-                while (i < length){
-                    if (length - i >= buffer.length) {
-                        wavStream.read(buffer);
-                    }
-                    else { // Write the remaining number of bytes
-                        buffer = new byte[(int)length - i];
-                        wavStream.read(buffer);
-                    }
-                    short[] shorts = new short[buffer.length / 2];
-                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                    i += buffer.length;
-                    waveFormData.add(new Line((float)i / 44100 / 4, shorts[64] / Short.MAX_VALUE));
-                }
                 sampleLength = length / 44100 / 4;
-                Log.d(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
+                Log.i(LOG_TAG, "sample length = " + String.valueOf(sampleLength));
                 windowStartTime = 0;
                 windowEndTime = sampleLength;
+                windowStart = 0;
+                windowEnd = getWidth();
+                zoomFactor = (float)getWidth() / wavBitmap.getWidth();
+                zoomMin = zoomFactor;
+                zoomMatrix.setScale(zoomFactor, 1f);
+                Log.d(LOG_TAG, "Zoom factor = " + zoomFactor);
                 isLoading = false;
-                waveFormRender.clear();
-                waveFormRender.addAll(waveFormData);
-            } catch (IOException e) {e.printStackTrace();}
-            finally {
-                try {if (wavStream != null) wavStream.close();} catch (IOException e){}
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    if (wavStream != null) wavStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-
         }
     }
     public String getSamplePath(){
         return samplePath;
     }
     public void undo(){
-        createWaveForm(backupPath);
+        loadFile(backupPath);
     }
 
     // Methods to save/load data from retained fragment
     public void saveAudioSampleData(AudioSampleData data){
         data.setSamplePath(samplePath);
-        data.setWaveData(waveFormData, beatsData, waveFormRender, beatsRender);
+        data.setWaveData(beatsData, beatsRender);
         data.setTimes(sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime);
         data.setColor(color, backgroundColor, foregroundColor);
         data.setShowBeats(showBeats);
         data.setSelectionMode(selectionMode);
         data.setSelectedBeat(selectedBeat);
+        data.zoomMatrix = zoomMatrix;
+        data.zoomMin = zoomMin;
+        data.zoomFactor = zoomFactor;
     }
     public void loadAudioSampleData(AudioSampleData data){
         samplePath = data.getSamplePath();
@@ -299,16 +236,16 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         selectedBeat = data.getSelectedBeat();
         windowStartTime = data.getWindowStartTime();
         windowEndTime = data.getWindowEndTime();
-        waveFormData = data.getWaveFormData();
-        waveFormRender = data.getWaveFormRender();
         beatsData = data.getBeatsData();
         beatsRender = data.getBeatsRender();
         color = data.getColor();
         backgroundColor = data.getBackgroundColor();
         foregroundColor = data.getForegroundColor();
         showBeats = data.getShowBeats();
+        zoomMatrix = data.zoomMatrix;
+        zoomMin = data.zoomMin;
+        zoomFactor = data.zoomFactor;
     }
-
     public void setIsLoading(boolean loading){
         isLoading = loading;
         invalidate();
@@ -332,7 +269,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public void identifyBeats(){
         AudioProcessor processor = new AudioProcessor(samplePath);
         beatsData = processor.detectBeats();
-        Log.d(LOG_TAG, String.valueOf(beatsData.get(1).getTime()));
         beatsRender = new ArrayList<BeatInfo>(beatsData.size());
         beatsRender.addAll(beatsData);
         selectedBeat = null;
@@ -383,69 +319,8 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         } catch (IOException e) {e.printStackTrace();}
         currentSamplePath.delete();
         AudioProcessor processor = new AudioProcessor(backupPath);
-        processor.resample(100, (int)(factor * 100), samplePath);
-        createWaveForm(samplePath);
-    }
-
-    // Zoom methods
-    public void zoomSelection(){
-        // Make sure there is a selection
-        if (Math.abs(selectEnd - selectStart) > 5) {
-            //
-            List<Line> tempWav = new ArrayList<Line>();
-            tempWav.addAll(waveFormRender);
-            waveFormRender.clear();
-            for (Line l : tempWav) {
-                if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
-                    waveFormRender.add(new Line((l.getX()), l.getY()));
-                }
-            }
-            tempWav.clear();
-            List<BeatInfo> tempBeats = new ArrayList<BeatInfo>();
-            tempBeats.addAll(beatsRender);
-            beatsRender.clear();
-            for (BeatInfo b : tempBeats) {
-                if (b.getTime() >= selectionStartTime && b.getTime() <= selectionEndTime) {
-                    beatsRender.add(new BeatInfo(b.getTime(), b.getSalience()));
-                }
-            }
-            windowStartTime = selectionStartTime;
-            windowEndTime = selectionEndTime;
-            selectStart = 0;
-            selectEnd = getWidth();
-            invalidate();
-        }
-    }
-    public void zoomExtents(){
-        waveFormRender.clear();
-        waveFormRender.addAll(waveFormData);
-        beatsRender.clear();
-        beatsRender.addAll(beatsData);
-        selectStart = (float)selectionStartTime * getWidth() / (float)sampleLength;
-        selectEnd = (float)selectionEndTime * getWidth() / (float)sampleLength;
-        windowStartTime = 0;
-        windowEndTime = sampleLength;
-        invalidate();
-    }
-    public void zoomOut(){
-        double oldWindowLength = windowEndTime - windowStartTime;
-        windowStartTime = Math.max(windowStartTime - oldWindowLength / 2, 0);
-        windowEndTime = Math.min(windowEndTime + oldWindowLength / 2, sampleLength);
-        waveFormRender.clear();
-        for (Line l : waveFormData) {
-            if (l.getX() >= windowStartTime && l.getX() <= windowEndTime) {
-                waveFormRender.add(new Line((l.getX()), l.getY()));
-            }
-        }
-        beatsRender.clear();
-        for (BeatInfo b : beatsData) {
-            if (b.getTime() >= windowStartTime && b.getTime() <= windowEndTime) {
-                beatsRender.add(new BeatInfo(b.getTime(), b.getSalience()));
-            }
-        }
-        selectStart = (float)((selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime) * getWidth());
-        selectEnd = (float)((selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime) * getWidth());
-        invalidate();
+        processor.resample(100, (int) (factor * 100), samplePath);
+        loadFile(samplePath);
     }
 
     // Trimming methods
@@ -455,7 +330,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         File sampleFile = new File(samplePath); // File pointer to the current wav sample
 
         // If the sample file exists, try to trim it
-        if (sampleFile.isFile()){
+        if (sampleFile.isFile() && endTime - startTime > 0){
             trimmedSample = new File(CACHE_PATH + "trimmed_wav_cache.wav");
             if (trimmedSample.isFile()) trimmedSample.delete();
 
@@ -500,18 +375,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         // Set the new sample length
         sampleLength = selectionEndTime - selectionStartTime;
         Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
-        // Copy data over for only the trimmed section
-        List<Line> temp = new ArrayList<Line>();
-        temp.addAll(waveFormData);
-        waveFormData.clear();
-        for (Line l : temp) {
-            if (l.getX() >= selectionStartTime && l.getX() <= selectionEndTime) {
-                waveFormData.add(new Line((l.getX() - (float)selectionStartTime), l.getY()));
-            }
-        }
-        waveFormRender.clear();
-        waveFormRender.addAll(waveFormData);
-        temp.clear();
         List<BeatInfo> tempBeats = new ArrayList<BeatInfo>();
         tempBeats.addAll(beatsData);
         beatsData.clear();
@@ -520,14 +383,13 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 beatsData.add(new BeatInfo(b.getTime() - (float)selectionStartTime, b.getSalience()));
             }
         }
-        beatsRender.clear();
-        beatsRender.addAll(beatsData);
         windowStartTime = 0;
         windowEndTime = sampleLength;
         selectionStartTime = 0;
         selectionEndTime = sampleLength;
         selectStart = 0;
         selectEnd = getWidth();
+        loadFile(samplePath);
     }
     public String[] Slice(int numSlices){
         String[] paths = new String[numSlices];
@@ -610,18 +472,17 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     }
 
     public void updatePlayIndicator(double time){
-        playPos[0] = (float)(time / sampleLength * getWidth());
+        playPos[0] = (float)(time / sampleLength * wavBitmap.getWidth());
         zoomMatrix.mapPoints(playPos);
         invalidate();
     }
 
     // Touch interaction methods
     public boolean onTouch(View view, MotionEvent event) {
-        scaleGestureDetector.onTouchEvent(event);
-        if (event.getPointerCount() == 1) {
             switch (selectionMode) {
-                case DEFAULT_SELECTION_MODE:
-                    defaultSelectionMode(view, event);
+                case SELECTION_MODE:
+                    //defaultSelectionMode(view, event);
+                    handleSelectionTouch(event);
                     break;
                 case BEAT_SELECTION_MODE:
                     beatSelectionMode(view, event);
@@ -629,10 +490,44 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 case BEAT_MOVE_MODE:
                     beatMoveMode(view, event);
                     break;
+                case PAN_ZOOM_MODE:
+                    panZoomMode(event);
+                    break;
             }
-            invalidate();
-        }
+        invalidate();
         return false;
+    }
+    private void handleSelectionTouch(MotionEvent event){
+        float[] point = {event.getX(), event.getY()};
+        Matrix invert = new Matrix(zoomMatrix);
+        invert.invert(invert);
+        invert.mapPoints(point);
+        switch (event.getAction()){
+            case MotionEvent.ACTION_DOWN:
+                if (selectEnd == 0) {
+                    selectStart = point[0];
+                    selectEnd = point[0];
+                    break;
+                }
+            case MotionEvent.ACTION_MOVE:
+                    double endDist = Math.abs(selectEnd - point[0]);
+                    double startDist = Math.abs(selectStart - point[0]);
+                    double min = Math.min(endDist, startDist);
+                    if (min == endDist) {
+                        selectEnd = Math.max(0, Math.min(point[0], wavBitmap.getWidth()));
+                        selectionEndTime = selectEnd / wavBitmap.getWidth() * sampleLength;
+                    } else {
+                        selectStart = Math.max(0, Math.min(point[0], wavBitmap.getWidth()));
+                        selectionStartTime = selectStart / wavBitmap.getWidth() * sampleLength;
+                    }
+                break;
+            case MotionEvent.ACTION_UP:
+                // Make sure there is a selection
+                if (Math.abs(selectEnd - selectStart) > 5) {
+                    fixSelection();
+                }
+                break;
+        }
     }
     private void defaultSelectionMode(View view, MotionEvent event){
         // If there is already a selection, move whichever is closer - start or end
@@ -654,6 +549,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         } else {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 selectStart = event.getX();
+                selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
                 selectEnd = event.getX();
                 fixSelection();
             } else if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -676,21 +572,24 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             selectStart = temp;
         }
         // Make sure start/end of selection are within bounds
-        if (selectStart < 0) selectStart = 0;
-        if (selectStart > getWidth()) selectStart = getWidth();
-        if (selectEnd > getWidth()) selectEnd = getWidth();
-        if (selectEnd < 0) selectEnd = 0;
+        selectStart = Math.max(0, Math.min(selectStart, wavBitmap.getWidth()));
+        selectEnd = Math.max(0, Math.min(selectEnd, wavBitmap.getWidth()));
 
         // Set start time and end time of selection
             /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
             need to be set in order for the selection to be drawn correctly*/
         if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0){
-            selectStart = (float)(getWidth() * (selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime));
-            selectEnd = (float)(getWidth() * (selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime));
+            float[] point = {0, 0};
+            point[0] = (float)(selectionStartTime / sampleLength * wavBitmap.getWidth());
+            zoomMatrix.mapPoints(point);
+            selectStart = point[0];
+            point[0] = (float)(selectionEndTime / sampleLength * wavBitmap.getWidth());
+            zoomMatrix.mapPoints(point);
+            selectEnd = point[0];
         }
         else if (getWidth() > 0) {
-            selectionStartTime = windowStartTime + (windowEndTime - windowStartTime) * selectStart / getWidth();
-            selectionEndTime = windowStartTime + (windowEndTime - windowStartTime) * selectEnd / getWidth();
+            selectionStartTime = selectStart / wavBitmap.getWidth() * sampleLength;
+            selectionEndTime = selectEnd / wavBitmap.getWidth() * sampleLength;
         }
         // Remove selection if it gets too small
         if (Math.abs(selectionEndTime - selectionStartTime) < 0.1)
@@ -737,15 +636,43 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             setSelectionMode(BEAT_SELECTION_MODE);
         }
     }
+    private void panZoomMode(MotionEvent event){
+        scaleGestureDetector.onTouchEvent(event);
+        Matrix invert = new Matrix(zoomMatrix);
+        invert.invert(invert);
+        float[] point = {event.getX(), event.getY()};
+        float[] wavStart = {0, 0};
+        float[] wavEnd = {wavBitmap.getWidth(), 0};
+        invert.mapPoints(point);
+        switch (event.getAction()){
+            case MotionEvent.ACTION_DOWN:
+                xStart = point[0];
+                yStart = point[1];
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (zoomFactor > zoomMin) {
+                    float dx = point[0] - xStart;
+                    zoomMatrix.mapPoints(wavStart);
+                    if (wavStart[0] + dx > 0)
+                        dx = 0;
+                    zoomMatrix.mapPoints(wavEnd);
+                    if (wavEnd[0] + dx < getWidth())
+                        dx = 0;
+                    zoomMatrix.preTranslate(dx, 0);
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+                break;
+        }
+    }
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             zoomFactor *= detector.getScaleFactor();
             // Don't let the object get too small or too large.
             zoomFactor = Math.max(zoomMin, Math.min(zoomFactor, 10.0f));
-            zoomMatrix.setScale(zoomFactor, 1f, detector.getFocusX(), detector.getFocusY());
-            invalidate();
-            requestLayout();
+            zoomMatrix.setScale(zoomFactor, 1f);
+            Log.d(LOG_TAG, "Zoom factor = " + zoomFactor);
             return true;
         }
 
@@ -754,17 +681,26 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             // Adjust zoom if it is very close to completely zoomed out
             if (Math.abs(zoomFactor - zoomMin) < 0.1) {
                 zoomFactor = zoomMin;
-                zoomMatrix.setScale(zoomFactor, 1f, 0, 0);
+                zoomMatrix.setScale(zoomFactor, 1f);
             }
+
+            // Keep bitmap from going too far left
+            float[] wavEnd = {wavBitmap.getWidth(), 0};
+            zoomMatrix.mapPoints(wavEnd);
+            if (wavEnd[0] < getWidth()){
+                float dx = getWidth() - wavEnd[0];
+                zoomMatrix.postTranslate(dx, 0);
+            }
+
             // Map window start and end point
             Matrix invert = new Matrix(zoomMatrix);
             invert.invert(invert);
             float[] point = {0, 0};
             invert.mapPoints(point);
-            windowStart = point[0];
+            windowStart = Math.max(0, point[0]);
             point[0] = (float)getWidth();
             invert.mapPoints(point);
-            windowEnd = point[0];
+            windowEnd = Math.min(point[0], getWidth());
             // Set window start and end times
             windowStartTime = windowStart / getWidth() * sampleLength;
             windowEndTime = windowEnd / getWidth() * sampleLength;
@@ -788,47 +724,45 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         paintBackground.setStyle(Paint.Style.FILL);
         gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
         paintBackground.setShader(gradient);
-        getWaveBitmap(getWidth(), getHeight());
+        if (samplePath != null) loadFile(samplePath);
         invalidate();
     }
 
     @Override
     protected void onSizeChanged (int w, int h, int oldw, int oldh){
-        if (w != oldw || h != oldh)
-            getWaveBitmap(w, h);
+        if (w != oldw || h != oldh) {
+            if (samplePath != null) loadFile(samplePath);
+            paintBackground.setStyle(Paint.Style.FILL);
+            gradient = new LinearGradient(w / 2, 0, w / 2, h, Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
+            paintBackground.setShader(gradient);
+        }
     }
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (waveFormRender.size() > 0 ) {
             // Draw background
-            if (gradient == null) {
-                paintBackground.setStyle(Paint.Style.FILL);
-                gradient = new LinearGradient(getWidth() / 2, 0, getWidth() / 2, getHeight(), Color.BLACK, Color.parseColor(backgroundColor), Shader.TileMode.MIRROR);
-                paintBackground.setShader(gradient);
-            }
             canvas.drawPaint(paintBackground);
             // Draw waveform
             if (wavBitmap != null) {
                 canvas.drawBitmap(wavBitmap, zoomMatrix, null);
             }
-            float axis = getHeight() / 2;
             float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
-            float dpPerSample = getWidth() / waveFormRender.size();
-            int increment = 1;
-            if (dpPerSample < 0.1){
-                increment = Math.max(1, Math.round(waveFormRender.size() / getWidth()) / 5);
-            }
-
             switch (selectionMode) {
+                case PAN_ZOOM_MODE:
+                    break;
                 case BEAT_MOVE_MODE:
                 case BEAT_SELECTION_MODE:
                     // Draw beat marks
                     paintWave.setColor(Color.DKGRAY);
                     paintSelect.setColor(Color.YELLOW);
+                    float[] beatPoint = {0, 0};
                     for (BeatInfo beatInfo : beatsRender) {
-                        canvas.drawLine((float) (beatInfo.getTime() - windowStartTime) * dpPerSec, 0, (float) (beatInfo.getTime() - windowStartTime) * dpPerSec, getHeight(), paintWave);
-                        canvas.drawCircle((float) (beatInfo.getTime() - windowStartTime) * dpPerSec, getHeight() / 2, 6, paintSelect);
+                        if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
+                            beatPoint[0] = (float)(beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
+                            zoomMatrix.mapPoints(beatPoint);
+                            canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
+                            canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
+                        }
                     }
                     // Draw selected beat
                     if (selectedBeat != null){
@@ -838,28 +772,37 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                         canvas.drawCircle((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight() / 2, 8, paintSelect);
                     }
                     break;
-                case DEFAULT_SELECTION_MODE:
+                case SELECTION_MODE:
                 /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
                 need to be set in order for the selection to persist*/
-                    if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0) {
-                        selectStart = (float) (getWidth() * (selectionStartTime - windowStartTime) / (windowEndTime - windowStartTime));
-                        selectEnd = (float) (getWidth() * (selectionEndTime - windowStartTime) / (windowEndTime - windowStartTime));
+                    if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0 && wavBitmap != null) {
+                        float[] point = {0, 0};
+                        point[0] = (float)(selectionStartTime / sampleLength * wavBitmap.getWidth());
+                        zoomMatrix.mapPoints(point);
+                        selectStart = point[0];
+                        point[0] = (float)(selectionEndTime / sampleLength * wavBitmap.getWidth());
+                        zoomMatrix.mapPoints(point);
+                        selectEnd = point[0];
                     }
                     // Draw selection region
                     if (Math.abs(selectEnd - selectStart) > 5) {
+                        float[] startPoint = {selectStart, 0};
+                        float[] endPoint = {selectEnd, 0};
+                        zoomMatrix.mapPoints(startPoint);
+                        zoomMatrix.mapPoints(endPoint);
                         paintSelect.setColor(Color.argb(127, 65, 65, 65));
-                        canvas.drawRect(selectStart, 0, selectEnd, getHeight(), paintSelect);
+                        canvas.drawRect(startPoint[0], 0, endPoint[0], getHeight(), paintSelect);
                         paintSelect.setColor(Color.LTGRAY);
-                        canvas.drawLine(selectStart, 0, selectStart, getHeight(), paintSelect);
-                        canvas.drawLine(selectEnd, 0, selectEnd, getHeight(), paintSelect);
+                        canvas.drawLine(startPoint[0], 0, startPoint[0], getHeight(), paintSelect);
+                        canvas.drawLine(endPoint[0], 0, endPoint[0], getHeight(), paintSelect);
                         paintSelect.setColor(Color.YELLOW);
-                        canvas.drawCircle(selectStart, 0, 5, paintSelect);
-                        canvas.drawCircle(selectStart, getHeight(), 5, paintSelect);
-                        canvas.drawCircle(selectEnd, 0, 5, paintSelect);
-                        canvas.drawCircle(selectEnd, getHeight(), 5, paintSelect);
+                        canvas.drawCircle(startPoint[0], 0, 5, paintSelect);
+                        canvas.drawCircle(startPoint[0], getHeight(), 5, paintSelect);
+                        canvas.drawCircle(endPoint[0], 0, 5, paintSelect);
+                        canvas.drawCircle(endPoint[0], getHeight(), 5, paintSelect);
                         paintSelect.setColor(Color.LTGRAY);
-                        canvas.drawText(String.valueOf((int) Math.floor(selectionStartTime / 60)) + ":" + String.format("%.2f", selectionStartTime % 60), selectStart, getHeight() - 10, paintSelect);
-                        canvas.drawText(String.valueOf((int) Math.floor(selectionEndTime / 60)) + ":" + String.format("%.2f", selectionEndTime % 60), selectEnd, getHeight() - 10, paintSelect);
+                        canvas.drawText(String.valueOf((int) Math.floor(selectionStartTime / 60)) + ":" + String.format("%.2f", selectionStartTime % 60), startPoint[0], getHeight() - 10, paintSelect);
+                        canvas.drawText(String.valueOf((int) Math.floor(selectionEndTime / 60)) + ":" + String.format("%.2f", selectionEndTime % 60), endPoint[0], getHeight() - 10, paintSelect);
                     }
                     break;
             }
@@ -869,7 +812,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 paintSelect.setColor(Color.RED);
                 canvas.drawLine(playPos[0], 0, playPos[0], getHeight(), paintSelect);
             }
-        }
     }
 
     // Utility methods
