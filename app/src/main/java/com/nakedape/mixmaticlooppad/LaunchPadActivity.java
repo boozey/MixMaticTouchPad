@@ -116,36 +116,6 @@ public class LaunchPadActivity extends Activity {
     private int bpm = 120;
     private int timeSignature = 4;
     private long recordingEndTime;
-    private Handler mHandler = new Handler(Looper.getMainLooper()){
-        @Override
-        public void handleMessage(Message msg){
-            switch (msg.what){
-                case COUNTER_UPDATE:
-                    updateCounterMessage();
-                    break;
-                case WAV_FILE_WRITE_PROGRESS:
-                    progressDialog.setProgress(msg.arg1);
-                    break;
-                case LOAD_PROGRESS:
-                    loadProgressBar.setProgress(loadProgressBar.getProgress() + 4);
-                    break;
-            }
-        }
-    };
-    private Handler playHandler = new Handler(Looper.getMainLooper()){
-        @Override
-        public void handleMessage(Message msg) {
-            View v = findViewById(msg.arg1);
-            switch (msg.what){
-                case SET_PRESSED_TRUE:
-                    v.setPressed(true);
-                    break;
-                case SET_PRESSED_FALSE:
-                    v.setPressed(false);
-                    break;
-            }
-        }
-    };
     private void updateCounterMessage(){
         double beatsPerSec = (double)bpm / 60;
         double sec = (double)counter / 1000;
@@ -235,7 +205,7 @@ public class LaunchPadActivity extends Activity {
             @Override
             public void run() {
                 final View mainView = licensedOnCreate();
-                mHandler.post(new Runnable() {
+                loadProgressBar.post(new Runnable() {
                     @Override
                     public void run() {
                         setContentView(mainView);
@@ -349,8 +319,12 @@ public class LaunchPadActivity extends Activity {
                     }
                 });
             }
-            Message msg = mHandler.obtainMessage(LOAD_PROGRESS);
-            msg.sendToTarget();
+            loadProgressBar.post(new Runnable() {
+                @Override
+                public void run() {
+                    loadProgressBar.setProgress(loadProgressBar.getProgress() + 4);
+                }
+            });
         }
         return mainView;
     }
@@ -1333,7 +1307,7 @@ public class LaunchPadActivity extends Activity {
                     @Override
                     public void run() {
                         final String stretchedSamplePath = samples.get(selectedSampleID).matchTempo(ratio);
-                        mHandler.post(new Runnable() {
+                        view.post(new Runnable() {
                             @Override
                             public void run() {
                                 progressDialog.dismiss();
@@ -1396,13 +1370,17 @@ public class LaunchPadActivity extends Activity {
             for (int i = playEventIndex; i < launchEvents.size() && isPlaying && !stopPlaybackThread; i++) {
                 ArrayList<LaunchEvent> tempArray = new ArrayList<LaunchEvent>(loopingSamplesPlaying.size());
                 tempArray.addAll(loopingSamplesPlaying);
-                for (LaunchEvent l : tempArray){
-                    if (l.timeStamp <= counter) {
-                        samples.get(l.getSampleId()).play();
-                        Message message = playHandler.obtainMessage(SET_PRESSED_TRUE);
-                        message.arg1 = l.getSampleId();
-                        message.sendToTarget();
-                        loopingSamplesPlaying.remove(l);
+                for (LaunchEvent e : tempArray){
+                    if (e.timeStamp <= counter) {
+                        samples.get(e.getSampleId()).play();
+                        final int id = e.getSampleId();
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                findViewById(id).setPressed(true);
+                            }
+                        });
+                        loopingSamplesPlaying.remove(e);
                         Log.d(LOG_TAG, "Restarting looped sample");
                     }
                 }
@@ -1417,26 +1395,34 @@ public class LaunchPadActivity extends Activity {
                     }
                 }
                 if (event.eventType.equals(LaunchEvent.PLAY_START)) {
-                    samples.get(event.getSampleId()).play();
-                    Message message = playHandler.obtainMessage(SET_PRESSED_TRUE);
-                    message.arg1 = event.getSampleId();
-                    message.sendToTarget();
+                    final int id = event.getSampleId();
+                    samples.get(id).play();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            findViewById(id).setPressed(true);
+                        }
+                    });
                 }
                 else {
-                    samples.get(event.getSampleId()).stop();
-                    Message message = playHandler.obtainMessage(SET_PRESSED_FALSE);
-                    message.arg1 = event.getSampleId();
-                    message.sendToTarget();
+                    final int id = event.getSampleId();
+                    samples.get(id).stop();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            findViewById(id).setPressed(false);
+                        }
+                    });
                 }
             }
             if (!stopPlaybackThread) {
                 isPlaying = false;
                 reconnectTouchListeners();
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         ActionBar actionBar = getActionBar();
-                        if (actionBar != null){
+                        if (actionBar != null) {
                             MenuItem item = actionBarMenu.findItem(R.id.action_play);
                             item.setIcon(R.drawable.ic_action_av_play_arrow);
                         }
@@ -1550,7 +1536,7 @@ public class LaunchPadActivity extends Activity {
             @Override
             public void run() {
                 WriteWavFile(fileName);
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         progressDialog.dismiss();
@@ -1730,9 +1716,13 @@ public class LaunchPadActivity extends Activity {
                 }
             }
             waveFile.WriteData(shortData, shortData.length);
-            Message m = mHandler.obtainMessage(WAV_FILE_WRITE_PROGRESS);
-            m.arg1 = i;
-            m.sendToTarget();
+            final int progress = i;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    progressDialog.setProgress(progress);
+                }
+            });
             i++;
             bytesWritten += length;
         } while (i < launchEvents.size() && !dialogCanceled);
@@ -1811,9 +1801,13 @@ public class LaunchPadActivity extends Activity {
                     buffer.get(bytes);
                     outputStream.write(bytes);
                 }
-                Message m = mHandler.obtainMessage(WAV_FILE_WRITE_PROGRESS);
-                m.arg1 = i;
-                m.sendToTarget();
+                final int progress = i;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.setProgress(progress);
+                    }
+                });
                 i++;
                 bytesWritten += length;
             } while (i < launchEvents.size() && !dialogCanceled);
@@ -1924,9 +1918,13 @@ public class LaunchPadActivity extends Activity {
                     buffer.get(bytes);
                     outputStream.write(bytes);
                 }
-                Message m = mHandler.obtainMessage(WAV_FILE_WRITE_PROGRESS);
-                m.arg1 = i;
-                m.sendToTarget();
+                final int progress = i;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.setProgress(progress);
+                    }
+                });
                 i++;
                 bytesWritten += length;
             } while (i < launchEvents.size() && !dialogCanceled);
@@ -1975,8 +1973,12 @@ public class LaunchPadActivity extends Activity {
                     Thread.sleep(10);
                 } catch (InterruptedException e) {e.printStackTrace();}
                 counter = SystemClock.elapsedRealtime() - startMillis;
-                Message msg = mHandler.obtainMessage(COUNTER_UPDATE);
-                msg.sendToTarget();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateCounterMessage();
+                    }
+                });
                 if (isRecording)
                     recordingEndTime = counter;
             } while ((isRecording || isPlaying) && !stopCounterThread);
@@ -2246,7 +2248,7 @@ public class LaunchPadActivity extends Activity {
                 // due to a loss of connection with the service, so we should give the
                 // user a chance to retry. So show a dialog to retry.
                 Log.d(LOG_TAG, "Not licensed RETRY");
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -2275,7 +2277,7 @@ public class LaunchPadActivity extends Activity {
                 // provide the user a limited access version of your app or you can
                 // take them to Google Play to purchase the app.
                 Log.d(LOG_TAG, "Not licensed");
-                mHandler.post(new Runnable() {
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -2317,7 +2319,7 @@ public class LaunchPadActivity extends Activity {
             else if (reason == LicenseCheckerCallback.ERROR_NOT_MARKET_MANAGED)
                 Log.d(LOG_TAG, "Licensing Error ERROR_NOT_MARKET_MANAGED" + String.valueOf(reason));
 
-            mHandler.post(new Runnable() {
+            runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     finish();
