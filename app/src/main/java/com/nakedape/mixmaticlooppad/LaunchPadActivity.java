@@ -913,6 +913,12 @@ public class LaunchPadActivity extends Activity {
     }
     public void touchPadEditLongClick(View v){
         if (activePads.contains(v.getId())) {
+            // Deselect the previous touchpad
+            View oldView = findViewById(selectedSampleID);
+            if (oldView != null)
+                oldView.setSelected(false);
+            selectedSampleID = v.getId();
+            v.setSelected(true);
             ClipData.Item pathItem = new ClipData.Item(String.valueOf(v.getId()));
             String[] mime_type = {ClipDescription.MIMETYPE_TEXT_PLAIN};
             ClipData dragData = new ClipData(TOUCHPAD_ID, mime_type, pathItem);
@@ -922,6 +928,7 @@ public class LaunchPadActivity extends Activity {
                     null,      // no need to use local data
                     0          // flags (not currently used, set to 0)
             );
+            v.setSelected(true);
         }
     }
     protected class PadDragEventListener implements View.OnDragListener {

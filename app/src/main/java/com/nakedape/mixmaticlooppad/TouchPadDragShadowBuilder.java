@@ -22,6 +22,8 @@ public class TouchPadDragShadowBuilder extends View.DragShadowBuilder {
         super(v);
 
         // Creates a draggable image that will fill the Canvas provided by the system.
+        v.setSelected(false);
+        v.setPressed(false);
         if (v.getBackground() != null)
             shadow = v.getBackground();
     }
