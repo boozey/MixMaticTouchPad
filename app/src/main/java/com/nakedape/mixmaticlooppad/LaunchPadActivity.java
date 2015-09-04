@@ -46,6 +46,7 @@ import android.widget.Toast;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -83,11 +84,6 @@ public class LaunchPadActivity extends Activity {
     public static String SAMPLE_VOLUME = "com.nakedape.mixmaticlooppad.volume";
     private static int GET_SAMPLE = 0;
     private static int GET_SLICES = 1;
-    private static final int COUNTER_UPDATE = 3;
-    private static final int WAV_FILE_WRITE_PROGRESS = 4;
-    private static final int SET_PRESSED_TRUE = 5;
-    private static final int SET_PRESSED_FALSE = 6;
-    private static final int LOAD_PROGRESS = 7;
 
     // Licensing
     private static final String BASE_64_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjcQ7YSSmv5GSS3FrQ801508P/r5laGtv7GBG2Ax9ql6ZAJZI6UPrJIvN9gXjoRBnHOIphIg9HycJRxBwGfgcpEQ3F47uWJ/UvmPeQ3cVffFKIb/cAUqCS4puEtcDL2yDXoKjagsJNBjbRWz6tqDvzH5BtvdYoy4QUf8NqH8wd3/2R/m3PAVIr+lRlUAc1Dj2y40uOEdluDW+i9kbkMD8vrLKr+DGnB7JrKFAPaqxBNTeogv0vGNOWwJd3Tgx7VDm825Op/vyG9VQSM7W53TsyJE8NdwP8Q59B/WRlcsr+tHCyoQcjscrgVegiOyME1DfEUrQk/SPzr5AlCqa2AZ//wIDAQAB";
@@ -222,16 +218,20 @@ public class LaunchPadActivity extends Activity {
         //setContentView(R.layout.activity_launch_pad);
         LayoutInflater inflater = getLayoutInflater();
         View mainView = inflater.inflate(R.layout.activity_launch_pad, null);
-        homeDirectory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/Mixmatic");
-        if (!homeDirectory.isDirectory()){
-            if (!homeDirectory.mkdir())
-                Toast.makeText(context, "ERROR: Unable to create storage folder", Toast.LENGTH_SHORT).show();
-        }
-        sampleDirectory = new File(homeDirectory.getAbsolutePath() + "/Sample_Data");
-        if (!sampleDirectory.isDirectory())
-            if (!sampleDirectory.mkdir())
-                Toast.makeText(context, "ERROR: Unable to create storage folder", Toast.LENGTH_SHORT).show();
 
+        // Prepare stoarage directories
+        if (Utils.isExternalStorageWritable()){
+            sampleDirectory = new File(getExternalFilesDir(null), "Samples");
+            if (!sampleDirectory.exists())
+                if (!sampleDirectory.mkdir()) Log.e(LOG_TAG, "error creating external files directory");
+        } else {
+            sampleDirectory = new File(getFilesDir(), "Samples");
+            if (!sampleDirectory.exists())
+                if (!sampleDirectory.mkdir()) Log.e(LOG_TAG, "error creating internal files directory");
+        }
+
+        // Copy files over from directory used in previous app versions and delete the directories
+        cleanUpStorageDirs();
 
         // Setup counter
         ActionBar actionBar = getActionBar();
@@ -291,6 +291,64 @@ public class LaunchPadActivity extends Activity {
             fm.beginTransaction().add(savedData, "data").commit();
             // Setup touch pads from files
             return setupPadsFromFile(mainView);
+        }
+    }
+    private void cleanUpStorageDirs(){
+        File oldHomeDirectory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/Mixmatic");
+        if (oldHomeDirectory.exists() && oldHomeDirectory.isDirectory()) {
+            File oldSampleDirectory = new File(oldHomeDirectory.getAbsolutePath() + "/Sample_Data");
+            if (oldSampleDirectory.exists() && oldSampleDirectory.isDirectory()){
+                File[] files = oldSampleDirectory.listFiles(new FileFilter() {
+                    @Override
+                    public boolean accept(File file) {
+                        return file.getPath().endsWith("wav");
+                    }
+                });
+                int padInt = 1;
+                SharedPreferences.Editor editor = launchPadprefs.edit();
+                for (File file : files){
+                    String fileName = file.getName();
+                    if (fileName.contains("Mixmatic_Touch_Pad_")) {
+                        try {
+                            String padNumber = String.valueOf(padInt++);
+                            File newSampleFile = new File(sampleDirectory, "Sample" + padNumber + ".wav");
+                            Utils.CopyFile(file, newSampleFile);
+                            fileName = fileName.replace("Mixmatic_Touch_Pad_", "");
+                            fileName = fileName.replace(".wav", "");
+                            editor.putString(padNumber + SAMPLE_PATH, newSampleFile.getAbsolutePath());
+                            editor.putInt(padNumber + LAUNCHMODE, launchPadprefs.getInt(fileName + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
+                            editor.remove(fileName + LAUNCHMODE);
+                            editor.putBoolean(padNumber + LOOPMODE, launchPadprefs.getBoolean(fileName + LOOPMODE, false));
+                            editor.remove(fileName + LOOPMODE);
+                            editor.putFloat(padNumber + SAMPLE_VOLUME, launchPadprefs.getFloat(fileName + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
+                            editor.remove(fileName + SAMPLE_VOLUME);
+                            editor.putInt(padNumber + COLOR, launchPadprefs.getInt(fileName + COLOR, 0));
+                            editor.remove(fileName + COLOR);
+                            file.delete();
+                        } catch (IOException e) {e.printStackTrace(); }
+                    } else {
+                        try {
+                            Utils.CopyFile(file, new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), file.getName()));
+                            file.delete();
+                        } catch (IOException e) {e.printStackTrace();}
+                    }
+                }
+                editor.apply();
+                oldSampleDirectory.delete();
+            }
+            // Move or delete files in oldHomeDirectory
+            File[] miscFiles = oldHomeDirectory.listFiles();
+            for (File file : miscFiles){
+                if (file.getName().endsWith(".wav")) {
+                    try {
+                        Utils.CopyFile(file, new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), file.getName()));
+                        file.delete();
+                    } catch (IOException e) {e.printStackTrace(); }
+                } else {
+                    file.delete();
+                }
+            }
+            oldHomeDirectory.delete();
         }
     }
     private View setupPadsFromFile(View mainView) {
@@ -480,8 +538,6 @@ public class LaunchPadActivity extends Activity {
         if (requestCode == GET_SAMPLE && resultCode == RESULT_OK) {
             String path = data.getData().getPath();
             File f = new File(path); // File to contain the new sample
-            if (!sampleDirectory.isDirectory()) // If the home directory doesn't exist, create it
-                sampleDirectory.mkdir();
             // Create a new file to contain the new sample
             File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
             // If the file already exists, delete, but remember to keep its configuration
@@ -600,8 +656,6 @@ public class LaunchPadActivity extends Activity {
     // Methods for managing touch pads
     private void preparePad(String path, int id, int color) {
         File f = new File(path); // File to contain the new sample
-        if (!sampleDirectory.isDirectory()) // If the home directory doesn't exist, create it
-            sampleDirectory.mkdir();
         // Create a new file to contain the new sample
         File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(id) + ".wav");
         // If the file already exists, delete, but remember to keep its configuration
