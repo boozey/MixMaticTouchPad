@@ -31,6 +31,9 @@
     <string name="action_edit_beats">Edit beats</string>
     <string name="action_pan_zoom">Zoom</string>
 
+    <!-- Strings for sample filename prompt -->
+    <string name="sample_name_message">Enter a name for this sample</string>
+
     <!-- Strings for beat edit context menu -->
     <string name="action_insert_beat">Insert beat</string>
     <string name="action_remove_beat">Remove beat</string>
@@ -42,7 +45,6 @@
     <string name="beat_threshold">Beat threshold</string>
     <string name="trim_progress_msg">Trimming</string>
     <string name="save_progress_msg">Preparing sample(s)</string>
-    <string name="generating_waveform">Generating waveform</string>
     <string name="file_export_msg">Exporting </string>
 
     <!-- Strings for edit loop pad menu -->
@@ -58,17 +60,24 @@
     <string name="action_stop">Stop</string>
     <string name="action_loop_selection">Loop selection</string>
     <string name="action_pick_color">Change color</string>
-    <string name="warning_remove_sample">Remove sample?</string>
     <string name="color_dialog_title">Pick a color</string>
     <string name="action_set_volume">Volume</string>
     <string name="action_reset">Reset recording</string>
+
+    <!-- Delete sample dialog strings -->
+    <string name="remove_sample_dialog_title">Remove sample</string>
+    <string name="remove_sample_dialog_message">Are you sure you want to permanently delete this sample?</string>
+    <string name="remove_samples_in_use_dialog_message">This sample is in use. Are you sure you want to permanently delete it?</string>
+    <string name="no_sample_selected_toast">You must select a sample to delete it</string>
+    <string name="sample_deleted_toast">Sample deleted</string>
+    <string name="sample_delete_error_toast">Error deleting sample</string>
 
     <!-- Strings for slicing options dialog -->
     <string name="button_slice_mode_title">Slice</string>
     <string name="slice_multi_select">Select pads to fill</string>
     <string name="slice_selection_error">Please select at least one pad</string>
     <string name="slice_size_warning" formatted="false">Slice into %d slices that are each %.3f seconds in length?</string>
-    <string name="sample_size_warning" formatted="false">Sample length is %.3f seconds.\nSamples more than a few seconds in length can lower performance and potentially cause the application to crash.\nProceed with Save?</string>
+    <string name="sample_size_warning" formatted="false">Sample length is %.3f seconds.\nLarge samples can slow performance.\nProceed with Save?</string>
 
     <!-- Preference strings -->
     <string name="pref_beat_threshold">Beat detection threshold</string>

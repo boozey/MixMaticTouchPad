@@ -1,11 +1,16 @@
+<RelativeLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/launch_pad_root_layout">
 <LinearLayout
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:orientation="vertical"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_marginRight="30dp"
     android:id="@+id/mainLayout">
 
-
+<!-- Counter bar -->
     <RelativeLayout
         android:id="@+id/counter_bar"
         android:layout_width="fill_parent"
@@ -26,6 +31,7 @@
             android:background="@drawable/button_rewind"
             android:onClick="RewindButtonClick"
             android:layout_alignParentStart="true"
+            android:layout_alignParentLeft="true"
             android:layout_centerVertical="true"/>
         <ImageButton
             android:id="@+id/button_play"
@@ -239,5 +245,46 @@
             android:onClick="touchPadClick" />
     </LinearLayout>
 
-
 </LinearLayout>
+    <!-- Sample Library -->
+    <LinearLayout
+        android:id="@+id/sample_library"
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_alignParentRight="true"
+        android:background="#99000000"
+        android:visibility="visible"
+        android:translationX="250dp">
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="#000000"
+            android:onClick="SampleLibTabClick">
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:background="@drawable/ic_action_content_add"
+                android:onClick="AddSampleClick"/>
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:background="@drawable/ic_action_navigation_more_vert"/>
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:background="@drawable/ic_action_delete"
+                android:onClick="DeleteSampleClick"/>
+        </RelativeLayout>
+        <ListView
+            android:id="@+id/sample_listview"
+            android:layout_width="250dp"
+            android:layout_height="match_parent"
+            android:choiceMode="singleChoice"/>
+    </LinearLayout>
+</RelativeLayout>

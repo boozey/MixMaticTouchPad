@@ -213,6 +213,9 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public void undo(){
         loadFile(backupPath);
     }
+    public Bitmap getWaveFormThumbnail(){
+        return Utils.getScaledBitmap(wavBitmap, 80, 80);
+    }
 
     // Methods to save/load data from retained fragment
     public void saveAudioSampleData(AudioSampleData data){

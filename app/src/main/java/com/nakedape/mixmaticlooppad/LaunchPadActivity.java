@@ -1,5 +1,8 @@
 package com.nakedape.mixmaticlooppad;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -12,6 +15,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
@@ -20,6 +26,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.*;
@@ -36,10 +43,18 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.AdapterView;
+import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.NumberPicker;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,6 +73,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Random;
 
 // Licensing imports
 import com.google.android.vending.licensing.AESObfuscator;
@@ -149,6 +165,7 @@ public class LaunchPadActivity extends Activity {
     };
 
     private Context context;
+    private RelativeLayout rootLayout;
     private ProgressDialog progressDialog;
     private ProgressBar loadProgressBar;
     private SparseArray<Sample> samples;
@@ -159,6 +176,7 @@ public class LaunchPadActivity extends Activity {
     private SharedPreferences activityPrefs; // Stores app wide preferences
     private LaunchPadData savedData;
     private boolean savedDataLoaded = false;
+    private View listItemPauseButton;
 
     private int selectedSampleID;
     private boolean multiSelect = false;
@@ -168,8 +186,11 @@ public class LaunchPadActivity extends Activity {
             R.id.touchPad13, R.id.touchPad14, R.id.touchPad15, R.id.touchPad16, R.id.touchPad17, R.id.touchPad18,
             R.id.touchPad19, R.id.touchPad20, R.id.touchPad21, R.id.touchPad22, R.id.touchPad23, R.id.touchPad24};
     private ActionMode launchPadActionMode;
-    private ActionMode emptyPadActionMode;
     private Menu actionBarMenu;
+    private boolean isSampleLibraryShowing;
+    private SampleListAdapter sampleListAdapter;
+    private int sampleLibraryIndex = -1;
+    private MediaPlayer samplePlayer;
 
     // Activity lifecycle
     // On create methods
@@ -201,7 +222,8 @@ public class LaunchPadActivity extends Activity {
             @Override
             public void run() {
                 final View mainView = licensedOnCreate();
-                loadProgressBar.post(new Runnable() {
+                // Switch UI thread to make launch pad layout visible
+                runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         setContentView(mainView);
@@ -218,6 +240,9 @@ public class LaunchPadActivity extends Activity {
         //setContentView(R.layout.activity_launch_pad);
         LayoutInflater inflater = getLayoutInflater();
         View mainView = inflater.inflate(R.layout.activity_launch_pad, null);
+        rootLayout = (RelativeLayout)mainView.findViewById(R.id.launch_pad_root_layout);
+        LinearLayout library = (LinearLayout)mainView.findViewById(R.id.sample_library);
+        library.setOnDragListener(new LibraryDragEventListener());
 
         // Prepare stoarage directories
         if (Utils.isExternalStorageWritable()){
@@ -232,6 +257,16 @@ public class LaunchPadActivity extends Activity {
 
         // Copy files over from directory used in previous app versions and delete the directories
         cleanUpStorageDirs();
+
+        // Prepare Sample Library
+        File[] sampleFiles = sampleDirectory.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.getName().endsWith(".wav");
+            }
+        });
+        sampleListAdapter = new SampleListAdapter(context, R.layout.sample_list_item);
+        sampleListAdapter.addAll(sampleFiles);
 
         // Setup counter
         ActionBar actionBar = getActionBar();
@@ -360,6 +395,7 @@ public class LaunchPadActivity extends Activity {
             TouchPad pad = (TouchPad) mainView.findViewById(id);
             pad.setTag(String.valueOf(padNumber++));
             pad.setOnTouchListener(TouchPadTouchListener);
+            pad.setOnDragListener(new PadDragEventListener());
             //File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
             String path = launchPadprefs.getString(pad.getTag().toString() + SAMPLE_PATH, null);
             if (path != null) {
@@ -397,6 +433,7 @@ public class LaunchPadActivity extends Activity {
                 TouchPad pad = (TouchPad) mainView.findViewById(id);
                 pad.setTag(padNumber);
                 pad.setOnTouchListener(TouchPadTouchListener);
+                pad.setOnDragListener(new PadDragEventListener());
                 if (samples.indexOfKey(pad.getId()) >= 0) {
                     setPadColor(launchPadprefs.getInt(padNumber + COLOR, 0), pad);
                     sample = samples.get(pad.getId());
@@ -417,6 +454,19 @@ public class LaunchPadActivity extends Activity {
             return mainView;
         }
         return mainView;
+    }
+    @Override
+    public void onPause(){
+        super.onPause();
+        if (samplePlayer != null){
+            if (samplePlayer.isPlaying()) {
+                samplePlayer.stop();
+                if (listItemPauseButton != null)
+                    listItemPauseButton.setSelected(false);
+            }
+            samplePlayer.release();
+            samplePlayer = null;
+        }
     }
     @Override
     public void onResume() {
@@ -537,42 +587,25 @@ public class LaunchPadActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
         if (requestCode == GET_SAMPLE && resultCode == RESULT_OK) {
             String path = data.getData().getPath();
-            File f = new File(path); // File to contain the new sample
             // Create a new file to contain the new sample
-            File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(data.getIntExtra(TOUCHPAD_ID, 0)) + ".wav");
-            // If the file already exists, delete, but remember to keep its configuration
-            boolean keepSettings = false;
-            if (sampleFile.isFile()) {
-                sampleFile.delete();
-                keepSettings = true;
-            }
-            // Copy new sample over
-            try {
-                CopyFile(f, sampleFile);
-            } catch (IOException e){e.printStackTrace();}
-            if (sampleFile.isFile()) { // If successful, prepare touchpad
-                int id = data.getIntExtra(TOUCHPAD_ID, 0);
+            File sampleFile = new File(path);
+            if (sampleFile.exists() && sampleListAdapter != null)
+                sampleListAdapter.add(sampleFile);
+            // If the file exists and a pad was selected, prepare touchpad
+            int id = data.getIntExtra(TOUCHPAD_ID, -1);
+            if (sampleFile.exists() && id != -1) {
+                selectedSampleID = id;
                 Sample sample = new Sample(sampleFile.getAbsolutePath(), id);
                 sample.setOnPlayFinishedListener(samplePlayListener);
                 TouchPad t = (TouchPad)findViewById(id);
                 String padNumber = (String)t.getTag();
                 // Set sample properties and save to shared preferences
                 SharedPreferences.Editor editor = launchPadprefs.edit();
-                if (keepSettings){
                     sample.setLaunchMode(launchPadprefs.getInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
                     sample.setLoopMode(launchPadprefs.getBoolean(padNumber + LOOPMODE, false));
                     sample.setVolume(launchPadprefs.getFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
-                }
-                else { // Default properties
-                    sample.setLaunchMode(Sample.LAUNCHMODE_GATE);
-                    editor.putInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_GATE);
-                    editor.putBoolean(padNumber + LOOPMODE, false);
-                    editor.putFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume());
-                }
-                // Save sample location
-                editor.putString(padNumber + SAMPLE_PATH, sample.getPath());
                 samples.put(id, sample);
-                activePads.add(id);
+                if (!activePads.contains((Integer)id)) activePads.add(id);
                 switch (data.getIntExtra(COLOR, 0)){ // Set and save color
                     case 0:
                         t.setBackgroundResource(R.drawable.launch_pad_blue);
@@ -593,8 +626,6 @@ public class LaunchPadActivity extends Activity {
                 }
                 editor.apply();
                 // Show the action bar for pads with loaded samples
-                if (emptyPadActionMode != null)
-                    emptyPadActionMode = null;
                 if (launchPadActionMode == null)
                     launchPadActionMode = startActionMode(launchPadActionModeCallback);
             }
@@ -644,8 +675,6 @@ public class LaunchPadActivity extends Activity {
                     }
                     editor.apply();
                     // Show the action bar for pads with loaded samples
-                    if (emptyPadActionMode != null)
-                        emptyPadActionMode = null;
                     if (launchPadActionMode == null)
                         launchPadActionMode = startActionMode(launchPadActionModeCallback);
                 }
@@ -709,8 +738,6 @@ public class LaunchPadActivity extends Activity {
             }
             editor.apply();
             // Show the action bar for pads with loaded samples
-            if (emptyPadActionMode != null)
-                emptyPadActionMode = null;
             if (launchPadActionMode == null)
                 launchPadActionMode = startActionMode(launchPadActionModeCallback);
         }
@@ -767,7 +794,7 @@ public class LaunchPadActivity extends Activity {
         AlertDialog dialog = builder.create();
         dialog.show();
     }
-    private void removeSample(final int sampleId){
+    private void removeSample(int sampleId){
         Sample s = samples.get(sampleId);
         // Remove the sample from the list of active samples
         samples.remove(sampleId);
@@ -785,7 +812,6 @@ public class LaunchPadActivity extends Activity {
         editor.remove(padNumber + COLOR);
         editor.apply();
         Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
-        emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
         launchPadActionMode = null;
     }
     private void recordSample(){
@@ -805,8 +831,7 @@ public class LaunchPadActivity extends Activity {
                             recordAudio(micAudioFile);
                         }
                     }).start();
-                }
-                else {
+                } else {
                     isMicRecording = false;
                     recButton.setSelected(false);
                 }
@@ -875,13 +900,11 @@ public class LaunchPadActivity extends Activity {
                     return true;
                 }
             });
-            pad.setOnDragListener(new PadDragEventListener());
         }
     }
     private void gotoPlayMode(){
         for (int id : touchPadIds){
             TouchPad pad = (TouchPad)findViewById(id);
-            pad.setOnDragListener(null);
             if (activePads.contains(id))
                 pad.setOnLongClickListener(null);
             else
@@ -904,8 +927,6 @@ public class LaunchPadActivity extends Activity {
             selectedSampleID = v.getId();
             // If the pad contains a sample, show the edit menu
             if (samples.indexOfKey(v.getId()) >= 0) {
-                if (emptyPadActionMode != null)
-                    emptyPadActionMode = null;
                 if (launchPadActionMode == null)
                     launchPadActionMode = startActionMode(launchPadActionModeCallback);
                 Sample s = (Sample) samples.get(v.getId());
@@ -923,13 +944,12 @@ public class LaunchPadActivity extends Activity {
                 v.setSelected(true);
                 isEditMode = true;
             }
-            // If the pad doesn't contain a sample, show the menu to load one
+            // If the pad doesn't contain a sample, hide the sample edit action mode
             else {
                 if (launchPadActionMode != null)
                     launchPadActionMode = null;
-                if (emptyPadActionMode == null)
-                    emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
                 v.setSelected(true);
+                showSampleLibrary();
                 isEditMode = true;
             }
         } // If in multiselect mode allow empty pads to be selected
@@ -945,8 +965,6 @@ public class LaunchPadActivity extends Activity {
             } // If a touchpad contains a sample, exit multiselect mode and show the edit menu
             else {
                 multiSelect = false;
-                if (emptyPadActionMode != null)
-                    emptyPadActionMode = null;
                 if (launchPadActionMode == null)
                     launchPadActionMode = startActionMode(launchPadActionModeCallback);
             }
@@ -962,8 +980,8 @@ public class LaunchPadActivity extends Activity {
         if (oldView != null)
             oldView.setSelected(false);
         selectedSampleID = v.getId();
-        if (emptyPadActionMode == null)
-            emptyPadActionMode = startActionMode(emptyPadActionModeCallback);
+        gotoEditMode();
+        showSampleLibrary();
     }
     public void touchPadEditLongClick(View v){
         if (activePads.contains(v.getId())) {
@@ -985,6 +1003,11 @@ public class LaunchPadActivity extends Activity {
             v.setSelected(true);
         }
     }
+    private void listItemEditClick(int index){
+            Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
+                intent.putExtra(SAMPLE_PATH, sampleListAdapter.getItem(index).getAbsolutePath());
+            startActivityForResult(intent, GET_SAMPLE);
+    }
     protected class PadDragEventListener implements View.OnDragListener {
         public boolean onDrag(View v, DragEvent event) {
             switch (event.getAction()){
@@ -998,9 +1021,13 @@ public class LaunchPadActivity extends Activity {
                     return true;
                 case DragEvent.ACTION_DROP:
                     ClipData data = event.getClipData();
-                    int pad1Id = Integer.parseInt((String)data.getItemAt(0).getText());
-                    swapPads(pad1Id, v.getId());
-                    resetRecording();
+                    if (data.getDescription().getLabel().equals(TOUCHPAD_ID)) {
+                        int pad1Id = Integer.parseInt((String) data.getItemAt(0).getText());
+                        swapPads(pad1Id, v.getId());
+                        resetRecording();
+                    } else if (data.getDescription().getLabel().equals(SAMPLE_PATH)){
+                        loadPadFromDrop(data.getItemAt(0).getText().toString(), v.getId(), Integer.parseInt(data.getItemAt(1).getText().toString()));
+                    }
                     return true;
                 default:
                     return false;
@@ -1054,6 +1081,19 @@ public class LaunchPadActivity extends Activity {
         }
         editor.apply();
         pad2.callOnClick();
+    }
+    private void loadPadFromDrop(String path, int padId, int color){
+        TouchPad pad = (TouchPad)findViewById(padId);
+        SharedPreferences.Editor editor = launchPadprefs.edit();
+        if (activePads.contains((Integer)padId))
+            samples.remove(padId);
+        else {
+            activePads.add(padId);
+        }
+        editor.putInt(pad.getTag().toString() + COLOR, color);
+        editor.putString(pad.getTag().toString() + SAMPLE_PATH, path);
+        editor.commit();
+        loadSample(path, pad);
     }
     private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
         @Override
@@ -1114,7 +1154,6 @@ public class LaunchPadActivity extends Activity {
 
         @Override
         public void onDestroyActionMode(ActionMode mode) {
-            emptyPadActionMode = null;
             isEditMode = false;
             multiSelect = false;
             View oldView = findViewById(selectedSampleID);
@@ -1134,8 +1173,10 @@ public class LaunchPadActivity extends Activity {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.launch_pad_context, menu);
             isEditMode = true;
-            View oldView = findViewById(selectedSampleID);
-            oldView.setSelected(true);
+            if (selectedSampleID > -1) {
+                View oldView = findViewById(selectedSampleID);
+                oldView.setSelected(true);
+            }
             if (samples.indexOfKey(selectedSampleID) >= 0) {
                 Sample s = (Sample) samples.get(selectedSampleID);
                 MenuItem item = menu.findItem(R.id.action_loop_mode);
@@ -1271,10 +1312,331 @@ public class LaunchPadActivity extends Activity {
             launchPadActionMode = null;
             View oldView = findViewById(selectedSampleID);
             oldView.setSelected(false);
+            selectedSampleID = -1;
             isEditMode = false;
+            hideSampleLibrary();
             gotoPlayMode();
         }
     };
+
+    // Sample Library Methods
+    public void SampleLibTabClick(View v){
+        if (isSampleLibraryShowing) hideSampleLibrary();
+        else showSampleLibrary();
+    }
+    private void showSampleLibrary(){
+        if (!isSampleLibraryShowing) {
+            LinearLayout library = (LinearLayout)findViewById(R.id.sample_library);
+            ListView sampleListView = (ListView)library.findViewById(R.id.sample_listview);
+            sampleListView.setAdapter(sampleListAdapter);
+            sampleListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    sampleLibraryIndex = position;
+                }
+            });
+            sampleListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+                @Override
+                public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                    // Goto edit mode
+                    if (!isEditMode)
+                        gotoEditMode();
+
+                    // Start drag
+                    ClipData.Item pathItem = new ClipData.Item(sampleListAdapter.getItem(position).getAbsolutePath());
+                    String[] mime_type = {ClipDescription.MIMETYPE_TEXT_PLAIN};
+                    ClipData dragData = new ClipData(SAMPLE_PATH, mime_type, pathItem);
+                    Random random = new Random();
+                    Drawable drawable;
+                    switch (random.nextInt(4)){
+                        case 0:
+                            drawable = getResources().getDrawable(R.drawable.button_blue);
+                            dragData.addItem(new ClipData.Item(String.valueOf(0)));
+                            break;
+                        case 1:
+                            drawable = getResources().getDrawable(R.drawable.button_red);
+                            dragData.addItem(new ClipData.Item(String.valueOf(1)));
+                            break;
+                        case 2:
+                            drawable = getResources().getDrawable(R.drawable.button_green);
+                            dragData.addItem(new ClipData.Item(String.valueOf(2)));
+                            break;
+                        case 3:
+                            drawable = getResources().getDrawable(R.drawable.button_orange);
+                            dragData.addItem(new ClipData.Item(String.valueOf(3)));
+                            break;
+                        default:
+                            drawable = getResources().getDrawable(R.drawable.button_blue);
+                            dragData.addItem(new ClipData.Item(String.valueOf(0)));
+                            break;
+                    }
+                    View.DragShadowBuilder myShadow = new SampleDragShadowBuilder(view, drawable);
+                    view.startDrag(dragData,  // the data to be dragged
+                            myShadow,  // the drag shadow builder
+                            null,      // no need to use local data
+                            0          // flags (not currently used, set to 0)
+                    );
+                    return true;
+                }
+            });
+
+            // Start the animation
+            AnimatorSet set = new AnimatorSet();
+            ObjectAnimator slideLeft = ObjectAnimator.ofFloat(library, "TranslationX", sampleListView.getWidth(), 0);
+            set.setInterpolator(new AccelerateDecelerateInterpolator());
+            set.play(slideLeft);
+            set.setTarget(library);
+            set.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    isSampleLibraryShowing = true;
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+            set.start();
+        }
+    }
+    private void hideSampleLibrary(){
+        if (isSampleLibraryShowing) {
+            LinearLayout library = (LinearLayout) findViewById(R.id.sample_library);
+            ListView sampleListView = (ListView) library.findViewById(R.id.sample_listview);
+            sampleLibraryIndex = -1;
+
+            // Start the animation
+            AnimatorSet set = new AnimatorSet();
+            ObjectAnimator slideRight = ObjectAnimator.ofFloat(library, "TranslationX", 0, sampleListView.getWidth());
+            set.setInterpolator(new AccelerateDecelerateInterpolator());
+            set.play(slideRight);
+            set.setTarget(library);
+            set.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    isSampleLibraryShowing = false;
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+            set.start();
+        }
+    }
+    private class SampleListAdapter extends BaseAdapter {
+        private ArrayList<File> sampleFiles;
+        private ArrayList<String> sampleLengths;
+        private Context mContext;
+        private int resource_id;
+        private LayoutInflater mInflater;
+
+        public SampleListAdapter(Context context, int resource_id) {
+            this.mContext = context;
+            this.resource_id = resource_id;
+            mInflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            sampleFiles = new ArrayList<>();
+            sampleLengths = new ArrayList<>();
+        }
+
+        public void add(File file){
+            sampleFiles.add(file);
+
+            // Determine length of wav file
+            float length = Utils.getWavLengthInSeconds(file, 44100);
+            sampleLengths.add(String.valueOf((int) Math.floor(length / 60)) + ":" + String.format("%.2f", length % 60));
+
+        }
+        public void addAll(File[] files){
+            for (File f : files){
+                add(f);
+            }
+        }
+        public void remove(File file){
+            if (sampleFiles.contains(file)) {
+                sampleLengths.remove(sampleFiles.indexOf(file));
+                sampleFiles.remove(file);
+                notifyDataSetChanged();
+            }
+        }
+        @Override
+        public int getCount() {
+            return sampleFiles.size();
+        }
+
+        @Override
+        public File getItem(int position) {
+            return sampleFiles.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(final int position, View convertView, final ViewGroup parent) {
+            if (convertView == null) {
+                convertView = mInflater.inflate(resource_id, null);
+            }
+            TextView nameText = (TextView)convertView.findViewById(R.id.sample_file_name);
+            nameText.setText(sampleFiles.get(position).getName().replace(".wav", ""));
+            TextView timeText = (TextView)convertView.findViewById(R.id.sample_length);
+            timeText.setText(sampleLengths.get(position));
+            Bitmap wavBitmap = Utils.decodedSampledBitmapFromFile(new File(sampleFiles.get(position).getAbsolutePath().replace(".wav", ".png")), 80, 80);
+            ImageView wavIcon = (ImageView)convertView.findViewById(R.id.wave_icon);
+            if (wavBitmap != null){
+                wavIcon.setBackground(new BitmapDrawable(getResources(), wavBitmap));
+            } else {
+                wavIcon.setBackground(getResources().getDrawable(R.drawable.ic_sound_wave_icon_green));
+            }
+            ImageView pauseButton = (ImageView)convertView.findViewById(R.id.pause_icon);
+            pauseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(final View v) {
+                    if (v.isSelected()){
+                        v.setSelected(false);
+                        if (samplePlayer != null)
+                            samplePlayer.stop();
+                    } else {
+                        v.setSelected(true);
+                        if (samplePlayer != null)
+                            if (samplePlayer.isPlaying())
+                                samplePlayer.stop();
+                        samplePlayer = new MediaPlayer();
+                        try {
+                            samplePlayer.setDataSource(sampleFiles.get(position).getAbsolutePath());
+                            samplePlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                                @Override
+                                public void onCompletion(MediaPlayer mp) {
+                                    v.setSelected(false);
+                                    samplePlayer.release();
+                                    samplePlayer = null;
+                                }
+                            });
+                            samplePlayer.prepare();
+                            samplePlayer.start();
+                            listItemPauseButton = v;
+                        } catch (IOException e){e.printStackTrace();}
+                    }
+                }
+            });
+            ImageView editButton = (ImageView)convertView.findViewById(R.id.item_edit_icon);
+            editButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (v.isActivated() || v.isSelected())
+                        listItemEditClick(position);
+                }
+            });
+            return  convertView;
+        }
+    }
+    protected class LibraryDragEventListener implements View.OnDragListener {
+        public boolean onDrag(View v, DragEvent event) {
+            switch (event.getAction()) {
+                case DragEvent.ACTION_DRAG_STARTED:
+                    return true;
+                case DragEvent.ACTION_DRAG_ENTERED:
+                    showSampleLibrary();
+                    return true;
+                case DragEvent.ACTION_DRAG_LOCATION:
+                    return true;
+                case DragEvent.ACTION_DRAG_EXITED:
+                    hideSampleLibrary();
+                    return true;
+                case DragEvent.ACTION_DROP:
+                    ClipData data = event.getClipData();
+                    if (data.getDescription().getLabel().equals(TOUCHPAD_ID)) {
+                        int padId = Integer.parseInt((String) data.getItemAt(0).getText());
+                        removeSample(padId);
+                        resetRecording();
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+    public void AddSampleClick(View v){
+        Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
+        intent.putExtra(TOUCHPAD_ID, selectedSampleID);
+        startActivityForResult(intent, GET_SAMPLE);
+    }
+    public void DeleteSampleClick(View v){
+        // Determine if a sample is selected
+        File file = null;
+        if (sampleLibraryIndex > -1) {
+            file = sampleListAdapter.getItem(sampleLibraryIndex);
+        } else if (selectedSampleID > -1) {
+            if (activePads.contains((Integer)selectedSampleID))
+                file = new File(samples.get(selectedSampleID).getPath());
+        }
+
+        if (file != null) {
+            final File sampleFile = file;
+            // Determine what touchpads this sample is assigned to
+            final ArrayList<Integer> padIds = new ArrayList<>();
+            for (int i : activePads) {
+                String path = samples.get(i).getPath();
+                if (path.equals(sampleFile.getAbsolutePath()))
+                    padIds.add(i);
+            }
+
+            // Show dialog to alert user that file will be permanently deleted
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle(R.string.remove_sample_dialog_title);
+            if (padIds.size() > 0)
+                builder.setMessage(R.string.remove_samples_in_use_dialog_message);
+            else
+                builder.setMessage(R.string.remove_sample_dialog_message);
+            builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    for (int i : padIds)
+                        removeSample(i);
+                    if (sampleFile.delete())
+                        Toast.makeText(context, getString(R.string.sample_deleted_toast), Toast.LENGTH_SHORT).show();
+                    else
+                        Toast.makeText(context, getString(R.string.sample_delete_error_toast), Toast.LENGTH_SHORT).show();
+                    if (sampleListAdapter != null)
+                        sampleListAdapter.remove(sampleFile);
+                }
+            });
+            builder.setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
+        } else {
+            Toast.makeText(context, getString(R.string.no_sample_selected_toast), Toast.LENGTH_SHORT).show();
+        }
+    }
 
     // Handles touch events in record mode;
     private View.OnTouchListener TouchPadTouchListener = new View.OnTouchListener() {

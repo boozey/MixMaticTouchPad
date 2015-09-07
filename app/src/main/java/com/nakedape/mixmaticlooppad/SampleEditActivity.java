@@ -19,14 +19,19 @@ import android.net.Uri;
 import android.os.*;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,6 +41,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
+import java.util.Calendar;
 
 import javazoom.jl.converter.WaveFile;
 
@@ -71,6 +77,7 @@ public class SampleEditActivity extends Activity {
     private boolean isSliceMode = false;
     private boolean isDecoding = false;
     private boolean isGeneratingWaveForm = false;
+    private File sampleDirectory;
 
     // Sample edit context menu
     private ActionMode sampleEditActionMode;
@@ -228,6 +235,17 @@ public class SampleEditActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample_edit);
         rootLayout = (RelativeLayout)findViewById(R.id.rootLayout);
+
+        // Prepare stoarage directory
+        if (Utils.isExternalStorageWritable()){
+            sampleDirectory = new File(getExternalFilesDir(null), "Samples");
+            if (!sampleDirectory.exists())
+                if (!sampleDirectory.mkdir()) Log.e(LOG_TAG, "error creating external files directory");
+        } else {
+            sampleDirectory = new File(getFilesDir(), "Samples");
+            if (!sampleDirectory.exists())
+                if (!sampleDirectory.mkdir()) Log.e(LOG_TAG, "error creating internal files directory");
+        }
         if (getExternalCacheDir() != null)
             CACHE_PATH = getExternalCacheDir();
         else
@@ -296,18 +314,6 @@ public class SampleEditActivity extends Activity {
             savedData = new AudioSampleData();
             fm.beginTransaction().add(savedData, "data").commit();
             LoadSampleFromIntent(intent);
-        }
-        else if (intent.hasExtra(LaunchPadActivity.NUM_SLICES)){
-            // Sample Edit should operate in slice mode
-            setSliceMode(intent.getIntExtra(LaunchPadActivity.NUM_SLICES, 1));
-            // If the cache file already exists from a previous edit, delete it
-            File temp = new File(WAV_CACHE_PATH);
-            if (temp.isFile())
-                temp.delete();
-            // Create fragment to persist data during runtime changes
-            savedData = new AudioSampleData();
-            fm.beginTransaction().add(savedData, "data").commit();
-            SelectAudioFile();
         }
         else{
             // If the cache file already exists from a previous edit, delete it
@@ -590,20 +596,20 @@ public class SampleEditActivity extends Activity {
             saveSlices();
         }
         else {
-            checkSampleSizeAndSave();
+            checkSampleSize();
         }
 
     }
-    private void checkSampleSizeAndSave(){
+    private void checkSampleSize(){
         final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        // If sample size is more than 4 seconds, show warning
-        if (sample.sampleLength > 4) {
+        // If sample size is more than 20 seconds, show warning
+        if (sample.sampleLength > 20) {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
             builder.setMessage(getString(R.string.sample_size_warning, sample.sampleLength));
             builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    saveSample(sample);
+                    promptForName();
                 }
             });
             builder.setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
@@ -616,10 +622,52 @@ public class SampleEditActivity extends Activity {
             dialog.show();
         }
         else {
-            saveSample(sample);
+            promptForName();
         }
     }
-    private void saveSample(final AudioSampleView sample){
+    private void promptForName(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        View layout = getLayoutInflater().inflate(R.layout.sample_file_name_prompt, null);
+        final TextView fileNameTextView = (TextView)layout.findViewById(R.id.file_name_preview);
+        fileNameTextView.setText("Sample_" + Calendar.getInstance().getTimeInMillis() + ".wav");
+        final EditText editText = (EditText)layout.findViewById(R.id.sample_name_text);
+        editText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s.length() < 1)
+                    fileNameTextView.setText("Sample_" + Calendar.getInstance().getTimeInMillis() + ".wav");
+                else
+                    fileNameTextView.setText(s.toString().replaceAll("[^a-zA-Z0-9]", "_") + ".wav");
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+        });
+        builder.setView(layout);
+        builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String filename = fileNameTextView.getText().toString();
+                saveSample(filename);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    private void saveSample(final String filename){
         dlg = new ProgressDialog(context);
         dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         dlg.setIndeterminate(true);
@@ -628,18 +676,34 @@ public class SampleEditActivity extends Activity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                dlg.dismiss();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sample.getSamplePath()));
-                        result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
-                        result.putExtra(LaunchPadActivity.COLOR, sample.color);
-                        setResult(Activity.RESULT_OK, result);
-                        finish();
+                try {
+                    File tempFile = new File(sampleView.getSamplePath());
+                    final File sampleFile = new File(sampleDirectory, filename);
+                    Utils.CopyFile(tempFile, sampleFile);
+                    tempFile.delete();
+                    Utils.WriteImage(sampleView.getWaveFormThumbnail(), sampleFile.getAbsolutePath().replace(".wav", ".png"));
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            dlg.dismiss();
+                            Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sampleFile.getAbsolutePath()));
+                            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+                            result.putExtra(LaunchPadActivity.COLOR, sampleView.color);
+                            setResult(Activity.RESULT_OK, result);
+                            finish();
 
-                    }
-                });
+                        }
+                    });
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            dlg.dismiss();
+                            Toast.makeText(context, "Error saving file", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
             }
         }).start();
     }

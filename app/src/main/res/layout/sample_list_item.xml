@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/wave_icon"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="@drawable/ic_sound_wave_icon_green"/>
+    <ImageView
+        android:id="@+id/pause_icon"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="@drawable/list_item_play_selector"/>
+    <ImageView
+        android:id="@+id/item_edit_icon"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_centerVertical="true"
+        android:layout_alignParentRight="true"
+        android:background="@drawable/edit_icon_selector"
+        android:duplicateParentState="true"/>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:orientation="vertical"
+        android:layout_toEndOf="@+id/wave_icon"
+        android:layout_toRightOf="@+id/wave_icon"
+        android:layout_toLeftOf="@id/item_edit_icon"
+        android:layout_toStartOf="@id/item_edit_icon">
+        <TextView
+            android:id="@+id/sample_file_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:text="sample file name"/>
+        <TextView
+            android:id="@+id/sample_length"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:text="1:00:00"/>
+    </LinearLayout>
+</RelativeLayout>
