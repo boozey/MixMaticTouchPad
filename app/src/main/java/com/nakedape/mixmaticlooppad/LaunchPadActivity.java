@@ -1058,6 +1058,7 @@ public class LaunchPadActivity extends Activity {
         editor.putFloat(pad2Number + SAMPLE_VOLUME, sample1.getVolume());
         editor.putInt(pad2Number + COLOR, pad1Color);
         setPadColor(pad1Color, pad2);
+        sample1.reloadAudioTrack();
 
         if (sample2 != null) { // Move pad2 to pad1
             int pad2Color = launchPadprefs.getInt(pad2Number + COLOR, 0);
@@ -1069,6 +1070,7 @@ public class LaunchPadActivity extends Activity {
             editor.putFloat(pad1Number + SAMPLE_VOLUME, sample2.getVolume());
             editor.putInt(pad1Number + COLOR, pad2Color);
             setPadColor(pad2Color, pad1);
+            sample2.reloadAudioTrack();
         } else { // Remove pad1
             activePads.remove((Integer)pad1Id);
             pad1.setBackgroundResource(R.drawable.launch_pad_empty);
@@ -1094,6 +1096,7 @@ public class LaunchPadActivity extends Activity {
         editor.putString(pad.getTag().toString() + SAMPLE_PATH, path);
         editor.commit();
         loadSample(path, pad);
+        pad.callOnClick();
     }
     private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
         @Override
@@ -2434,6 +2437,7 @@ public class LaunchPadActivity extends Activity {
         private int launchMode = LAUNCHMODE_TRIGGER;
         private File sampleFile;
         private int sampleByteLength;
+        private int sampleRate = 44100;
         private float volume = 0.5f * AudioTrack.getMaxVolume();
         private boolean played = false;
         private AudioTrack audioTrack;
@@ -2444,9 +2448,10 @@ public class LaunchPadActivity extends Activity {
             this.path = path;
             this.id = id;
             sampleFile = new File(path);
-            if (sampleFile.isFile()){
+            if (sampleFile.exists()){
                 sampleByteLength = (int)sampleFile.length() - 44;
-                loadAudioTrack();
+                sampleRate = Utils.getWavSampleRate(sampleFile);
+                reloadAudioTrack();
             }
         }
         public Sample(String path, int launchMode, boolean loopMode){
@@ -2454,7 +2459,7 @@ public class LaunchPadActivity extends Activity {
             loop = loopMode;
             if (!setLaunchMode(launchMode))
                 this.launchMode = LAUNCHMODE_TRIGGER;
-            loadAudioTrack();
+            reloadAudioTrack();
         }
 
         // Public methods
@@ -2472,7 +2477,7 @@ public class LaunchPadActivity extends Activity {
                     played = false;
                 }*/
                 if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED)
-                    loadAudioTrack();
+                    reloadAudioTrack();
 
                 audioTrack.setLoopPoints(0, sampleByteLength / 4, -1);
                 audioTrack.setNotificationMarkerPosition(0);
@@ -2514,8 +2519,7 @@ public class LaunchPadActivity extends Activity {
             return launchMode;
         }
         public double getSampleLengthMillis(){
-            //return (double)sampleByteLength / (8 *44100) * 1000;
-            return  1000 * (double)sampleByteLength / (44100 * 16 / 4);
+            return  1000 * (double)sampleByteLength / (sampleRate * 16 / 4);
         }
         public byte[] getAudioBytes(){
             InputStream stream = null;
@@ -2536,7 +2540,7 @@ public class LaunchPadActivity extends Activity {
                     audioTrack.play();
                 } else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
                     Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
-                    loadAudioTrack();
+                    reloadAudioTrack();
                     if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
                         audioTrack.play();
                 }
@@ -2551,7 +2555,7 @@ public class LaunchPadActivity extends Activity {
                     audioTrack.release();
                 } catch (IllegalStateException e) {
                 }
-                loadAudioTrack();
+                reloadAudioTrack();
             }
         }
         public void pause(){
@@ -2562,11 +2566,11 @@ public class LaunchPadActivity extends Activity {
                 audioTrack.stop();
             audioTrack.flush();
             audioTrack.release();
-            loadAudioTrack();
+            reloadAudioTrack();
         }
         public void setVolume(float volume){
             this.volume = volume;
-            loadAudioTrack();
+            reloadAudioTrack();
         }
         public float getVolume() {return volume;}
         public boolean hasPlayed(){
@@ -2588,12 +2592,10 @@ public class LaunchPadActivity extends Activity {
             processor.resample(L, M, homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav");
             return homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav";
         }
-
-        // Private methods
-        private void loadAudioTrack() {
+        public void reloadAudioTrack() {
             try {
                 audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
-                        44100,
+                        sampleRate,
                         AudioFormat.CHANNEL_OUT_STEREO,
                         AudioFormat.ENCODING_PCM_16BIT,
                         sampleByteLength,
@@ -2609,8 +2611,6 @@ public class LaunchPadActivity extends Activity {
                     audioTrack.write(shorts, 0, shorts.length);
                     stream.close();
                     played = false;
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -2625,7 +2625,7 @@ public class LaunchPadActivity extends Activity {
                 }
             } catch (IllegalArgumentException e){
                 File file = new File(path);
-                if (file.isFile()){
+                if (file.exists()){
                     file.delete();
                 }
             }

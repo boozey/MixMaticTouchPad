@@ -72,6 +72,27 @@ public class Utils {
         return (float)length  / sampleRate / 4;
     }
 
+    public static int getWavSampleRate(File wavFile){
+        int sampleRate = 44100;
+        InputStream wavStream = null;
+        try {
+            wavStream = new BufferedInputStream(new FileInputStream(wavFile));
+            byte[] lenInt = new byte[4];
+            wavStream.skip(24);
+            wavStream.read(lenInt, 0, 4);
+            ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+            sampleRate = bb.getInt();
+            wavStream.close();
+        } catch (IOException e){e.printStackTrace();}
+        finally {
+            try {
+                if (wavStream != null)
+                    wavStream.close();
+            } catch (IOException e){}
+        }
+        return sampleRate;
+    }
+
 
 
     // Bitmap utilities
