@@ -14,7 +14,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -42,9 +41,9 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
@@ -53,7 +52,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.NumberPicker;
-import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -167,7 +165,6 @@ public class LaunchPadActivity extends Activity {
     private Context context;
     private RelativeLayout rootLayout;
     private ProgressDialog progressDialog;
-    private ProgressBar loadProgressBar;
     private SparseArray<Sample> samples;
     private File homeDirectory, sampleDirectory;
     private int numTouchPads;
@@ -187,62 +184,47 @@ public class LaunchPadActivity extends Activity {
             R.id.touchPad19, R.id.touchPad20, R.id.touchPad21, R.id.touchPad22, R.id.touchPad23, R.id.touchPad24};
     private ActionMode launchPadActionMode;
     private Menu actionBarMenu;
-    private boolean isSampleLibraryShowing;
+    private boolean isSampleLibraryShowing = false;
     private SampleListAdapter sampleListAdapter;
     private int sampleLibraryIndex = -1;
     private MediaPlayer samplePlayer;
 
-    // Activity lifecycle
+    // Activity overrides
     // On create methods
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        showLoadingScreen();
-        loadProgressBar = (ProgressBar)findViewById(R.id.progressBar);
-        context = this;
+        // find the retained fragment on activity restarts
+        FragmentManager fm = getFragmentManager();
+        savedData = (LaunchPadData) fm.findFragmentByTag("data");
+        if (savedData == null) {
+            setContentView(R.layout.loading_screen);
+            context = this;
 
+            // Do the license check
+            DEVICE_ID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+            // Construct the LicenseCheckerCallback.
+            mLicenseCheckerCallback = new MyLicenseCheckerCallback();
+            // Construct the LicenseChecker with a Policy.
+            mChecker = new LicenseChecker(
+                    context, new ServerManagedPolicy(this,
+                    new AESObfuscator(SALT, getPackageName(), DEVICE_ID)),
+                    BASE_64_PUBLIC_KEY);
+            mChecker.checkAccess(mLicenseCheckerCallback);
+        }
+        else {
+            loadInBackground();
+        }
+    }
+    private void loadInBackground(){
+        // Prepare shared preferences
         launchPadprefs = getPreferences(MODE_PRIVATE);
         PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
         activityPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 
-        // Do the license check
-        DEVICE_ID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        // Construct the LicenseCheckerCallback.
-        mLicenseCheckerCallback = new MyLicenseCheckerCallback();
-        // Construct the LicenseChecker with a Policy.
-        mChecker = new LicenseChecker(
-                context, new ServerManagedPolicy(this,
-                new AESObfuscator(SALT, getPackageName(), DEVICE_ID)),
-                BASE_64_PUBLIC_KEY);
-        mChecker.checkAccess(mLicenseCheckerCallback);
-        // Increment progress bar
-        loadProgressBar.setProgress(4);
-        // Load touch pad samples on a separate thread
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final View mainView = licensedOnCreate();
-                // Switch UI thread to make launch pad layout visible
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        setContentView(mainView);
-                        updateCounterMessage();
-                    }
-                });
-            }
-        }).start();
-    }
-    private void showLoadingScreen(){
-        setContentView(R.layout.loading_screen);
-    }
-    private View licensedOnCreate(){
-        //setContentView(R.layout.activity_launch_pad);
-        LayoutInflater inflater = getLayoutInflater();
-        View mainView = inflater.inflate(R.layout.activity_launch_pad, null);
-        rootLayout = (RelativeLayout)mainView.findViewById(R.id.launch_pad_root_layout);
-        LinearLayout library = (LinearLayout)mainView.findViewById(R.id.sample_library);
-        library.setOnDragListener(new LibraryDragEventListener());
+        // Set up audio control
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 
         // Prepare stoarage directories
         if (Utils.isExternalStorageWritable()){
@@ -258,15 +240,23 @@ public class LaunchPadActivity extends Activity {
         // Copy files over from directory used in previous app versions and delete the directories
         cleanUpStorageDirs();
 
-        // Prepare Sample Library
-        File[] sampleFiles = sampleDirectory.listFiles(new FileFilter() {
+        // Instantiate sampleListAdapter
+        sampleListAdapter = new SampleListAdapter(context, R.layout.sample_list_item);
+
+        // Load UI
+        runOnUiThread(new Runnable() {
             @Override
-            public boolean accept(File pathname) {
-                return pathname.getName().endsWith(".wav");
+            public void run() {
+                loadUi();
             }
         });
-        sampleListAdapter = new SampleListAdapter(context, R.layout.sample_list_item);
-        sampleListAdapter.addAll(sampleFiles);
+    }
+    private void loadUi(){
+        setContentView(R.layout.activity_launch_pad);
+
+        rootLayout = (RelativeLayout)findViewById(R.id.launch_pad_root_layout);
+        LinearLayout library = (LinearLayout)findViewById(R.id.sample_library);
+        library.setOnDragListener(new LibraryDragEventListener());
 
         // Setup counter
         ActionBar actionBar = getActionBar();
@@ -279,19 +269,12 @@ public class LaunchPadActivity extends Activity {
             actionBar.setDisplayShowCustomEnabled(true);
         } else {
             findViewById(R.id.counter_bar).setVisibility(View.VISIBLE);
-            counterTextView = (TextView) mainView.findViewById(R.id.textViewCounter);
+            counterTextView = (TextView) findViewById(R.id.textViewCounter);
             bpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
             timeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
             updateCounterMessage();
         }
 
-        // Set up audio
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-
-        // find the retained fragment on activity restarts
-        FragmentManager fm = getFragmentManager();
-        savedData = (LaunchPadData) fm.findFragmentByTag("data");
         if (savedData != null){
             samples = savedData.getSamples();
             counter = savedData.getCounter();
@@ -309,23 +292,39 @@ public class LaunchPadActivity extends Activity {
             playEventIndex = savedData.getPlayEventIndex();
             savedDataLoaded = true;
             if (isRecording) {
-                View v = mainView.findViewById(R.id.button_play);
+                View v = findViewById(R.id.button_play);
                 v.setBackgroundResource(R.drawable.button_pause);
                 new Thread(new CounterThread()).start();
             }
             if (isPlaying) {
-                View v = mainView.findViewById(R.id.button_play);
+                View v = findViewById(R.id.button_play);
                 v.setBackgroundResource(R.drawable.button_pause);
                 new Thread(new playBackRecording()).start();
             }
+            sampleListAdapter.sampleFiles = savedData.sampleFiles;
+            sampleListAdapter.sampleLengths = savedData.sampleLengths;
             // Setup touch pads from retained fragment
-            return setupPadsFromFrag(mainView);
+            setupPadsFromFrag();
         }
         else{
+            FragmentManager fm = getFragmentManager();
             savedData = new LaunchPadData();
             fm.beginTransaction().add(savedData, "data").commit();
             // Setup touch pads from files
-            return setupPadsFromFile(mainView);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    setupPadsFromFile();
+                    // Prepare Sample Library list adapter
+                    File[] sampleFiles = sampleDirectory.listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File pathname) {
+                            return pathname.getName().endsWith(".wav");
+                        }
+                    });
+                    sampleListAdapter.addAll(sampleFiles);
+                }
+            }).start();
         }
     }
     private void cleanUpStorageDirs(){
@@ -386,23 +385,45 @@ public class LaunchPadActivity extends Activity {
             oldHomeDirectory.delete();
         }
     }
-    private View setupPadsFromFile(View mainView) {
+    private void setupPadsFromFile() {
         samples = new SparseArray<Sample>(24);
         activePads = new ArrayList<Integer>(24);
         resetRecording();
-        int padNumber = 1;
+        int padInt = 1;
         for (int id : touchPadIds){
-            TouchPad pad = (TouchPad) mainView.findViewById(id);
-            pad.setTag(String.valueOf(padNumber++));
+            final TouchPad pad = (TouchPad)findViewById(id);
+            pad.setTag(String.valueOf(padInt++));
             pad.setOnTouchListener(TouchPadTouchListener);
             pad.setOnDragListener(new PadDragEventListener());
-            //File sampleFile = new File(sampleDirectory, "Mixmatic_Touch_Pad_" + String.valueOf(pad.getId()) + ".wav");
             String path = launchPadprefs.getString(pad.getTag().toString() + SAMPLE_PATH, null);
             if (path != null) {
                 File sampleFile = new File(path);
-                if (sampleFile.isFile()) {  // If the sample exists, load it
-                    loadSample(sampleFile.getAbsolutePath(), pad);
+                if (sampleFile.isFile()) {
+                    // Configure pad settings
+                    pad.setOnTouchListener(TouchPadTouchListener);
+                    Sample s = new Sample(path, id);
+                    s.setOnPlayFinishedListener(samplePlayListener);
+                    samples.put(id, s);
+                    String padNumber = (String)pad.getTag();
+                    s.setLoopMode(launchPadprefs.getBoolean(padNumber + LOOPMODE, false));
+                    s.setLaunchMode(launchPadprefs.getInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                    s.setVolume(launchPadprefs.getFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
+                    final int color = launchPadprefs.getInt(padNumber + COLOR, 0);
                     activePads.add(pad.getId());
+                    // Animate the loading of the pad
+                    rootLayout.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            setPadColor(color, pad);
+                            // Start the animation
+                            AnimatorSet set = new AnimatorSet();
+                            ObjectAnimator popIn = ObjectAnimator.ofFloat(pad, "ScaleX", 0f, 1f);
+                            set.setInterpolator(new AnticipateOvershootInterpolator());
+                            set.play(popIn);
+                            set.setTarget(pad);
+                            set.start();
+                        }
+                    });
                 }
             } else {
                 pad.setOnLongClickListener(new View.OnLongClickListener() {
@@ -413,24 +434,23 @@ public class LaunchPadActivity extends Activity {
                     }
                 });
             }
-            loadProgressBar.post(new Runnable() {
+        }
+    }
+    private void setupPadsFromFrag(){
+        if (samples == null)
+            // Setup touch pads from files
+            new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    loadProgressBar.setProgress(loadProgressBar.getProgress() + 4);
+                    setupPadsFromFile();
                 }
-            });
-        }
-        return mainView;
-    }
-    private View setupPadsFromFrag(View mainView){
-        if (samples == null)
-            setupPadsFromFile(mainView);
+            }).start();
         else {
             int padIndex = 1;
             for (int id : touchPadIds) {
                 Sample sample;
                 String padNumber = String.valueOf(padIndex++);
-                TouchPad pad = (TouchPad) mainView.findViewById(id);
+                TouchPad pad = (TouchPad) findViewById(id);
                 pad.setTag(padNumber);
                 pad.setOnTouchListener(TouchPadTouchListener);
                 pad.setOnDragListener(new PadDragEventListener());
@@ -451,9 +471,7 @@ public class LaunchPadActivity extends Activity {
                     });
                 }
             }
-            return mainView;
         }
-        return mainView;
     }
     @Override
     public void onPause(){
@@ -471,23 +489,18 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
-        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            if (ViewConfiguration.get(context).hasPermanentMenuKey()) {
-                if (getActionBar() != null)
-                    getActionBar().hide();
+        if (rootLayout != null) {
+            int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+            int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
+
+            if (newBpm != bpm || newTimeSignature != timeSignature) {
+                counter = 0;
+                bpm = newBpm;
+                timeSignature = newTimeSignature;
             }
+            if (counterTextView != null)
+                updateCounterMessage();
         }
-
-        int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
-        int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
-
-        if (newBpm != bpm || newTimeSignature != timeSignature) {
-            counter = 0;
-            bpm = newBpm;
-            timeSignature = newTimeSignature;
-        }
-        if (counterTextView != null)
-            updateCounterMessage();
     }
     @Override
     protected void onDestroy(){
@@ -499,27 +512,30 @@ public class LaunchPadActivity extends Activity {
             mChecker.onDestroy();
         stopCounterThread = true;
         stopPlaybackThread = true;
-        if (isFinishing()){
-            // Release audiotrack resources
-            for (Integer i : activePads) {
-                Sample s = samples.get(i);
-                isPlaying = false;
-                if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                    s.stop();
+        if (rootLayout != null) {
+            if (isFinishing()) {
+                // Release audiotrack resources
+                for (Integer i : activePads) {
+                    Sample s = samples.get(i);
+                    isPlaying = false;
+                    if (s.audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                        s.stop();
+                    }
+                    s.audioTrack.release();
                 }
-                s.audioTrack.release();
+            } else {
+                savedData.setSamples(samples);
+                savedData.setCounter(counter);
+                savedData.setEditMode(isEditMode);
+                savedData.setActivePads(activePads);
+                savedData.setPlaying(isPlaying);
+                savedData.setRecording(isRecording);
+                savedData.setRecordingEndTime(recordingEndTime);
+                savedData.setLaunchEvents(launchEvents);
+                savedData.setPlayEventIndex(playEventIndex);
+                savedData.sampleFiles = sampleListAdapter.sampleFiles;
+                savedData.sampleLengths = sampleListAdapter.sampleLengths;
             }
-        }
-        else {
-            savedData.setSamples(samples);
-            savedData.setCounter(counter);
-            savedData.setEditMode(isEditMode);
-            savedData.setActivePads(activePads);
-            savedData.setPlaying(isPlaying);
-            savedData.setRecording(isRecording);
-            savedData.setRecordingEndTime(recordingEndTime);
-            savedData.setLaunchEvents(launchEvents);
-            savedData.setPlayEventIndex(playEventIndex);
         }
     }
 
@@ -1324,7 +1340,9 @@ public class LaunchPadActivity extends Activity {
 
     // Sample Library Methods
     public void SampleLibTabClick(View v){
-        if (isSampleLibraryShowing) hideSampleLibrary();
+        if (isSampleLibraryShowing) {
+            hideSampleLibrary();
+        }
         else showSampleLibrary();
     }
     private void showSampleLibrary(){
@@ -1450,8 +1468,8 @@ public class LaunchPadActivity extends Activity {
         }
     }
     private class SampleListAdapter extends BaseAdapter {
-        private ArrayList<File> sampleFiles;
-        private ArrayList<String> sampleLengths;
+        public ArrayList<File> sampleFiles;
+        public ArrayList<String> sampleLengths;
         private Context mContext;
         private int resource_id;
         private LayoutInflater mInflater;
@@ -1466,11 +1484,10 @@ public class LaunchPadActivity extends Activity {
 
         public void add(File file){
             sampleFiles.add(file);
-
             // Determine length of wav file
             float length = Utils.getWavLengthInSeconds(file, 44100);
             sampleLengths.add(String.valueOf((int) Math.floor(length / 60)) + ":" + String.format("%.2f", length % 60));
-
+            notifyDataSetChanged();
         }
         public void addAll(File[] files){
             for (File f : files){
@@ -2658,6 +2675,7 @@ public class LaunchPadActivity extends Activity {
             }
             // Should allow user access.
             isLicensed = true;
+            loadInBackground();
         }
 
         public void dontAllow(int reason) {

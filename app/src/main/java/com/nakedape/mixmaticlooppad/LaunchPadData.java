@@ -4,6 +4,7 @@ import android.app.Fragment;
 import android.os.Bundle;
 import android.util.SparseArray;
 
+import java.io.File;
 import java.util.ArrayList;
 
 /**
@@ -21,6 +22,9 @@ public class LaunchPadData extends Fragment {
     private int playEventIndex;
     private ArrayList<Integer> padIds;
     private long recordingEndTime;
+    // ArrayLists for SampleListAdapter
+    public ArrayList<File> sampleFiles;
+    public ArrayList<String> sampleLengths;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
