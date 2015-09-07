@@ -23,6 +23,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.ActionMode;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -454,6 +455,19 @@ public class SampleEditActivity extends Activity {
             decodeAudio(data.getData());
         }
     }
+    @Override
+     public boolean onKeyDown(int keycode, KeyEvent e) {
+        switch (keycode) {
+            case KeyEvent.KEYCODE_BACK:
+                if (sampleView.needsSaving()){
+                    promptForSave();
+                    return true;
+                }
+            default:
+                setResult(Activity.RESULT_CANCELED);
+                return super.onKeyDown(keycode, e);
+        }
+    }
 
     private void decodeAudio(Uri uri){
         fullMusicUri = uri;
@@ -600,12 +614,37 @@ public class SampleEditActivity extends Activity {
         }
 
     }
+    private void promptForSave(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(R.string.dialog_title_check_for_save);
+        builder.setMessage(R.string.dialog_message_check_for_save);
+        builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                checkSampleSize();
+            }
+        });
+        builder.setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                setResult(Activity.RESULT_CANCELED);
+                finish();
+            }
+        });
+        builder.setNeutralButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
     private void checkSampleSize(){
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
         // If sample size is more than 20 seconds, show warning
-        if (sample.sampleLength > 20) {
+        if (sampleView.sampleLength > 20) {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setMessage(getString(R.string.sample_size_warning, sample.sampleLength));
+            builder.setMessage(getString(R.string.sample_size_warning, sampleView.sampleLength));
             builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {

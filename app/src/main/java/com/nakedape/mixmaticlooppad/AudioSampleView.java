@@ -70,6 +70,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     private float zoomMin;
     private float xStart, yStart;
     private ScaleGestureDetector scaleGestureDetector;
+    private boolean needsSaving = false;
 
     public AudioSampleView(Context context) {
         super(context);
@@ -196,6 +197,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 zoomMatrix.setScale(zoomFactor, 1f);
                 Log.d(LOG_TAG, "Zoom factor = " + zoomFactor);
                 isLoading = false;
+                needsSaving = true;
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -209,6 +211,9 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     }
     public String getSamplePath(){
         return samplePath;
+    }
+    public boolean needsSaving(){
+        return needsSaving;
     }
     public void undo(){
         loadFile(backupPath);
