@@ -188,6 +188,7 @@ public class LaunchPadActivity extends Activity {
     private SampleListAdapter sampleListAdapter;
     private int sampleLibraryIndex = -1;
     private MediaPlayer samplePlayer;
+    private Runtime runtime;
 
     // Activity overrides
     // On create methods
@@ -221,6 +222,9 @@ public class LaunchPadActivity extends Activity {
         launchPadprefs = getPreferences(MODE_PRIVATE);
         PreferenceManager.setDefaultValues(this, R.xml.sample_edit_preferences, true);
         activityPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        // Instance of runtime to check memory use
+        runtime = Runtime.getRuntime();
 
         // Set up audio control
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -402,28 +406,32 @@ public class LaunchPadActivity extends Activity {
                     // Configure pad settings
                     pad.setOnTouchListener(TouchPadTouchListener);
                     Sample s = new Sample(path, id);
-                    s.setOnPlayFinishedListener(samplePlayListener);
-                    samples.put(id, s);
-                    String padNumber = (String)pad.getTag();
-                    s.setLoopMode(launchPadprefs.getBoolean(padNumber + LOOPMODE, false));
-                    s.setLaunchMode(launchPadprefs.getInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
-                    s.setVolume(launchPadprefs.getFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
-                    final int color = launchPadprefs.getInt(padNumber + COLOR, 0);
-                    activePads.add(pad.getId());
-                    // Animate the loading of the pad
-                    rootLayout.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            setPadColor(color, pad);
-                            // Start the animation
-                            AnimatorSet set = new AnimatorSet();
-                            ObjectAnimator popIn = ObjectAnimator.ofFloat(pad, "ScaleX", 0f, 1f);
-                            set.setInterpolator(new AnticipateOvershootInterpolator());
-                            set.play(popIn);
-                            set.setTarget(pad);
-                            set.start();
-                        }
-                    });
+                    if (s.isReady()) {
+                        s.setOnPlayFinishedListener(samplePlayListener);
+                        samples.put(id, s);
+                        String padNumber = (String) pad.getTag();
+                        s.setLoopMode(launchPadprefs.getBoolean(padNumber + LOOPMODE, false));
+                        s.setLaunchMode(launchPadprefs.getInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_TRIGGER));
+                        s.setVolume(launchPadprefs.getFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
+                        final int color = launchPadprefs.getInt(padNumber + COLOR, 0);
+                        activePads.add(pad.getId());
+                        // Animate the loading of the pad
+                        rootLayout.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                setPadColor(color, pad);
+                                // Start the animation
+                                AnimatorSet set = new AnimatorSet();
+                                ObjectAnimator popIn = ObjectAnimator.ofFloat(pad, "ScaleX", 0f, 1f);
+                                set.setInterpolator(new AnticipateOvershootInterpolator());
+                                set.play(popIn);
+                                set.setTarget(pad);
+                                set.start();
+                            }
+                        });
+                    } else {
+                        notifySampleLoadError(s);
+                    }
                 }
             } else {
                 pad.setOnLongClickListener(new View.OnLongClickListener() {
@@ -612,38 +620,42 @@ public class LaunchPadActivity extends Activity {
             if (sampleFile.exists() && id != -1) {
                 selectedSampleID = id;
                 Sample sample = new Sample(sampleFile.getAbsolutePath(), id);
-                sample.setOnPlayFinishedListener(samplePlayListener);
-                TouchPad t = (TouchPad)findViewById(id);
-                String padNumber = (String)t.getTag();
-                // Set sample properties and save to shared preferences
-                SharedPreferences.Editor editor = launchPadprefs.edit();
+                if (sample.isReady()) {
+                    sample.setOnPlayFinishedListener(samplePlayListener);
+                    TouchPad t = (TouchPad) findViewById(id);
+                    String padNumber = (String) t.getTag();
+                    // Set sample properties and save to shared preferences
+                    SharedPreferences.Editor editor = launchPadprefs.edit();
                     sample.setLaunchMode(launchPadprefs.getInt(padNumber + LAUNCHMODE, Sample.LAUNCHMODE_GATE));
                     sample.setLoopMode(launchPadprefs.getBoolean(padNumber + LOOPMODE, false));
                     sample.setVolume(launchPadprefs.getFloat(padNumber + SAMPLE_VOLUME, 0.5f * AudioTrack.getMaxVolume()));
-                samples.put(id, sample);
-                if (!activePads.contains((Integer)id)) activePads.add(id);
-                switch (data.getIntExtra(COLOR, 0)){ // Set and save color
-                    case 0:
-                        t.setBackgroundResource(R.drawable.launch_pad_blue);
-                        editor.putInt(padNumber + COLOR, 0);
-                        break;
-                    case 1:
-                        t.setBackgroundResource(R.drawable.launch_pad_red);
-                        editor.putInt(padNumber + COLOR, 1);
-                        break;
-                    case 2:
-                        t.setBackgroundResource(R.drawable.launch_pad_green);
-                        editor.putInt(padNumber + COLOR, 2);
-                        break;
-                    case 3:
-                        t.setBackgroundResource(R.drawable.launch_pad_orange);
-                        editor.putInt(padNumber + COLOR, 3);
-                        break;
+                    samples.put(id, sample);
+                    if (!activePads.contains((Integer) id)) activePads.add(id);
+                    switch (data.getIntExtra(COLOR, 0)) { // Set and save color
+                        case 0:
+                            t.setBackgroundResource(R.drawable.launch_pad_blue);
+                            editor.putInt(padNumber + COLOR, 0);
+                            break;
+                        case 1:
+                            t.setBackgroundResource(R.drawable.launch_pad_red);
+                            editor.putInt(padNumber + COLOR, 1);
+                            break;
+                        case 2:
+                            t.setBackgroundResource(R.drawable.launch_pad_green);
+                            editor.putInt(padNumber + COLOR, 2);
+                            break;
+                        case 3:
+                            t.setBackgroundResource(R.drawable.launch_pad_orange);
+                            editor.putInt(padNumber + COLOR, 3);
+                            break;
+                    }
+                    editor.apply();
+                    // Show the action bar for pads with loaded samples
+                    if (launchPadActionMode == null)
+                        launchPadActionMode = startActionMode(launchPadActionModeCallback);
+                } else {
+                    notifySampleLoadError(sample);
                 }
-                editor.apply();
-                // Show the action bar for pads with loaded samples
-                if (launchPadActionMode == null)
-                    launchPadActionMode = startActionMode(launchPadActionModeCallback);
             }
         }
         else if (requestCode == GET_SLICES && resultCode == RESULT_OK){
@@ -758,10 +770,9 @@ public class LaunchPadActivity extends Activity {
                 launchPadActionMode = startActionMode(launchPadActionModeCallback);
         }
     }
-    private void loadSample(String path, TouchPad pad){
+    private void loadSample(Sample s, TouchPad pad){
         int id = pad.getId();
         pad.setOnTouchListener(TouchPadTouchListener);
-        Sample s = new Sample(path, id);
         s.setOnPlayFinishedListener(samplePlayListener);
         samples.put(id, s);
         String padNumber = (String)pad.getTag();
@@ -829,6 +840,20 @@ public class LaunchPadActivity extends Activity {
         editor.apply();
         Toast.makeText(context, "Sample removed", Toast.LENGTH_SHORT).show();
         launchPadActionMode = null;
+    }
+    private void notifySampleLoadError(Sample s){
+        String error = getString(R.string.error_sample_load) + " " + new File(s.getPath()).getName();
+        if (s.getState() == Sample.ERROR_OUT_OF_MEMORY)
+            error = error + "\n" + getString(R.string.error_out_of_memory);
+        else if (s.getState() == Sample.ERROR_FILE_IO)
+            error = error + "\n" + getString(R.string.error_file_read);
+        final String message = error;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
     private void recordSample(){
         final File micAudioFile = new File(getExternalCacheDir(), "mic_audio_recording.wav");
@@ -1074,6 +1099,7 @@ public class LaunchPadActivity extends Activity {
         editor.putFloat(pad2Number + SAMPLE_VOLUME, sample1.getVolume());
         editor.putInt(pad2Number + COLOR, pad1Color);
         setPadColor(pad1Color, pad2);
+        sample1.release();
         sample1.reloadAudioTrack();
 
         if (sample2 != null) { // Move pad2 to pad1
@@ -1086,6 +1112,7 @@ public class LaunchPadActivity extends Activity {
             editor.putFloat(pad1Number + SAMPLE_VOLUME, sample2.getVolume());
             editor.putInt(pad1Number + COLOR, pad2Color);
             setPadColor(pad2Color, pad1);
+            sample2.release();
             sample2.reloadAudioTrack();
         } else { // Remove pad1
             activePads.remove((Integer)pad1Id);
@@ -1103,16 +1130,21 @@ public class LaunchPadActivity extends Activity {
     private void loadPadFromDrop(String path, int padId, int color){
         TouchPad pad = (TouchPad)findViewById(padId);
         SharedPreferences.Editor editor = launchPadprefs.edit();
-        if (activePads.contains((Integer)padId))
+        if (activePads.contains((Integer)padId)) {
+            samples.get(padId).release();
             samples.remove(padId);
-        else {
-            activePads.add(padId);
         }
-        editor.putInt(pad.getTag().toString() + COLOR, color);
-        editor.putString(pad.getTag().toString() + SAMPLE_PATH, path);
-        editor.commit();
-        loadSample(path, pad);
-        pad.callOnClick();
+        Sample sample = new Sample(path, padId);
+        if (sample.isReady()) {
+            activePads.add(padId);
+            editor.putInt(pad.getTag().toString() + COLOR, color);
+            editor.putString(pad.getTag().toString() + SAMPLE_PATH, path);
+            editor.commit();
+            loadSample(sample, pad);
+            pad.callOnClick();
+        } else {
+            notifySampleLoadError(sample);
+        }
     }
     private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
         @Override
@@ -1330,7 +1362,8 @@ public class LaunchPadActivity extends Activity {
         public void onDestroyActionMode(ActionMode mode) {
             launchPadActionMode = null;
             View oldView = findViewById(selectedSampleID);
-            oldView.setSelected(false);
+            if (oldView != null)
+                oldView.setSelected(false);
             selectedSampleID = -1;
             isEditMode = false;
             hideSampleLibrary();
@@ -2445,6 +2478,9 @@ public class LaunchPadActivity extends Activity {
         // Public fields
         public static final int LAUNCHMODE_GATE = 0;
         public static final int LAUNCHMODE_TRIGGER = 1;
+        public static final int ERROR_NONE = 9000;
+        public static final int ERROR_OUT_OF_MEMORY = 9001;
+        public static final int ERROR_FILE_IO = 9002;
 
         // Private fields
         private int id;
@@ -2457,6 +2493,7 @@ public class LaunchPadActivity extends Activity {
         private int sampleRate = 44100;
         private float volume = 0.5f * AudioTrack.getMaxVolume();
         private boolean played = false;
+        private int sampleState = ERROR_NONE;
         private AudioTrack audioTrack;
         private AudioTrack.OnPlaybackPositionUpdateListener listener;
 
@@ -2549,6 +2586,15 @@ public class LaunchPadActivity extends Activity {
             } catch (IOException e) {e.printStackTrace();}
             return bytes;
         }
+        public boolean isReady(){
+            if (audioTrack != null)
+                return audioTrack.getState() == AudioTrack.STATE_INITIALIZED;
+            else
+                return false;
+        }
+        public int getState(){
+            return sampleState;
+        }
         public void play(){
             try {
                 played = true;
@@ -2585,6 +2631,9 @@ public class LaunchPadActivity extends Activity {
             audioTrack.release();
             reloadAudioTrack();
         }
+        public void release(){
+            audioTrack.release();
+        }
         public void setVolume(float volume){
             this.volume = volume;
             reloadAudioTrack();
@@ -2610,13 +2659,13 @@ public class LaunchPadActivity extends Activity {
             return homeDirectory.getAbsolutePath() + "/tempo_stretch_test.wav";
         }
         public void reloadAudioTrack() {
-            try {
-                audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
-                        sampleRate,
-                        AudioFormat.CHANNEL_OUT_STEREO,
-                        AudioFormat.ENCODING_PCM_16BIT,
-                        sampleByteLength,
-                        AudioTrack.MODE_STATIC, id);
+            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                    sampleRate,
+                    AudioFormat.CHANNEL_OUT_STEREO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    sampleByteLength,
+                    AudioTrack.MODE_STATIC, id);
+            if (runtime.totalMemory() + (sampleByteLength - runtime.freeMemory()) < runtime.maxMemory() * 0.9) {
                 InputStream stream = null;
                 try {
                     stream = new BufferedInputStream(new FileInputStream(sampleFile));
@@ -2628,23 +2677,22 @@ public class LaunchPadActivity extends Activity {
                     audioTrack.write(shorts, 0, shorts.length);
                     stream.close();
                     played = false;
+
+                    audioTrack.setStereoVolume(volume, volume);
+                    if (listener != null) {
+                        audioTrack.setPlaybackPositionUpdateListener(listener);
+                        resetMarker();
+                    }
+
+                    if (loop) {
+                        setLoopMode(true);
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
+                    sampleState = ERROR_FILE_IO;
                 }
-                audioTrack.setStereoVolume(volume, volume);
-                if (listener != null) {
-                    audioTrack.setPlaybackPositionUpdateListener(listener);
-                    resetMarker();
-                }
-
-                if (loop) {
-                    setLoopMode(true);
-                }
-            } catch (IllegalArgumentException e){
-                File file = new File(path);
-                if (file.exists()){
-                    file.delete();
-                }
+            } else {
+                sampleState = ERROR_OUT_OF_MEMORY;
             }
         }
     }

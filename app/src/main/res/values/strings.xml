@@ -26,6 +26,11 @@
     <string name="play">Play</string>
     <string name="pause">Pause</string>
 
+    <!-- Error message strings -->
+    <string name="error_sample_load">Error loading sample</string>
+    <string name="error_out_of_memory">Out of memory</string>
+    <string name="error_file_read">Unable to read file</string>
+
     <!-- Strings for Sample Edit Activity main menu -->
     <string name="action_trim_wav">Trim to selection</string>
     <string name="action_edit_beats">Edit beats</string>
