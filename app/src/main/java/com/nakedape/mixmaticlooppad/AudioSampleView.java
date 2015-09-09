@@ -56,7 +56,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     private LinearGradient gradient;
     private float selectStart, selectEnd;
     private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
-    private List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
     private Bitmap wavBitmap;
     private float[] playPos = {0, 0};
     public boolean isPlaying = false;
@@ -225,15 +224,12 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     // Methods to save/load data from retained fragment
     public void saveAudioSampleData(AudioSampleData data){
         data.setSamplePath(samplePath);
-        data.setWaveData(beatsData, beatsRender);
+        data.beatsData = beatsData;
         data.setTimes(sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime);
         data.setColor(color, backgroundColor, foregroundColor);
         data.setShowBeats(showBeats);
         data.setSelectionMode(selectionMode);
         data.setSelectedBeat(selectedBeat);
-        data.zoomMatrix = zoomMatrix;
-        data.zoomMin = zoomMin;
-        data.zoomFactor = zoomFactor;
     }
     public void loadAudioSampleData(AudioSampleData data){
         samplePath = data.getSamplePath();
@@ -245,14 +241,10 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         windowStartTime = data.getWindowStartTime();
         windowEndTime = data.getWindowEndTime();
         beatsData = data.getBeatsData();
-        beatsRender = data.getBeatsRender();
         color = data.getColor();
         backgroundColor = data.getBackgroundColor();
         foregroundColor = data.getForegroundColor();
         showBeats = data.getShowBeats();
-        zoomMatrix = data.zoomMatrix;
-        zoomMin = data.zoomMin;
-        zoomFactor = data.zoomFactor;
     }
     public void setIsLoading(boolean loading){
         isLoading = loading;
@@ -277,8 +269,6 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public void identifyBeats(){
         AudioProcessor processor = new AudioProcessor(samplePath);
         beatsData = processor.detectBeats();
-        beatsRender = new ArrayList<BeatInfo>(beatsData.size());
-        beatsRender.addAll(beatsData);
         selectedBeat = null;
     }
     public boolean hasBeatInfo(){
@@ -288,32 +278,20 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         return beatsData.size();
     }
     public void removeSelectedBeat(){
-        int index = -1;
-        for (int i = 0; i < beatsData.size(); i++){
-            if (beatsData.get(i).getTime() == selectedBeat.getTime())
-                index = i;
-        }
-        if (index >= 0)
-            beatsData.remove(index);
-        index = -1;
-        for (int i = 0; i < beatsRender.size(); i++){
-            if (beatsRender.get(i).getTime() == selectedBeat.getTime())
-                index = i;
-        }
-        if (index >= 0)
-            beatsRender.remove(index);
+        beatsData.remove(selectedBeat);
         selectedBeat = null;
         invalidate();
     }
     public void insertBeat(){
-        if (selectedBeat == null)
-            selectedBeat = beatsRender.get(0);
+        if (selectedBeat == null) {
+            if (beatsData.size() > 0)
+            selectedBeat = beatsData.get(0);
+        }
         double newBeatTime = selectedBeat.getTime() - 0.2;
         if (newBeatTime > windowStartTime)
             selectedBeat = new BeatInfo(newBeatTime, 1);
         else
             selectedBeat = new BeatInfo(windowStartTime, 1);
-        beatsRender.add(selectedBeat);
         beatsData.add(selectedBeat);
         invalidate();
     }
@@ -607,41 +585,43 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         }
     }
     private void beatSelectionMode(View view, MotionEvent event){
-        float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
-        double min = Math.abs(event.getX() - (beatsRender.get(0).getTime() - windowStartTime) * dpPerSec);
-        selectedBeat = beatsRender.get(0);
-        for (BeatInfo b : beatsRender){
-            double distance = Math.abs(event.getX() - (b.getTime() - windowStartTime) * dpPerSec);
-            if (distance < min) {
-                min = distance;
-                selectedBeat = b;
+        float[] touchPoint = {event.getX(), event.getY()};
+        Matrix unZoom = new Matrix(zoomMatrix);
+        unZoom.invert(unZoom);
+        unZoom.mapPoints(touchPoint);
+        float touchTime = touchPoint[0] / wavBitmap.getWidth() * (float)sampleLength;
+        if (beatsData.size() > 0) {
+            selectedBeat = beatsData.get(0);
+            double min = Math.abs(touchTime - selectedBeat.getTime());
+            for (BeatInfo b : beatsData) {
+                double distance = Math.abs(touchTime - b.getTime());
+                if (distance < min) {
+                    min = distance;
+                    selectedBeat = b;
+                }
             }
         }
     }
     private void beatMoveMode(View view, MotionEvent event){
-        if (event.getAction() == MotionEvent.ACTION_MOVE){
-            BeatInfo temp = selectedBeat;
-            removeSelectedBeat();
-            selectedBeat = temp;
-        }
-        float dpPerSec = getWidth() / (float) (windowEndTime - windowStartTime);
-        selectedBeat = new BeatInfo(event.getX() / dpPerSec + (float)windowStartTime, selectedBeat.getSalience());
-        if (event.getAction() == MotionEvent.ACTION_UP) {
-            int index = -1;
-            for (int i = 0; i < beatsData.size(); i++){
-                if (beatsData.get(i).getTime() == selectedBeat.getTime())
-                    index = i;
-            }
-            if (index == -1)
-                beatsData.add(new BeatInfo(selectedBeat.getTime(), selectedBeat.getSalience()));
-            index = -1;
-            for (int i = 0; i < beatsRender.size(); i++){
-                if (beatsRender.get(i).getTime() == selectedBeat.getTime())
-                    index = i;
-            }
-            if (index == -1)
-                beatsRender.add(new BeatInfo(selectedBeat.getTime(), selectedBeat.getSalience()));
-            setSelectionMode(BEAT_SELECTION_MODE);
+        float[] touchPoint = {event.getX(), event.getY()};
+        Matrix unZoom = new Matrix(zoomMatrix);
+        unZoom.invert(unZoom);
+        unZoom.mapPoints(touchPoint);
+        float touchTime = touchPoint[0] / wavBitmap.getWidth() * (float)sampleLength;
+
+        switch (event.getAction()){
+            case MotionEvent.ACTION_MOVE:
+                BeatInfo temp = selectedBeat;
+                removeSelectedBeat();
+                selectedBeat = temp;
+                selectedBeat = new BeatInfo(touchTime, selectedBeat.getSalience());
+                break;
+            case MotionEvent.ACTION_UP:
+                int index = 0;
+                for (index = 0; index < beatsData.size() && beatsData.get(index).getTime() < selectedBeat.getTime(); index++);
+                beatsData.add(index, selectedBeat);
+                setSelectionMode(BEAT_SELECTION_MODE);
+                break;
         }
     }
     private void panZoomMode(MotionEvent event){
@@ -764,7 +744,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                     paintWave.setColor(Color.DKGRAY);
                     paintSelect.setColor(Color.YELLOW);
                     float[] beatPoint = {0, 0};
-                    for (BeatInfo beatInfo : beatsRender) {
+                    for (BeatInfo beatInfo : beatsData) {
                         if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
                             beatPoint[0] = (float)(beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
                             zoomMatrix.mapPoints(beatPoint);
@@ -774,10 +754,12 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                     }
                     // Draw selected beat
                     if (selectedBeat != null){
+                        beatPoint[0] = (float)(selectedBeat.getTime() / sampleLength * wavBitmap.getWidth());
+                        zoomMatrix.mapPoints(beatPoint);
                         paintWave.setColor(Color.CYAN);
                         paintSelect.setColor(Color.CYAN);
-                        canvas.drawLine((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, 0, (float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight(), paintWave);
-                        canvas.drawCircle((float) (selectedBeat.getTime() - windowStartTime) * dpPerSec, getHeight() / 2, 8, paintSelect);
+                        canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
+                        canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
                     }
                     break;
                 case SELECTION_MODE:

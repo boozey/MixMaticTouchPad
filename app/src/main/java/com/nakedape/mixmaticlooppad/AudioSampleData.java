@@ -18,11 +18,7 @@ public class AudioSampleData extends Fragment {
     double sampleLength, selectionStartTime, selectionEndTime, windowStartTime, windowEndTime;
 
     List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
-    List<BeatInfo> beatsRender = new ArrayList<BeatInfo>();
     BeatInfo selectedBeat;
-    Matrix zoomMatrix;
-    float zoomMin;
-    float zoomFactor;
 
     int color = 0;
     int selectionMode;
@@ -64,12 +60,7 @@ public class AudioSampleData extends Fragment {
     public double getWindowStartTime() {return windowStartTime;}
     public double getWindowEndTime() {return windowEndTime;}
 
-    public void setWaveData(List<BeatInfo> beatsData, List<BeatInfo> beatsRender){
-        this.beatsData = beatsData;
-        this.beatsRender = beatsRender;
-    }
     public List<BeatInfo> getBeatsData() {return beatsData;}
-    public List<BeatInfo> getBeatsRender() {return beatsRender;}
     public void setSelectedBeat(BeatInfo selectedBeat) {this.selectedBeat = selectedBeat;}
     public BeatInfo getSelectedBeat(){return selectedBeat;}
 
