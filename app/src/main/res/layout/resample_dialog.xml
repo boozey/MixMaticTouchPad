@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/global_tempo_msg"
-        android:id="@+id/textGlobalTempo" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_margin="4dp"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="@string/sample_tempo_msg"
         android:id="@+id/textSampleTempo" />
@@ -21,14 +15,37 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_margin="4dp"
+        android:layout_toRightOf="@id/textSampleTempo"
+        android:layout_toEndOf="@id/textSampleTempo"
         android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/resample_ratio"
-        android:id="@+id/textRatio" />
+        android:text="@string/global_tempo_msg"
+        android:id="@+id/textGlobalTempo" />
+
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_margin="4dp"
+        android:layout_below="@id/textGlobalTempo"
         android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/resample_prompt"
-        android:id="@+id/textView" />
-</LinearLayout>
+        android:text="@string/resample_suggested_ratio"
+        android:id="@+id/textSuggestedRatio" />
+
+    <SeekBar
+        android:id="@+id/ratio_seekbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="4dp"
+        android:layout_below="@id/textSuggestedRatio"
+        android:max="1500"/>
+
+    <TextView
+        android:id="@+id/ratio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="4dp"
+        android:layout_below="@id/ratio_seekbar"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/resample_ratio"/>
+</RelativeLayout>

@@ -6,10 +6,16 @@
         android:icon="@drawable/ic_action_select"
         android:checkable="true"
         android:showAsAction="ifRoom" />
-    <item android:id="@+id/action_edit_beats"
-        android:title="@string/action_edit_beats"
+    <item android:title="@string/action_wav_edit_options"
         android:icon="@drawable/ic_action_show_beats"
-        android:showAsAction="ifRoom"/>
+        android:showAsAction="ifRoom">
+        <menu>
+            <item android:id="@+id/action_edit_beats"
+                android:title="@string/action_edit_beats"/>
+            <item android:id="@+id/action_resample"
+                android:title="@string/action_resample"/>
+        </menu>
+    </item>
     <item android:id="@+id/action_load_file"
         android:title="@string/load_audio_file"
         android:icon="@drawable/ic_action_new"

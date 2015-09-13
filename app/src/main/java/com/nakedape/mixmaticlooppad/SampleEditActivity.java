@@ -3,7 +3,6 @@ package com.nakedape.mixmaticlooppad;
 import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
-import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
@@ -40,17 +39,15 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
 import java.util.Calendar;
 
 import javazoom.jl.converter.WaveFile;
@@ -94,105 +91,8 @@ public class SampleEditActivity extends Activity {
     private Menu actionBarMenu;
     // Sample edit context menu
     private ActionMode sampleEditActionMode;
-    private ActionMode.Callback sampleEditActionModeCallback = new ActionMode.Callback() {
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            MenuInflater inflater = mode.getMenuInflater();
-            inflater.inflate(R.menu.sample_edit_context, menu);
-            return true;
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-            return false;
-        }
-
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            switch (item.getItemId()){
-                case R.id.action_trim_wav:
-                    Trim();
-                    return true;
-                case R.id.action_loop_selection:
-                    if (item.isChecked()){
-                        loop = false;
-                        item.setChecked(false);
-                        item.setIcon(R.drawable.ic_action_av_loop);
-                    }
-                    else {
-                        loop = true;
-                        item.setChecked(true);
-                        item.setIcon(R.drawable.ic_action_av_loop_selected);
-                    }
-                    return true;
-                case R.id.action_save_selection:
-                    saveSlice = true;
-                    Save(null);
-                    return true;
-            }
-            return false;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode) {
-            sampleEditActionMode = null;
-            sampleView.clearSelection();
-            saveSlice = false;
-
-            // Put the sample view back in pan zoom mode
-            sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
-            // Deselect action bar item and icon
-            MenuItem selectItem = actionBarMenu.findItem(R.id.action_select);
-            if (selectItem.isChecked()) {
-                selectItem.setChecked(false);
-                selectItem.setIcon(R.drawable.ic_action_select);
-            }
-            loop = false;
-        }
-    };
     // Beat edit context menu
     private ActionMode beatEditActionMode;
-    private ActionMode.Callback beatEditActionModeCallback = new ActionMode.Callback() {
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            MenuInflater inflater = mode.getMenuInflater();
-            inflater.inflate(R.menu.beats_edit_context, menu);
-            return true;
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-            return false;
-        }
-
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-            switch (item.getItemId()){
-                case R.id.action_remove_beat:
-                    sample.removeSelectedBeat();
-                    break;
-                case R.id.action_identify_beats:
-                    sample.identifyBeats();
-                    sample.redraw();
-                    break;
-                case R.id.action_insert_beat:
-                    sample.insertBeat();
-                    break;
-                case R.id.action_adjust_tempo:
-                    matchTempo();
-                    break;
-            }
-            return false;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode) {
-            beatEditActionMode = null;
-            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-            sample.setSelectionMode(AudioSampleView.SELECTION_MODE);
-        }
-    };
 
     // Fragment to save data during runtime changes
     private AudioSampleData savedData;
@@ -439,6 +339,9 @@ public class SampleEditActivity extends Activity {
             case R.id.action_edit_beats:
                 enableEditBeatsMode();
                 return true;
+            case R.id.action_resample:
+                startResampleFlow();
+                return true;
             case R.id.action_pick_color:
                 pickColor();
                 return true;
@@ -479,6 +382,7 @@ public class SampleEditActivity extends Activity {
         }
     }
 
+    // New sample popup methods
     private void showNewSamplePopup(int delay){
         if (popup == null) {
             // Add the popup
@@ -674,6 +578,7 @@ public class SampleEditActivity extends Activity {
         LoadMediaPlayer(fullMusicUri);
     }
 
+    // Media Player methods
     public void LoadMediaPlayer(Uri uri){
         ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
         b.setEnabled(false);
@@ -720,7 +625,6 @@ public class SampleEditActivity extends Activity {
             }
         }
     }
-
     public void Play(View view){
         if (mPlayer != null && mPlayer.isPlaying()){
                 continuePlaying = false;
@@ -767,6 +671,7 @@ public class SampleEditActivity extends Activity {
         }
     }
 
+    // Sample saving methods
     public void Save(View view){
         File temp = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "sample.wav");
         if (temp.isFile())
@@ -927,6 +832,63 @@ public class SampleEditActivity extends Activity {
         }).start();
     }
 
+    // Sample editing methods
+    private ActionMode.Callback sampleEditActionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.sample_edit_context, menu);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            switch (item.getItemId()){
+                case R.id.action_trim_wav:
+                    Trim();
+                    return true;
+                case R.id.action_loop_selection:
+                    if (item.isChecked()){
+                        loop = false;
+                        item.setChecked(false);
+                        item.setIcon(R.drawable.ic_action_av_loop);
+                    }
+                    else {
+                        loop = true;
+                        item.setChecked(true);
+                        item.setIcon(R.drawable.ic_action_av_loop_selected);
+                    }
+                    return true;
+                case R.id.action_save_selection:
+                    saveSlice = true;
+                    Save(null);
+                    return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            sampleEditActionMode = null;
+            sampleView.clearSelection();
+            saveSlice = false;
+
+            // Put the sample view back in pan zoom mode
+            sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
+            // Deselect action bar item and icon
+            MenuItem selectItem = actionBarMenu.findItem(R.id.action_select);
+            if (selectItem.isChecked()) {
+                selectItem.setChecked(false);
+                selectItem.setIcon(R.drawable.ic_action_select);
+            }
+            loop = false;
+        }
+    };
     public void Trim(){
         continuePlaying = false;
         if (mPlayer != null) {
@@ -954,82 +916,159 @@ public class SampleEditActivity extends Activity {
             }
         }).start();
     }
+    private ActionMode.Callback beatEditActionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.beats_edit_context, menu);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+            switch (item.getItemId()){
+                case R.id.action_remove_beat:
+                    sample.removeSelectedBeat();
+                    break;
+                case R.id.action_identify_beats:
+                    sample.identifyBeats();
+                    sample.redraw();
+                    break;
+                case R.id.action_insert_beat:
+                    sample.insertBeat();
+                    break;
+                case R.id.action_adjust_tempo:
+                    startResampleFlow();
+                    break;
+            }
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            beatEditActionMode = null;
+            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
+            sample.setSelectionMode(AudioSampleView.SELECTION_MODE);
+        }
+    };
 
     public void enableEditBeatsMode() {
-        AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
-        if (sampleView.hasBeatInfo()){
-            if (beatEditActionMode == null) {
-                beatEditActionMode = startActionMode(beatEditActionModeCallback);
-            }
-            sampleView.setSelectionMode(AudioSampleView.BEAT_SELECTION_MODE);
-        }
-        else {
+        if (!sampleView.hasBeatInfo()){
+            sampleView.setOnAudioProcessingFinishedListener(new AudioSampleView.OnAudioProcessingFinishedListener() {
+                @Override
+                public void OnProcessingFinish() {
+                    dlg.dismiss();
+                    if (sampleView.hasBeatInfo())
+                        enableEditBeatsMode();
+                    else
+                        Toast.makeText(context, getString(R.string.toast_no_beats_found), Toast.LENGTH_SHORT).show();
+                }
+            });
             showBeats();
         }
+        if (beatEditActionMode == null) {
+            beatEditActionMode = startActionMode(beatEditActionModeCallback);
+        }
+        sampleView.setSelectionMode(AudioSampleView.BEAT_SELECTION_MODE);
     }
     public void showBeats(){
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        dlg = new ProgressDialog(context);
-        dlg.setMessage("Processing audio");
-        dlg.setIndeterminate(true);
-        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        dlg.setCancelable(true);
-        dlg.setCanceledOnTouchOutside(false);
-        dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
-            @Override
-            public void onCancel(DialogInterface dialog) {
-                sample.setShowBeats(false);
-            }
-        });
-        dlg.show();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                sample.identifyBeats();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        dlg.dismiss();
-                        sample.setShowBeats(true);
-                        enableEditBeatsMode();
-                    }
-                });
-            }
-        }).start();
-    }
-    public void matchTempo(){
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        int numBeats = sample.getNumBeats();
-        final int bpm = pref.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
-        final double sampleTempo = 60 * numBeats / (sample.getSampleLength());
         dlg = new ProgressDialog(context);
         dlg.setMessage("Processing audio");
         dlg.setIndeterminate(true);
         dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         dlg.setCancelable(false);
         dlg.setCanceledOnTouchOutside(false);
-        dlg.setOnCancelListener(new DialogInterface.OnCancelListener() {
+        sampleView.identifyBeatsAsync();
+        dlg.show();
+    }
+    public void startResampleFlow(){
+        if (!sampleView.hasBeatInfo()){
+            sampleView.setOnAudioProcessingFinishedListener(new AudioSampleView.OnAudioProcessingFinishedListener() {
+                @Override
+                public void OnProcessingFinish() {
+                    dlg.dismiss();
+                    showResampleDialog();
+                }
+            });
+            showBeats();
+        } else {
+            showResampleDialog();
+        }
+    }
+    private void showResampleDialog(){
+        int numBeats = Math.max(1, sampleView.getNumBeats());
+        int globalTempo = pref.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
+        float sampleTempo = 60f * (float)numBeats / (float)(sampleView.getSampleLength());
+        float tempoMatchRatio = (float)globalTempo / sampleTempo;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        final View layout = getLayoutInflater().inflate(R.layout.resample_dialog, null);
+        builder.setTitle(getString(R.string.resample_positive_button));
+        TextView sampleTempoText = (TextView)layout.findViewById(R.id.textSampleTempo);
+        sampleTempoText.setText(getString(R.string.sample_tempo_msg, sampleTempo));
+        TextView globalTempoText = (TextView)layout.findViewById(R.id.textGlobalTempo);
+        globalTempoText.setText(getString(R.string.global_tempo_msg, globalTempo));
+        TextView tempoMatchRatioText = (TextView)layout.findViewById(R.id.textSuggestedRatio);
+        tempoMatchRatioText.setText(getString(R.string.resample_suggested_ratio, tempoMatchRatio));
+        final TextView ratioText = (TextView)layout.findViewById(R.id.ratio);
+        ratioText.setText(getString(R.string.resample_ratio, tempoMatchRatio));
+        final SeekBar ratioBar = (SeekBar)layout.findViewById(R.id.ratio_seekbar);
+        ratioBar.setProgress((int)(tempoMatchRatio * 1000) - 500);
+        ratioBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
-            public void onCancel(DialogInterface dialog) {
-                sample.setShowBeats(false);
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                ratioText.setText(getString(R.string.resample_ratio, (float)(500 + progress) / 1000));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
             }
         });
-        dlg.show();
-        new Thread(new Runnable() {
+        builder.setView(layout);
+        builder.setPositiveButton(R.string.resample_positive_button, new DialogInterface.OnClickListener() {
             @Override
-            public void run() {
-                sample.resample((double)bpm / sampleTempo);
-                sample.identifyBeats();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        dlg.dismiss();
-                        sample.redraw();
-                        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
-                    }
-                });
+            public void onClick(DialogInterface dialog, int which) {
+                float ratio = (float)(ratioBar.getProgress() + 500) / 1000;
+                resample(ratio);
             }
-        }).start();
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    private void resample(float ratio){
+        dlg = new ProgressDialog(context);
+        dlg.setMessage("Processing audio");
+        dlg.setIndeterminate(true);
+        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dlg.setCancelable(false);
+        dlg.setCanceledOnTouchOutside(false);
+        sampleView.setOnAudioProcessingFinishedListener(new AudioSampleView.OnAudioProcessingFinishedListener() {
+            @Override
+            public void OnProcessingFinish() {
+                LoadMediaPlayer(Uri.parse(sampleView.getSamplePath()));
+                dlg.dismiss();
+            }
+        });
+        sampleView.resampleAsync(ratio);
+        dlg.show();
     }
 
     public void pickColor(){

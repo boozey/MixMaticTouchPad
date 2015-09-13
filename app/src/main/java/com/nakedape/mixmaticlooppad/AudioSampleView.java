@@ -42,9 +42,14 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     public static final int PAN_ZOOM_MODE = 4003;
     public static final int SLICE_MODE = 4004;
 
+    public interface OnAudioProcessingFinishedListener {
+        void OnProcessingFinish();
+    }
+
     private static final String LOG_TAG = "AudioSampleView";
 
     private Context mContext;
+    private OnAudioProcessingFinishedListener processingFinishedListener;
     private String CACHE_PATH;
     private String samplePath;
     private String backupPath;
@@ -90,6 +95,9 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         super (context, attrs, defStyle);
         mContext = context;
         initialize();
+    }
+    public void setOnAudioProcessingFinishedListener(OnAudioProcessingFinishedListener listener){
+        processingFinishedListener = listener;
     }
     private void initialize(){
         setFocusable(true);
@@ -204,6 +212,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 zoomMatrix.setScale(zoomFactor, 1f);
                 isLoading = false;
                 needsSaving = true;
+                beatsData = null;
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -377,6 +386,21 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         beatsData = processor.detectBeats();
         selectedBeat = null;
     }
+    public void identifyBeatsAsync(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                identifyBeats();
+                if (processingFinishedListener != null)
+                    getHandler().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            processingFinishedListener.OnProcessingFinish();
+                        }
+                    });
+            }
+        }).start();
+    }
     public boolean hasBeatInfo(){
         return (beatsData != null && beatsData.size() > 0);
     }
@@ -401,18 +425,34 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         beatsData.add(selectedBeat);
         invalidate();
     }
-    public void resample(double factor){
+    public void resample(float factor){
         File backup = new File(backupPath);
         if (backup.isFile())
             backup.delete();
-        File currentSamplePath = new File(samplePath);
+        File currentSampleFile = new File(samplePath);
         try {
-            Utils.CopyFile(currentSamplePath, backup);
+            Utils.CopyFile(currentSampleFile, backup);
         } catch (IOException e) {e.printStackTrace();}
-        currentSamplePath.delete();
+        currentSampleFile.delete();
         AudioProcessor processor = new AudioProcessor(backupPath);
         processor.resample(100, (int) (factor * 100), samplePath);
         loadFile(samplePath);
+        getHandler().post(new Runnable() {
+            @Override
+            public void run() {
+                invalidate();
+                if (processingFinishedListener != null)
+                    processingFinishedListener.OnProcessingFinish();
+            }
+        });
+    }
+    public void resampleAsync(final float factor){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                resample(factor);
+            }
+        }).start();
     }
 
     // Trimming methods

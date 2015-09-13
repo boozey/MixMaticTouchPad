@@ -38,6 +38,8 @@
     <string name="action_edit_beats">Edit beats</string>
     <string name="action_select">Select</string>
     <string name="load_audio_file">New audio file</string>
+    <string name="action_wav_edit_options">Waveform options</string>
+    <string name="action_resample">Resample</string>
 
     <!-- Strings for Sample Edit Activity Save dialogs -->
     <string name="dialog_title_check_for_save">Wait a minute &#8230;</string>
@@ -55,6 +57,7 @@
     <string name="action_remove_beat">Remove beat</string>
     <string name="action_identify_beats">Re-calculate beats</string>
     <string name="action_adjust_tempo">Match global tempo</string>
+    <string name="toast_no_beats_found">No beats were detected</string>
 
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
@@ -102,10 +105,12 @@
     <string name="numberpicker_textview">Selected value: </string>
 
     <!-- Strings for re-sample dialog -->
-    <string name="sample_tempo_msg" formatted="false">Sample tempo: %d</string>
+    <string name="sample_tempo_msg" formatted="false">Sample tempo: %.2f</string>
     <string name="global_tempo_msg" formatted="false">Global tempo: %d</string>
-    <string name="resample_ratio" formatted="false">Re-sample ratio: %.3f</string>
-    <string name="resample_prompt">Re-sample to match tempo?</string>
+    <string name="resample_suggested_ratio" formatted="false">Suggested ratio to match tempo: %.3f</string>
+    <string name="resample_prompt">Resample to match tempo?</string>
+    <string name="resample_ratio">Ratio: %.3f</string>
+    <string name="resample_positive_button">Resample</string>
     <string name="resample_msg">Re-sampling</string>
     <string name="save_resample_msg">Save sample?</string>
 

@@ -1689,8 +1689,8 @@ public class LaunchPadActivity extends Activity {
         textGlobalTempo.setText(getString(R.string.global_tempo_msg, bpm));
         TextView textSampleTempo = (TextView)view.findViewById(R.id.textSampleTempo);
         textSampleTempo.setText(getString(R.string.sample_tempo_msg, (int)sampleTempo));
-        TextView textRatio = (TextView)view.findViewById(R.id.textRatio);
-        textRatio.setText(getString(R.string.resample_ratio, ratio));
+        TextView textRatio = (TextView)view.findViewById(R.id.textSuggestedRatio);
+        textRatio.setText(getString(R.string.resample_suggested_ratio, ratio));
         builder.setView(view);
         builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
             @Override
