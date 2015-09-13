@@ -33,5 +33,13 @@
         android:layout_alignParentBottom="true"
         android:layout_toRightOf="@id/buttonRewind"
         android:layout_toEndOf="@id/buttonRewind"/>
+    <ImageButton
+        android:id="@+id/mic_record_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:background="@drawable/mic_button"
+        android:visibility="gone"
+        android:onClick="RecordButtonClick"/>
 
 </RelativeLayout>

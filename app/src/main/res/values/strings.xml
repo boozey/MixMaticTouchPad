@@ -33,13 +33,22 @@
 
     <!-- Strings for Sample Edit Activity main menu -->
     <string name="action_trim_wav">Trim to selection</string>
+    <string name="action_trim_options">Trim options</string>
+    <string name="action_trim_to_sample">Save selection</string>
     <string name="action_edit_beats">Edit beats</string>
-    <string name="action_pan_zoom">Zoom</string>
+    <string name="action_select">Select</string>
+    <string name="load_audio_file">New audio file</string>
 
     <!-- Strings for Sample Edit Activity Save dialogs -->
     <string name="dialog_title_check_for_save">Wait a minute &#8230;</string>
     <string name="dialog_message_check_for_save">Do you want to save this sample?</string>
     <string name="sample_name_message">Enter a name for this sample</string>
+    <string name="file_exists_message">A sample with this name already exists</string>
+
+    <!-- Strings for new sample popup-->
+    <string name="new_sample_popup_title">Create New Sample</string>
+    <string name="music_library">Music Library</string>
+    <string name="mic_record">Record</string>
 
     <!-- Strings for beat edit context menu -->
     <string name="action_insert_beat">Insert beat</string>
@@ -47,7 +56,6 @@
     <string name="action_identify_beats">Re-calculate beats</string>
     <string name="action_adjust_tempo">Match global tempo</string>
 
-    <string name="load_audio_file">Load audio file</string>
     <string name="show_beats">Show beat marks</string>
     <string name="beat_threshold">Beat threshold</string>
     <string name="trim_progress_msg">Trimming</string>

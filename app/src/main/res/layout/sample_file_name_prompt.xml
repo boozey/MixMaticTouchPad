@@ -13,4 +13,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/sample_name_text"/>
+    <TextView
+        android:id="@+id/file_exists_textview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/file_name_preview"
+        android:textColor="@color/red"
+        android:text="@string/file_exists_message"
+        android:visibility="invisible"/>
 </RelativeLayout>

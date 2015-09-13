@@ -1,9 +1,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context=".MainActivity" >
-    <item android:id="@+id/action_pan_zoom"
-        android:title="@string/action_pan_zoom"
-        android:icon="@drawable/ic_action_pan_zoom"
+    <item android:id="@+id/action_select"
+        android:title="@string/action_select"
+        android:icon="@drawable/ic_action_select"
         android:checkable="true"
         android:showAsAction="ifRoom" />
     <item android:id="@+id/action_edit_beats"
@@ -12,7 +12,7 @@
         android:showAsAction="ifRoom"/>
     <item android:id="@+id/action_load_file"
         android:title="@string/load_audio_file"
-        android:icon="@drawable/ic_action_av_my_library_music"
+        android:icon="@drawable/ic_action_new"
         android:showAsAction="ifRoom"/>
     <item android:id="@+id/action_pick_color"
        android:title="@string/action_pick_color"

@@ -1,5 +1,9 @@
 package com.nakedape.mixmaticlooppad;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
@@ -27,9 +31,14 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -73,13 +82,16 @@ public class SampleEditActivity extends Activity {
         }
     };
     private Context context;
-    private int sampleId;
+    private int sampleId = -1;
     private int numSlices = 1;
     private boolean isSliceMode = false;
     private boolean isDecoding = false;
     private boolean isGeneratingWaveForm = false;
     private File sampleDirectory;
+    private View popup;
+    private boolean saveSlice;
 
+    private Menu actionBarMenu;
     // Sample edit context menu
     private ActionMode sampleEditActionMode;
     private ActionMode.Callback sampleEditActionModeCallback = new ActionMode.Callback() {
@@ -113,6 +125,10 @@ public class SampleEditActivity extends Activity {
                         item.setIcon(R.drawable.ic_action_av_loop_selected);
                     }
                     return true;
+                case R.id.action_save_selection:
+                    saveSlice = true;
+                    Save(null);
+                    return true;
             }
             return false;
         }
@@ -120,8 +136,17 @@ public class SampleEditActivity extends Activity {
         @Override
         public void onDestroyActionMode(ActionMode mode) {
             sampleEditActionMode = null;
-            AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
             sampleView.clearSelection();
+            saveSlice = false;
+
+            // Put the sample view back in pan zoom mode
+            sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
+            // Deselect action bar item and icon
+            MenuItem selectItem = actionBarMenu.findItem(R.id.action_select);
+            if (selectItem.isChecked()) {
+                selectItem.setChecked(false);
+                selectItem.setIcon(R.drawable.ic_action_select);
+            }
             loop = false;
         }
     };
@@ -274,7 +299,7 @@ public class SampleEditActivity extends Activity {
 
         // Get data from intent
         Intent intent = getIntent();
-        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, 0);
+        sampleId = intent.getIntExtra(LaunchPadActivity.TOUCHPAD_ID, -1);
         // find the retained fragment on activity restarts
         FragmentManager fm = getFragmentManager();
         savedData = (AudioSampleData) fm.findFragmentByTag("data");
@@ -325,7 +350,12 @@ public class SampleEditActivity extends Activity {
             savedData = new AudioSampleData();
             fm.beginTransaction().add(savedData, "data").commit();
             // Start intent to select an audio file to edit
-            SelectAudioFile();
+            rootLayout.post(new Runnable() {
+                @Override
+                public void run() {
+                    showNewSamplePopup(300);
+                }
+            });
         }
     }
     private void LoadSampleFromIntent(Intent intent){
@@ -334,7 +364,7 @@ public class SampleEditActivity extends Activity {
         if (temp.isFile()){ // If a sample is being passed, load it and process
             File loadedSample = new File(WAV_CACHE_PATH);
             try {
-                CopyFile(temp, loadedSample);
+                Utils.CopyFile(temp, loadedSample);
             }catch (IOException e){e.printStackTrace();}
             LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
 
@@ -394,7 +424,8 @@ public class SampleEditActivity extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.sample_edit, menu);
+        getMenuInflater().inflate(R.menu.menu_sample_edit, menu);
+        actionBarMenu = menu;
         MenuItem item = menu.findItem(R.id.action_save);
         if (isSliceMode)
             item.setTitle(getString(R.string.button_slice_mode_title));
@@ -424,7 +455,7 @@ public class SampleEditActivity extends Activity {
                 startActivity(intent);
                 return true;
             case R.id.action_load_file:
-                SelectAudioFile();
+                showNewSamplePopup(0);
                 return true;
             case R.id.action_edit_beats:
                 enableEditBeatsMode();
@@ -435,15 +466,15 @@ public class SampleEditActivity extends Activity {
             case R.id.action_save:
                 Save(null);
                 return true;
-            case R.id.action_pan_zoom:
+            case R.id.action_select:
                 if (item.isChecked()){
-                    sampleView.setSelectionMode(AudioSampleView.SELECTION_MODE);
-                    item.setChecked(false);
-                    item.setIcon(R.drawable.ic_action_pan_zoom);
-                } else {
                     sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
+                    item.setChecked(false);
+                    item.setIcon(R.drawable.ic_action_select);
+                } else {
+                    sampleView.setSelectionMode(AudioSampleView.SELECTION_MODE);
                     item.setChecked(true);
-                    item.setIcon(R.drawable.ic_action_pan_zoom_selected);
+                    item.setIcon(R.drawable.ic_action_select_selected);
                 }
             default:
                 return super.onOptionsItemSelected(item);
@@ -456,7 +487,7 @@ public class SampleEditActivity extends Activity {
         }
     }
     @Override
-     public boolean onKeyDown(int keycode, KeyEvent e) {
+    public boolean onKeyDown(int keycode, KeyEvent e) {
         switch (keycode) {
             case KeyEvent.KEYCODE_BACK:
                 if (sampleView.needsSaving()){
@@ -469,6 +500,155 @@ public class SampleEditActivity extends Activity {
         }
     }
 
+    private void showNewSamplePopup(int delay){
+        if (popup == null) {
+            // Add the popup
+            popup = getLayoutInflater().inflate(R.layout.new_sample_popup, null);
+            View background = popup.findViewById(R.id.popup_background);
+            background.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    return true;
+                }
+            });
+            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            popup.setLayoutParams(params);
+            popup.setAlpha(0f);
+            rootLayout.addView(popup);
+
+            // Start the animation
+            AnimatorSet set = new AnimatorSet();
+            ObjectAnimator alpha = ObjectAnimator.ofFloat(popup, "Alpha", 0f, 1f);
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(popup, "ScaleX", 0f, 1f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(popup, "ScaleY", 0f, 1f);
+            set.setInterpolator(new AnticipateOvershootInterpolator());
+            set.playTogether(alpha, scaleX, scaleY);
+            set.setStartDelay(delay);
+            set.setTarget(popup);
+            set.start();
+        }
+    }
+    private void hidePopup(){
+        if (popup != null){
+            // Start the animation
+            AnimatorSet set = new AnimatorSet();
+            ObjectAnimator alpha = ObjectAnimator.ofFloat(popup, "Alpha", 1f, 0f);
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(popup, "ScaleX", 1f, 0f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(popup, "ScaleY", 1f, 0f);
+            set.setInterpolator(new AnticipateOvershootInterpolator());
+            set.playTogether(alpha, scaleX, scaleY);
+            set.setTarget(popup);
+            set.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    rootLayout.removeView(popup);
+                    popup = null;
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+            set.start();
+        }
+    }
+    public void PopupCloseButtonClick(View v){
+        hidePopup();
+    }
+    public void PopupLibraryButtonClick(View v){
+        hidePopup();
+        SelectAudioFile();
+    }
+    public void PopupRecordButtonClick(View v){
+        hidePopup();
+        ImageView recordButton = new ImageView(context);
+        recordButton.setBackgroundResource(R.drawable.mic_button);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        recordButton.setLayoutParams(params);
+        recordButton.setAlpha(0f);
+        recordButton.setVisibility(View.VISIBLE);
+        recordButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                RecordButtonClick(v);
+            }
+        });
+        rootLayout.addView(recordButton);
+
+        // Start the animation
+        AnimatorSet set = new AnimatorSet();
+        ObjectAnimator alpha = ObjectAnimator.ofFloat(recordButton, "Alpha", 0f, 1f);
+        ObjectAnimator scaleX = ObjectAnimator.ofFloat(recordButton, "ScaleX", 0f, 1f);
+        ObjectAnimator scaleY = ObjectAnimator.ofFloat(recordButton, "ScaleY", 0f, 1f);
+        set.setInterpolator(new AnticipateOvershootInterpolator());
+        set.playTogether(alpha, scaleX, scaleY);
+        set.setStartDelay(200);
+        set.setTarget(recordButton);
+        set.start();
+    }
+    public void RecordButtonClick(View v){
+        if (sampleView.isMicRecording()) {
+            sampleView.stopRecording();
+            LoadMediaPlayer(Uri.parse(sampleView.getSamplePath()));
+            rootLayout.removeView(v);
+        }
+        else {
+            final View recordButton = v;
+            // Start the animation and the recording
+            AnimatorSet set = new AnimatorSet();
+            ObjectAnimator translateX = ObjectAnimator.ofFloat(recordButton, "X", rootLayout.getWidth() - recordButton.getWidth());
+            ObjectAnimator translateY = ObjectAnimator.ofFloat(recordButton, "Y", rootLayout.getHeight() - recordButton.getHeight());
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(recordButton, "ScaleX", 0.5f);
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(recordButton, "ScaleY", 0.5f);
+            set.setInterpolator(new AccelerateDecelerateInterpolator());
+            set.playTogether(translateX, translateY, scaleX, scaleY);
+            set.setTarget(recordButton);
+            set.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    recordButton.setSelected(true);
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    sampleView.startRecording();
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+            set.start();
+        }
+    }
+
+    public void SelectAudioFile(){
+        // Allow user to select an audio file
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("audio/*.mp3");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(intent, REQUEST_MUSIC_GET);
+        }
+    }
     private void decodeAudio(Uri uri){
         fullMusicUri = uri;
         try {
@@ -512,6 +692,7 @@ public class SampleEditActivity extends Activity {
                 dlg.dismiss();
         sampleView.loadFile(WAV_CACHE_PATH);
         sampleView.redraw();
+        LoadMediaPlayer(fullMusicUri);
     }
 
     public void LoadMediaPlayer(Uri uri){
@@ -537,16 +718,6 @@ public class SampleEditActivity extends Activity {
             sampleLength = mPlayer.getDuration() / 1000;
         } catch (IOException e){
             e.printStackTrace();
-        }
-    }
-
-    public void SelectAudioFile(){
-        // Allow user to select an audio file
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("audio/*.mp3");
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, REQUEST_MUSIC_GET);
         }
     }
 
@@ -580,7 +751,7 @@ public class SampleEditActivity extends Activity {
                         b.setBackgroundResource(R.drawable.button_pause_large);
                         audioSampleView.isPlaying = true;
                         continuePlaying = true;
-                        mPlayer.setDataSource(context, Uri.parse(WAV_CACHE_PATH));
+                        mPlayer.setDataSource(sampleView.getSamplePath());
                         mPlayer.prepare();
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
@@ -606,12 +777,7 @@ public class SampleEditActivity extends Activity {
             continuePlaying = false;
             if (mPlayer.isPlaying()) mPlayer.stop();
         }
-        if (isSliceMode) {
-            saveSlices();
-        }
-        else {
             checkSampleSize();
-        }
 
     }
     private void promptForSave(){
@@ -642,7 +808,10 @@ public class SampleEditActivity extends Activity {
     }
     private void checkSampleSize(){
         // If sample size is more than 20 seconds, show warning
-        if (sampleView.sampleLength > 20) {
+        double sampleSize = sampleView.getSampleLength();
+        if (sampleView.isSelection())
+            sampleSize = sampleView.getSelectionEndTime() - sampleView.getSelectionStartTime();
+        if (sampleSize > 20) {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
             builder.setMessage(getString(R.string.sample_size_warning, sampleView.sampleLength));
             builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
@@ -666,7 +835,7 @@ public class SampleEditActivity extends Activity {
     }
     private void promptForName(){
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        View layout = getLayoutInflater().inflate(R.layout.sample_file_name_prompt, null);
+        final View layout = getLayoutInflater().inflate(R.layout.sample_file_name_prompt, null);
         final TextView fileNameTextView = (TextView)layout.findViewById(R.id.file_name_preview);
         fileNameTextView.setText("Sample_" + Calendar.getInstance().getTimeInMillis() + ".wav");
         final EditText editText = (EditText)layout.findViewById(R.id.sample_name_text);
@@ -678,10 +847,20 @@ public class SampleEditActivity extends Activity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() < 1)
-                    fileNameTextView.setText("Sample_" + Calendar.getInstance().getTimeInMillis() + ".wav");
+                String filename;
+                if (s.length() < 1) {
+                    filename = "Sample_" + Calendar.getInstance().getTimeInMillis() + ".wav";
+                    fileNameTextView.setText(filename);
+                }
+                else {
+                    filename = s.toString().replaceAll("[^a-zA-Z0-9 ]", "_") + ".wav";
+                    fileNameTextView.setText(filename);
+                }
+                File sampleFile = new File(sampleDirectory, filename);
+                if (sampleFile.exists())
+                    layout.findViewById(R.id.file_exists_textview).setVisibility(View.VISIBLE);
                 else
-                    fileNameTextView.setText(s.toString().replaceAll("[^a-zA-Z0-9]", "_") + ".wav");
+                    layout.findViewById(R.id.file_exists_textview).setVisibility(View.INVISIBLE);
             }
 
             @Override
@@ -715,26 +894,29 @@ public class SampleEditActivity extends Activity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    File tempFile = new File(sampleView.getSamplePath());
-                    final File sampleFile = new File(sampleDirectory, filename);
-                    Utils.CopyFile(tempFile, sampleFile);
-                    tempFile.delete();
+                final File sampleFile = new File(sampleDirectory, filename);
+                boolean success;
+                if (saveSlice && sampleView.isSelection())
+                    success = sampleView.getSlice(sampleFile, sampleView.getSelectionStartTime(), sampleView.getSelectionEndTime());
+                else
+                    success = sampleView.getSlice(sampleFile, 0, sampleView.getSampleLength());
+                if (success) {
                     Utils.WriteImage(sampleView.getWaveFormThumbnail(), sampleFile.getAbsolutePath().replace(".wav", ".png"));
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             dlg.dismiss();
-                            Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sampleFile.getAbsolutePath()));
-                            result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
-                            result.putExtra(LaunchPadActivity.COLOR, sampleView.color);
-                            setResult(Activity.RESULT_OK, result);
-                            finish();
+                            if (!saveSlice){
+                                Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION", Uri.parse(sampleFile.getAbsolutePath()));
+                                result.putExtra(LaunchPadActivity.TOUCHPAD_ID, sampleId);
+                                result.putExtra(LaunchPadActivity.COLOR, sampleView.color);
+                                setResult(Activity.RESULT_OK, result);
+                                finish();
+                            }
 
                         }
                     });
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } else {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -745,48 +927,6 @@ public class SampleEditActivity extends Activity {
                 }
             }
         }).start();
-    }
-    private void saveSlices(){
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setMessage(getString(R.string.slice_size_warning, numSlices, sample.sampleLength / numSlices));
-        builder.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dlg = new ProgressDialog(context);
-                dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                dlg.setIndeterminate(true);
-                dlg.setMessage(getString(R.string.save_progress_msg));
-                dlg.show();
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        final String[] slicePaths = sample.Slice(numSlices);
-                        dlg.dismiss();
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Intent result = new Intent("com.nakedape.mixmaticlooppad.RESULT_ACTION");
-                                result.putExtra(LaunchPadActivity.NUM_SLICES, numSlices);
-                                result.putExtra(LaunchPadActivity.COLOR, sample.color);
-                                result.putExtra(LaunchPadActivity.SLICE_PATHS, slicePaths);
-                                setResult(Activity.RESULT_OK, result);
-                                finish();
-
-                            }
-                        });
-                    }
-                }).start();
-            }
-        });
-        builder.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-
-            }
-        });
-        AlertDialog dialog = builder.create();
-        dialog.show();
     }
 
     public void Trim(){
@@ -908,20 +1048,6 @@ public class SampleEditActivity extends Activity {
         dialog.show();
     }
 
-    // Utility methods
-    private void CopyFile(File src, File dst) throws IOException {
-        FileChannel inChannel = new FileInputStream(src).getChannel();
-        FileChannel outChannel = new FileOutputStream(dst).getChannel();
-        try {
-            inChannel.transferTo(0, inChannel.size(), outChannel);
-        } finally {
-            if (inChannel != null)
-                inChannel.close();
-            if (outChannel != null)
-                outChannel.close();
-        }
-    }
-
     private void readMediaFormat(){
         MediaExtractor extractor = new MediaExtractor();
         ContentResolver contentResolver = context.getContentResolver();
@@ -965,7 +1091,7 @@ public class SampleEditActivity extends Activity {
             MediaFormat format = extractor.getTrackFormat(0);
             String mime = format.getString(MediaFormat.KEY_MIME);
             File temp = new File(WAV_CACHE_PATH);
-            if (temp.isFile())
+            if (temp.exists())
                 temp.delete();
             waveFile.OpenForWrite(WAV_CACHE_PATH,
                     format.getInteger(MediaFormat.KEY_SAMPLE_RATE),

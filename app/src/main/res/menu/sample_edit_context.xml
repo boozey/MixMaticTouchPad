@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/action_trim_wav"
-        android:title="@string/action_trim_wav"
+    <item
+        android:title="@string/action_trim_options"
         android:icon="@drawable/ic_action_content_cut"
-        android:showAsAction="ifRoom"/>
+        android:showAsAction="ifRoom">
+        <menu>
+            <item android:id="@+id/action_trim_wav"
+                android:title="@string/action_trim_wav"/>
+            <item android:id="@+id/action_save_selection"
+                android:title="@string/action_trim_to_sample"/>
+        </menu>
+    </item>
     <item android:id="@+id/action_loop_selection"
         android:title="@string/action_loop_selection"
         android:checkable="true"
