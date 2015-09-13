@@ -194,31 +194,6 @@ public class SampleEditActivity extends Activity {
         }
     };
 
-    private View.OnClickListener sampleViewClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (sampleView.isSelection()) {
-                if (sampleEditActionMode == null)
-                    sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
-            }
-            else if (sampleEditActionMode != null)
-                sampleEditActionMode.finish();
-            else
-                sampleView.clearSelection();
-        }
-    };
-    private View.OnLongClickListener sampleViewLongClickListener = new View.OnLongClickListener() {
-        @Override
-        public boolean onLongClick(View v) {
-            if (sampleView.getSelectionMode() == AudioSampleView.BEAT_SELECTION_MODE){
-                Vibrator vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
-                sampleView.setSelectionMode(AudioSampleView.BEAT_MOVE_MODE);
-                vibrator.vibrate(50);
-            }
-            return false;
-        }
-    };
-
     // Fragment to save data during runtime changes
     private AudioSampleData savedData;
 
@@ -233,25 +208,7 @@ public class SampleEditActivity extends Activity {
     private AudioManager am;
     private final AudioManager.OnAudioFocusChangeListener afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
         public void onAudioFocusChange(int focusChange) {
-           if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                // Pause playback
-                if (mPlayer != null)
-                    mPlayer.pause();
-            } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                // Resume playback
-                if (mPlayer != null && continuePlaying)
-                    mPlayer.start();
-            } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
-                am.abandonAudioFocus(afChangeListener);
-                // Stop playback
-                if (mPlayer != null) {
-                    Log.d(LOG_TAG, "Audio focus lost");
-                    //mPlayer.pause();
-                    //mPlayer.stop();
-                    //mPlayer.release();
-                    //mPlayer = null;
-                }
-            }
+           handleAudioFocusChange(focusChange);
         }
     };
 
@@ -290,8 +247,30 @@ public class SampleEditActivity extends Activity {
         sampleView.setFocusable(true);
         sampleView.setFocusableInTouchMode(true);
         sampleView.setOnTouchListener(sampleView);
-        sampleView.setOnClickListener(sampleViewClickListener);
-        sampleView.setOnLongClickListener(sampleViewLongClickListener);
+        sampleView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (sampleView.isSelection()) {
+                    if (sampleEditActionMode == null)
+                        sampleEditActionMode = startActionMode(sampleEditActionModeCallback);
+                }
+                else if (sampleEditActionMode != null)
+                    sampleEditActionMode.finish();
+                else
+                    sampleView.clearSelection();
+            }
+        });
+        sampleView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (sampleView.getSelectionMode() == AudioSampleView.BEAT_SELECTION_MODE){
+                    Vibrator vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
+                    sampleView.setSelectionMode(AudioSampleView.BEAT_MOVE_MODE);
+                    vibrator.vibrate(50);
+                }
+                return false;
+            }
+        });
 
         //Set up audio
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -720,9 +699,35 @@ public class SampleEditActivity extends Activity {
             e.printStackTrace();
         }
     }
+    private void handleAudioFocusChange(int focusChange){
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            // Pause playback
+            if (mPlayer != null)
+                mPlayer.pause();
+        } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+            // Resume playback
+            if (mPlayer != null && continuePlaying)
+                mPlayer.start();
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            am.abandonAudioFocus(afChangeListener);
+            // Stop playback
+            if (mPlayer != null) {
+                Log.d(LOG_TAG, "Audio focus lost");
+                if (mPlayer.isPlaying())
+                    mPlayer.stop();
+                mPlayer.release();
+                mPlayer = null;
+            }
+        }
+    }
 
     public void Play(View view){
-            // Request audio focus for playback
+        if (mPlayer != null && mPlayer.isPlaying()){
+                continuePlaying = false;
+                findViewById(R.id.buttonPlay).setBackgroundResource(R.drawable.button_play_large);
+
+        } else {
+            // Request audio focs for playback
             int result = am.requestAudioFocus(afChangeListener,
                     // Use the music stream.
                     AudioManager.STREAM_MUSIC,
@@ -730,36 +735,29 @@ public class SampleEditActivity extends Activity {
                     AudioManager.AUDIOFOCUS_GAIN);
 
             if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                ImageButton b = (ImageButton) findViewById(R.id.buttonPlay);
-                AudioSampleView audioSampleView = (AudioSampleView) findViewById(R.id.spectralView);
-                if (mPlayer != null) {
-                    if (mPlayer.isPlaying()){ // If already playing, pause
-                        continuePlaying = false;
-                        b.setBackgroundResource(R.drawable.button_play_large);
-                    }
-                    else { // If not playing, start
-                        b.setBackgroundResource(R.drawable.button_pause_large);
-                        audioSampleView.isPlaying = true;
-                        mPlayer.start();
-                        new Thread(new PlayIndicator()).start();
-                    }
-                }
-                else { // Start a new instance
+                if (mPlayer != null ){
+                    findViewById(R.id.buttonPlay).setBackgroundResource(R.drawable.button_pause_large);
+                    sampleView.isPlaying = true;
+                    mPlayer.start();
+                    new Thread(new PlayIndicator()).start();
+                } else {
+                    // Start a new instance
                     mPlayer = new MediaPlayer();
                     mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                     try {
-                        b.setBackgroundResource(R.drawable.button_pause_large);
-                        audioSampleView.isPlaying = true;
+                        findViewById(R.id.buttonPlay).setBackgroundResource(R.drawable.button_pause_large);
+                        sampleView.isPlaying = true;
                         continuePlaying = true;
                         mPlayer.setDataSource(sampleView.getSamplePath());
                         mPlayer.prepare();
                         mPlayer.start();
                         new Thread(new PlayIndicator()).start();
-                    } catch (IOException e){
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
             }
+        }
     }
     public void Rewind(View view){
         AudioSampleView sampleView = (AudioSampleView)findViewById(R.id.spectralView);
