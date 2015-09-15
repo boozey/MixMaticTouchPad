@@ -894,27 +894,13 @@ public class SampleEditActivity extends Activity {
         if (mPlayer != null) {
             if (mPlayer.isPlaying()) mPlayer.stop();
         }
-        dlg = new ProgressDialog(context);
-        dlg.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        dlg.setIndeterminate(true);
-        dlg.setMessage(getString(R.string.trim_progress_msg));
-        dlg.show();
-        final AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-        new Thread(new Runnable() {
+        sampleView.setOnAudioProcessingFinishedListener(new AudioSampleView.OnAudioProcessingFinishedListener() {
             @Override
-            public void run() {
-                sample.TrimToSelection(sample.getSelectionStartTime(), sample.getSelectionEndTime());
-                //sample.TarsosTrim(sample.getSelectionStartTime(), sample.getSelectionEndTime());
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        LoadMediaPlayer(Uri.parse(sample.getSamplePath()));
-                        sample.redraw();
-                        dlg.dismiss();
-                    }
-                });
+            public void OnProcessingFinish() {
+                LoadMediaPlayer(Uri.parse(sampleView.getSamplePath()));
             }
-        }).start();
+        });
+        sampleView.TrimToSelectionAsync(sampleView.getSelectionStartTime(), sampleView.getSelectionEndTime());
     }
     private ActionMode.Callback beatEditActionModeCallback = new ActionMode.Callback() {
         @Override
