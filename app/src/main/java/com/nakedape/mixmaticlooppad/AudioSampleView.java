@@ -280,7 +280,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             float total = 0;
             int sampleCount;
             int sampleSize = 1024;
-            int maxValue = Short.MAX_VALUE / 2;
+            int maxValue = Short.MAX_VALUE / 4;
             WaveFile waveFile = new WaveFile();
             waveFile.OpenForWrite(samplePath, 44100, (short) 16, (short) 2);
 
@@ -507,12 +507,14 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         // Set the new sample length
         sampleLength = selectionEndTime - selectionStartTime;
         Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
-        List<BeatInfo> tempBeats = new ArrayList<BeatInfo>();
-        tempBeats.addAll(beatsData);
-        beatsData.clear();
-        for (BeatInfo b : tempBeats) {
-            if (b.getTime() >= selectionStartTime && b.getTime() <= selectionEndTime) {
-                beatsData.add(new BeatInfo(b.getTime() - (float)selectionStartTime, b.getSalience()));
+        if (beatsData != null) {
+            List<BeatInfo> tempBeats = new ArrayList<BeatInfo>();
+            tempBeats.addAll(beatsData);
+            beatsData.clear();
+            for (BeatInfo b : tempBeats) {
+                if (b.getTime() >= selectionStartTime && b.getTime() <= selectionEndTime) {
+                    beatsData.add(new BeatInfo(b.getTime() - (float) selectionStartTime, b.getSalience()));
+                }
             }
         }
         windowStartTime = 0;
@@ -522,6 +524,23 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         selectStart = 0;
         selectEnd = getWidth();
         loadFile(samplePath);
+        if (processingFinishedListener != null){
+            getHandler().post(new Runnable() {
+                @Override
+                public void run() {
+                    invalidate();
+                    processingFinishedListener.OnProcessingFinish();
+                }
+            });
+        }
+    }
+    public void TrimToSelectionAsync(final double startTime, final double endTime){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                TrimToSelection(startTime, endTime);
+            }
+        }).start();
     }
     public boolean getSlice(File sliceFile, double startTime, double endTime){
         // Make sure start and end times are within range
