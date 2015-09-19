@@ -202,7 +202,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 if (x < bitmapWidth){
                     wavBitmap = Bitmap.createBitmap(wavBitmap, 0, 0, x, bitmapHeight);
                 }
-                sampleLength = length / sampleRate / 4;
+                sampleLength =  (double)length / sampleRate / 4;
                 windowStartTime = 0;
                 windowEndTime = sampleLength;
                 windowStart = 0;
