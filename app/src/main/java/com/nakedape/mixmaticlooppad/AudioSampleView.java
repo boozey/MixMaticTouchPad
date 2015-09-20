@@ -991,26 +991,28 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 break;
             case BEAT_MOVE_MODE:
             case BEAT_SELECTION_MODE:
-                // Draw beat marks
-                paintWave.setColor(Color.DKGRAY);
-                paintSelect.setColor(Color.YELLOW);
-                float[] beatPoint = {0, 0};
-                for (BeatInfo beatInfo : beatsData) {
-                    if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
-                        beatPoint[0] = (float) (beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
+                if (beatsData != null) {
+                    // Draw beat marks
+                    paintWave.setColor(Color.DKGRAY);
+                    paintSelect.setColor(Color.YELLOW);
+                    float[] beatPoint = {0, 0};
+                    for (BeatInfo beatInfo : beatsData) {
+                        if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
+                            beatPoint[0] = (float) (beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
+                            zoomMatrix.mapPoints(beatPoint);
+                            canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
+                            canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
+                        }
+                    }
+                    // Draw selected beat
+                    if (selectedBeat != null) {
+                        beatPoint[0] = (float) (selectedBeat.getTime() / sampleLength * wavBitmap.getWidth());
                         zoomMatrix.mapPoints(beatPoint);
+                        paintWave.setColor(Color.CYAN);
+                        paintSelect.setColor(Color.CYAN);
                         canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
                         canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
                     }
-                }
-                // Draw selected beat
-                if (selectedBeat != null) {
-                    beatPoint[0] = (float) (selectedBeat.getTime() / sampleLength * wavBitmap.getWidth());
-                    zoomMatrix.mapPoints(beatPoint);
-                    paintWave.setColor(Color.CYAN);
-                    paintSelect.setColor(Color.CYAN);
-                    canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
-                    canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
                 }
                 break;
             case SELECTION_MODE:
