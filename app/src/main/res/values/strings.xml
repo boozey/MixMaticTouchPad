@@ -116,5 +116,8 @@
 
     <!-- Admob ad unit id strings-->
     <string name="sample_edit_banner_ad_id">ca-app-pub-4640479150069852/3320713529</string>
+    
+    <!-- Facebook app id-->
+    <string name="facebook_app_id">753482518050805</string>
 
 </resources>

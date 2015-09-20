@@ -81,6 +81,8 @@ import com.amazon.device.ads.AdProperties;
 import com.amazon.device.ads.AdRegistration;
 import com.amazon.device.ads.DefaultAdListener;
 import com.amazon.device.ads.InterstitialAd;
+import com.facebook.FacebookSdk;
+import com.facebook.appevents.AppEventsLogger;
 import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.vending.licensing.AESObfuscator;
@@ -227,6 +229,9 @@ public class LaunchPadActivity extends Activity {
 
         // Instance of runtime to check memory use
         runtime = Runtime.getRuntime();
+
+        // Initialize Facebook SDK
+        FacebookSdk.sdkInitialize(getApplicationContext());
 
         // Set up audio control
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -497,7 +502,7 @@ public class LaunchPadActivity extends Activity {
         super.onPause();
         reloadAds = false;
         // Logs 'app deactivate' App Event to Facebook.
-        //AppEventsLogger.deactivateApp(this);
+        AppEventsLogger.deactivateApp(this);
 
         if (samplePlayer != null){
             if (samplePlayer.isPlaying()) {
@@ -513,7 +518,7 @@ public class LaunchPadActivity extends Activity {
     public void onResume() {
         super.onResume();
         // Logs 'install' and 'app activate' App Events to Facebook.
-        //AppEventsLogger.activateApp(this);
+        AppEventsLogger.activateApp(this);
         // Load new amazon interstitial ad
         reloadAds = true;
         if (amznInterstitialAd != null && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
