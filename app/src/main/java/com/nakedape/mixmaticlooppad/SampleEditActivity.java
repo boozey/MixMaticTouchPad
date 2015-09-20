@@ -231,8 +231,8 @@ public class SampleEditActivity extends Activity {
                     new Thread(new PlayIndicator()).start();
                 }
             }
-            else
-                LoadMediaPlayer(Uri.parse(savedData.getSamplePath()));
+            else if (savedData.samplePath != null)
+                LoadMediaPlayer(Uri.parse(savedData.samplePath));
         }
         else if (intent.hasExtra(LaunchPadActivity.SAMPLE_PATH)){
             // sample edit is loading a sample from a launch pad
@@ -285,9 +285,17 @@ public class SampleEditActivity extends Activity {
     protected void onResume(){
         super.onResume();
         reloadAds = true;
+        if (adView != null && !adView.isLoading())
+            adView.loadAd();
+    }
+    @Override
+    protected void onPause(){
+        super.onPause();
+        reloadAds = false;
     }
     @Override
     protected void onStop(){
+        reloadAds = false;
         super.onStop();
         if (isFinishing()){
             dlgCanceled = true;
@@ -961,8 +969,7 @@ public class SampleEditActivity extends Activity {
         @Override
         public void onDestroyActionMode(ActionMode mode) {
             beatEditActionMode = null;
-            AudioSampleView sample = (AudioSampleView)findViewById(R.id.spectralView);
-            sample.setSelectionMode(AudioSampleView.SELECTION_MODE);
+            sampleView.setSelectionMode(AudioSampleView.PAN_ZOOM_MODE);
         }
     };
 
@@ -1299,8 +1306,7 @@ public class SampleEditActivity extends Activity {
     // Amazon Ads
     private class AmazonAdListener extends DefaultAdListener {
         @Override
-        public void onAdLoaded(Ad ad, AdProperties adProperties)
-        {
+        public void onAdLoaded(Ad ad, AdProperties adProperties){
             if (ad == adView)
             {
                 new Thread(new ReloadAd()).start();
@@ -1339,9 +1345,9 @@ public class SampleEditActivity extends Activity {
             Log.d(LOG_TAG, "Reload ad thread started");
             try {
                 Thread.sleep(60000);
-            } catch (InterruptedException e){ e.printStackTrace();}
-            if (adView != null && reloadAds && !adView.isLoading())
-                adView.loadAd();
+                if (adView != null && reloadAds && !adView.isLoading())
+                    adView.loadAd();
+            } catch (InterruptedException e){ }
         }
     }
 }

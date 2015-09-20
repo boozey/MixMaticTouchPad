@@ -187,8 +187,8 @@ public class LaunchPadActivity extends Activity {
     private int sampleLibraryIndex = -1;
     private MediaPlayer samplePlayer;
     private Runtime runtime;
+    // Ads
     private InterstitialAd amznInterstitialAd;
-    private boolean isAdReady;
     private boolean reloadAds;
     private com.google.android.gms.ads.InterstitialAd adMobInterstitial;
 
@@ -690,16 +690,13 @@ public class LaunchPadActivity extends Activity {
         {
             if (ad == LaunchPadActivity.this.amznInterstitialAd)
             {
-                isAdReady = true;
-                Log.d(LOG_TAG, "Amazon interstitial loaded");
-                new Thread(new ReloadAd()).start();
+                //Log.d(LOG_TAG, "Amazon interstitial loaded");
             }
         }
 
         @Override
         public void onAdFailedToLoad(Ad ad, AdError error)
         {
-            isAdReady = false;
             // Call backup ad network.
             Log.e(LOG_TAG, "Amazon interstitial failed to load");
             Log.e(LOG_TAG, error.getMessage());
@@ -727,10 +724,15 @@ public class LaunchPadActivity extends Activity {
         }
 
         @Override
+        public void onAdExpired(Ad ad){
+            ad.loadAd();
+        }
+
+        @Override
         public void onAdDismissed(Ad ad)
         {
-            isAdReady = false;
             // Start the activity once the interstitial has disappeared.
+            ad.loadAd();
             editSample();
         }
     }
@@ -741,11 +743,9 @@ public class LaunchPadActivity extends Activity {
             Log.d(LOG_TAG, "Reload ad thread started");
             try {
                 Thread.sleep(60000);
+                if (amznInterstitialAd != null && reloadAds && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
+                    amznInterstitialAd.loadAd();
             } catch (InterruptedException e){ e.printStackTrace();}
-            if (amznInterstitialAd != null && reloadAds && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
-                amznInterstitialAd.loadAd();
-            else if (amznInterstitialAd != null && reloadAds)
-                new Thread(new ReloadAd()).start();
         }
     }
     private void loadNewAdMobInterstitial() {
@@ -1042,6 +1042,9 @@ public class LaunchPadActivity extends Activity {
         if (oldView != null)
             oldView.setSelected(false);
         selectedSampleID = v.getId();
+        v.setSelected(true);
+        if (launchPadActionMode == null)
+            launchPadActionMode = startActionMode(launchPadActionModeCallback);
         gotoEditMode();
         showSampleLibrary();
     }
@@ -1204,7 +1207,7 @@ public class LaunchPadActivity extends Activity {
             SharedPreferences.Editor prefEditor = launchPadprefs.edit();
             switch (item.getItemId()){
                 case R.id.action_edit_sample:
-                    if (isAdReady){
+                    if (amznInterstitialAd.isReady()){
                         amznInterstitialAd.showAd();
                     }
                     else if (adMobInterstitial != null && adMobInterstitial.isLoaded())
@@ -1604,7 +1607,7 @@ public class LaunchPadActivity extends Activity {
     }
     public void AddSampleClick(View v){
         selectedSampleID = -1;
-        if (isAdReady) {
+        if (amznInterstitialAd.isReady()) {
             amznInterstitialAd.showAd();
         }
         else if (adMobInterstitial != null && adMobInterstitial.isLoaded()) {
