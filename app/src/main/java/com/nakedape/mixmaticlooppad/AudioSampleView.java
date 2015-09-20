@@ -589,7 +589,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
         trimmedSample.renameTo(sampleFile);
         // Set the new sample length
         sampleLength = selectionEndTime - selectionStartTime;
-        Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
+        //Log.d(LOG_TAG, "trimmed sample length = " + String.valueOf(sampleLength));
         if (beatsData != null) {
             List<BeatInfo> tempBeats = new ArrayList<BeatInfo>();
             tempBeats.addAll(beatsData);
@@ -912,7 +912,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             // Don't let the object get too small or too large.
             zoomFactor = Math.max(zoomMin, Math.min(zoomFactor, 10.0f));
             zoomMatrix.setScale(zoomFactor, 1f);
-            Log.d(LOG_TAG, "Zoom factor = " + zoomFactor);
+            //Log.d(LOG_TAG, "Zoom factor = " + zoomFactor);
             return true;
         }
 
@@ -944,8 +944,8 @@ public class AudioSampleView extends View implements View.OnTouchListener {
             // Set window start and end times
             windowStartTime = windowStart / getWidth() * sampleLength;
             windowEndTime = windowEnd / getWidth() * sampleLength;
-            Log.d(LOG_TAG, "window start = " + windowStart);
-            Log.d(LOG_TAG, "window end = " + windowEnd);
+            //Log.d(LOG_TAG, "window start = " + windowStart);
+            //Log.d(LOG_TAG, "window end = " + windowEnd);
         }
     }
 

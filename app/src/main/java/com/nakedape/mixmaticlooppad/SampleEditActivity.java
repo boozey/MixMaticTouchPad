@@ -644,7 +644,7 @@ public class SampleEditActivity extends Activity {
             am.abandonAudioFocus(afChangeListener);
             // Stop playback
             if (mPlayer != null) {
-                Log.d(LOG_TAG, "Audio focus lost");
+                //Log.d(LOG_TAG, "Audio focus lost");
                 if (mPlayer.isPlaying())
                     mPlayer.stop();
                 mPlayer.release();
@@ -1113,7 +1113,7 @@ public class SampleEditActivity extends Activity {
         sampleRate = mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
         if (mediaFormat.containsKey(MediaFormat.KEY_DURATION)) {
             sampleLength = (int) mediaFormat.getLong(MediaFormat.KEY_DURATION);
-            Log.d(LOG_TAG, "sampleLength set by mediaFormat: " + String.valueOf(sampleLength));
+            //Log.d(LOG_TAG, "sampleLength set by mediaFormat: " + String.valueOf(sampleLength));
         }
     }
 
@@ -1342,7 +1342,7 @@ public class SampleEditActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
-            Log.d(LOG_TAG, "Reload ad thread started");
+            //Log.d(LOG_TAG, "Reload ad thread started");
             try {
                 Thread.sleep(60000);
                 if (adView != null && reloadAds && !adView.isLoading())

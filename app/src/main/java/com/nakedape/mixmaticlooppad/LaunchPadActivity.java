@@ -753,7 +753,7 @@ public class LaunchPadActivity extends Activity {
         @Override
         public void run(){
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
-            Log.d(LOG_TAG, "Reload ad thread started");
+            //Log.d(LOG_TAG, "Reload ad thread started");
             try {
                 Thread.sleep(30000);
                 if (amznInterstitialAd != null && reloadAds && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
@@ -1861,7 +1861,7 @@ public class LaunchPadActivity extends Activity {
                             }
                         });
                         loopingSamplesPlaying.remove(e);
-                        Log.d(LOG_TAG, "Restarting looped sample");
+                        //Log.d(LOG_TAG, "Restarting looped sample");
                     }
                 }
                 LaunchEvent event = launchEvents.get(i);
@@ -1940,10 +1940,10 @@ public class LaunchPadActivity extends Activity {
                 if (isRecording)
                     launchEvents.add(new LaunchEvent(counter, LaunchEvent.PLAY_STOP, i));
                 else if (s.getLoopMode()){
-                    Log.d(LOG_TAG, "Counter: " + String.valueOf(counter));
+                    //Log.d(LOG_TAG, "Counter: " + String.valueOf(counter));
                     double newTime = counter - s.audioTrack.getPlaybackHeadPosition() * 4 / (8 * 44100) * 1000 + s.getSampleLengthMillis();
                     loopingSamplesPlaying.add(new LaunchEvent(newTime, LaunchEvent.PLAY_START, i));
-                    Log.d(LOG_TAG, "New loop sample time: " + String.valueOf(newTime));
+                    //Log.d(LOG_TAG, "New loop sample time: " + String.valueOf(newTime));
                 }
                 s.stop();
             }
@@ -2616,7 +2616,7 @@ public class LaunchPadActivity extends Activity {
                     resetMarker();
                     audioTrack.play();
                 } else if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
-                    Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
+                    //Log.d("AudioTrack", String.valueOf(id) + " uninitialized");
                     reloadAudioTrack();
                     if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING)
                         audioTrack.play();

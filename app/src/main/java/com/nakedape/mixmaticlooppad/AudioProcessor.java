@@ -101,7 +101,7 @@ public class AudioProcessor {
                             // Compare instant and average energy to detect a beat
                             if (E[i] > C * avgE) {
                                 beats.add(new BeatInfo((double)(bufferSize * 2 * i) / 44100 / 4, 1));
-                                Log.d(LOG_TAG, "Beat detected at " + String.valueOf((double)position / 44100 / 4));
+                                //Log.d(LOG_TAG, "Beat detected at " + String.valueOf((double)position / 44100 / 4));
                             }
                         }
                     }
@@ -124,7 +124,7 @@ public class AudioProcessor {
                         // Compare instant and average energy to detect a beat
                         if (e > C * avgE) {
                             beats.add(new BeatInfo((double)position / 44100 / 4, 1));
-                            Log.d(LOG_TAG, "Beat detected at " + String.valueOf((double)position / 44100 / 4));
+                            //Log.d(LOG_TAG, "Beat detected at " + String.valueOf((double)position / 44100 / 4));
                         }
                     }
                     // Add instant sound energy to the beginning of E
@@ -183,7 +183,7 @@ public class AudioProcessor {
                 while (numBytesRead > -1) {
                     bytesBuffer = new byte[bufferSize];
                     numBytesRead = wavStream.read(bytesBuffer);
-                    Log.d(LOG_TAG, "Tempo loop bytes read: " + String.valueOf(numBytesRead));
+                    //Log.d(LOG_TAG, "Tempo loop bytes read: " + String.valueOf(numBytesRead));
                     short[] stereoShorts = new short[bytesBuffer.length / 2];
                     ByteBuffer.wrap(bytesBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(stereoShorts);
                     float[] leftFloats = new float[stereoShorts.length / 2]; // Buffer for left channel
