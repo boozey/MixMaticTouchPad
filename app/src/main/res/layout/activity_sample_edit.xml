@@ -1,9 +1,11 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:ads="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/rootLayout"
     tools:context=".MainActivity">
+
 
     <com.nakedape.mixmaticlooppad.AudioSampleView
         android:id="@+id/spectralView"
@@ -12,6 +14,21 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true" />
 
+    <com.amazon.device.ads.AdLayout
+        android:id="@+id/amazonAdView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"/>
+
+    <com.google.android.gms.ads.AdView
+        android:id="@+id/adMobAdView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentTop="true"
+        ads:adSize="BANNER"
+        ads:adUnitId="@string/sample_edit_banner_ad_id"
+        android:visibility="gone"/>
     <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

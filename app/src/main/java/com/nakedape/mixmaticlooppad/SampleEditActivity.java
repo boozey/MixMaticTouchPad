@@ -43,6 +43,15 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.amazon.device.ads.Ad;
+import com.amazon.device.ads.AdError;
+import com.amazon.device.ads.AdLayout;
+import com.amazon.device.ads.AdProperties;
+import com.amazon.device.ads.AdRegistration;
+import com.amazon.device.ads.DefaultAdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,7 +68,7 @@ public class SampleEditActivity extends Activity {
 
     static final int REQUEST_MUSIC_GET = 0;
 
-    private String WAV_CACHE_PATH;
+    private String WAV_CACHE_FILE_PATH;
     private File CACHE_PATH;
     private SharedPreferences pref;
     private RelativeLayout rootLayout;
@@ -84,9 +93,12 @@ public class SampleEditActivity extends Activity {
     private boolean isSliceMode = false;
     private boolean isDecoding = false;
     private boolean isGeneratingWaveForm = false;
+    private File origSampleFile;
     private File sampleDirectory;
     private View popup;
     private boolean saveSlice;
+    private AdLayout adView;
+    private boolean reloadAds;
 
     private Menu actionBarMenu;
     // Sample edit context menu
@@ -119,6 +131,14 @@ public class SampleEditActivity extends Activity {
         setContentView(R.layout.activity_sample_edit);
         rootLayout = (RelativeLayout)findViewById(R.id.rootLayout);
 
+        // Setup Amazon Ad
+        AdRegistration.setAppKey("83c8d7d1e7ec460fbf2f8f37f88c095a");
+        AdRegistration.enableTesting(true);
+        AdRegistration.enableLogging(true);
+        adView = (AdLayout) findViewById(R.id.amazonAdView);
+        adView.setListener(new AmazonAdListener());
+        adView.loadAd();
+
         // Prepare stoarage directory
         if (Utils.isExternalStorageWritable()){
             sampleDirectory = new File(getExternalFilesDir(null), "Samples");
@@ -139,7 +159,7 @@ public class SampleEditActivity extends Activity {
         // Store reference to activity context to use inside event handlers
         context = this;
         // Store a reference to the path for the temporary cache of the wav file
-        WAV_CACHE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
+        WAV_CACHE_FILE_PATH = CACHE_PATH.getAbsolutePath() + "/cache.wav";
 
         // Setup audio sample view
         sampleView = (AudioSampleView)findViewById(R.id.spectralView);
@@ -222,7 +242,7 @@ public class SampleEditActivity extends Activity {
         }
         else{
             // If the cache file already exists from a previous edit, delete it
-            File temp = new File(WAV_CACHE_PATH);
+            File temp = new File(WAV_CACHE_FILE_PATH);
             if (temp.isFile())
                 temp.delete();
             // Create fragment to persist data during runtime changes
@@ -239,18 +259,18 @@ public class SampleEditActivity extends Activity {
     }
     private void LoadSampleFromIntent(Intent intent){
         sampleView.setColor(intent.getIntExtra(LaunchPadActivity.COLOR, 0));
-        File temp = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
-        if (temp.isFile()){ // If a sample is being passed, load it and process
-            File loadedSample = new File(WAV_CACHE_PATH);
+        origSampleFile = new File(intent.getStringExtra(LaunchPadActivity.SAMPLE_PATH));
+        if (origSampleFile.isFile() && origSampleFile.exists()){ // If a sample is being passed, load it and process
+            File loadedSample = new File(WAV_CACHE_FILE_PATH);
             try {
-                Utils.CopyFile(temp, loadedSample);
+                Utils.CopyFile(origSampleFile, loadedSample);
             }catch (IOException e){e.printStackTrace();}
-            LoadMediaPlayer(Uri.parse(WAV_CACHE_PATH));
+            LoadMediaPlayer(Uri.parse(WAV_CACHE_FILE_PATH));
 
             rootLayout.post(new Runnable() {
                 @Override
                 public void run() {
-                    sampleView.loadFile(WAV_CACHE_PATH);
+                    sampleView.loadFile(WAV_CACHE_FILE_PATH);
                     sampleView.redraw();
                 }
             });
@@ -260,6 +280,11 @@ public class SampleEditActivity extends Activity {
     private void setSliceMode(int numSlices){
         isSliceMode = true;
         this.numSlices = numSlices;
+    }
+    @Override
+    protected void onResume(){
+        super.onResume();
+        reloadAds = true;
     }
     @Override
     protected void onStop(){
@@ -298,6 +323,8 @@ public class SampleEditActivity extends Activity {
     @Override
     protected void onDestroy(){
         super.onDestroy();
+        reloadAds = false;
+        adView.destroy();
 
     }
     @Override
@@ -365,6 +392,7 @@ public class SampleEditActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_MUSIC_GET && resultCode == RESULT_OK) {
+            origSampleFile = null;
             decodeAudio(data.getData());
         }
     }
@@ -573,15 +601,13 @@ public class SampleEditActivity extends Activity {
         if (dlg != null)
             if (dlg.isShowing())
                 dlg.dismiss();
-        sampleView.loadFile(WAV_CACHE_PATH);
+        sampleView.loadFile(WAV_CACHE_FILE_PATH);
         sampleView.redraw();
         LoadMediaPlayer(fullMusicUri);
     }
 
     // Media Player methods
     public void LoadMediaPlayer(Uri uri){
-        ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
-        b.setEnabled(false);
         if (mPlayer != null){
             if (mPlayer.isPlaying()) mPlayer.stop();
             mPlayer.release();
@@ -591,13 +617,6 @@ public class SampleEditActivity extends Activity {
         mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
             mPlayer.setDataSource(getApplicationContext(), uri);
-            mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                @Override
-                public void onPrepared(MediaPlayer mp) {
-                    ImageButton b = (ImageButton)findViewById(R.id.buttonPlay);
-                    b.setEnabled(true);
-                }
-            });
             mPlayer.prepare();
             sampleLength = mPlayer.getDuration() / 1000;
         } catch (IOException e){
@@ -690,7 +709,10 @@ public class SampleEditActivity extends Activity {
         builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                checkSampleSize();
+                if (origSampleFile != null)
+                    saveSample(origSampleFile.getName());
+                else
+                    checkSampleSize();
             }
         });
         builder.setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
@@ -1113,10 +1135,10 @@ public class SampleEditActivity extends Activity {
             } catch (IOException e) {e.printStackTrace();}
             MediaFormat format = extractor.getTrackFormat(0);
             String mime = format.getString(MediaFormat.KEY_MIME);
-            File temp = new File(WAV_CACHE_PATH);
+            File temp = new File(WAV_CACHE_FILE_PATH);
             if (temp.exists())
                 temp.delete();
-            waveFile.OpenForWrite(WAV_CACHE_PATH,
+            waveFile.OpenForWrite(WAV_CACHE_FILE_PATH,
                     format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
                     (short)(8 * format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)),
                     (short)format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
@@ -1230,28 +1252,31 @@ public class SampleEditActivity extends Activity {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        sampleView.updatePlayIndicator((double)mPlayer.getCurrentPosition() / 1000);
+                                        if (sampleView != null)
+                                            sampleView.updatePlayIndicator((double)mPlayer.getCurrentPosition() / 1000);
                                     }
                                 });
                                 Thread.sleep(50);
                             } catch (InterruptedException | NullPointerException e) {
                                 e.printStackTrace();
                             }
-                            startTime = Math.round(sampleView.getSelectionStartTime() * 1000);
-                            endTime = Math.round(sampleView.getSelectionEndTime() * 1000);
-                            if (!(endTime - startTime > 0)){
-                                startTime = 0;
-                                endTime = Math.round(sampleView.sampleLength * 1000);
+                            if (sampleView != null) {
+                                startTime = Math.round(sampleView.getSelectionStartTime() * 1000);
+                                endTime = Math.round(sampleView.getSelectionEndTime() * 1000);
+                                if (!(endTime - startTime > 0)) {
+                                    startTime = 0;
+                                    endTime = Math.round(sampleView.sampleLength * 1000);
+                                }
                             }
                             // Continue updating as long as still within the selection and it hasn't been paused
                         }
                         while (mPlayer != null && continuePlaying && !stopPlayIndicatorThread &&
                                 mPlayer.getCurrentPosition() < endTime &&
-                                mPlayer.getCurrentPosition() >= startTime);
+                                mPlayer.getCurrentPosition() >= startTime && mPlayer.isPlaying());
 
                         // Loop play if in loop mode and it hasn't been paused
                     }
-                } while (mPlayer != null && loop && !stopPlayIndicatorThread && continuePlaying);
+                } while (mPlayer != null && loop && !stopPlayIndicatorThread && continuePlaying && mPlayer.isPlaying());
             } catch (IllegalStateException | NullPointerException e){e.printStackTrace();}
             if (!stopPlayIndicatorThread) {
                 // Done with play, pause the player and send final update
@@ -1268,6 +1293,55 @@ public class SampleEditActivity extends Activity {
                     }
                 });
             }
+        }
+    }
+
+    // Amazon Ads
+    private class AmazonAdListener extends DefaultAdListener {
+        @Override
+        public void onAdLoaded(Ad ad, AdProperties adProperties)
+        {
+            if (ad == adView)
+            {
+                new Thread(new ReloadAd()).start();
+            }
+        }
+
+        @Override
+        public void onAdFailedToLoad(Ad ad, AdError error) {
+            // Call backup ad network.
+            Log.e(LOG_TAG, "Amazon ad failed to load");
+            Log.e(LOG_TAG, error.getMessage());
+            switch (error.getCode()){
+                case NETWORK_ERROR:
+                case NETWORK_TIMEOUT:
+                    new Thread(new ReloadAd()).start();
+                    break;
+                case INTERNAL_ERROR:
+                case NO_FILL:
+                    adView.setVisibility(View.GONE);
+                    AdView mAdView = (AdView) findViewById(R.id.adMobAdView);
+                    mAdView.setVisibility(View.VISIBLE);
+                    AdRequest adRequest = new AdRequest.Builder()
+                            .addTestDevice("84217760FD1D092D92F5FE072A2F1861")
+                            .addTestDevice("19BA58A88672F3F9197685FEEB600EA7")
+                            .addTestDevice("5E3D3DD85078633EE1836B9FC5FB4D89")
+                            .build();
+                    mAdView.loadAd(adRequest);
+                    break;
+            }
+        }
+    }
+    private class ReloadAd implements Runnable {
+        @Override
+        public void run(){
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
+            Log.d(LOG_TAG, "Reload ad thread started");
+            try {
+                Thread.sleep(60000);
+            } catch (InterruptedException e){ e.printStackTrace();}
+            if (adView != null && reloadAds && !adView.isLoading())
+                adView.loadAd();
         }
     }
 }

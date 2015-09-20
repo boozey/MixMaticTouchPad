@@ -29,6 +29,7 @@ import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.*;
+import android.os.Process;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -74,6 +75,14 @@ import java.util.Locale;
 import java.util.Random;
 
 // Licensing imports
+import com.amazon.device.ads.Ad;
+import com.amazon.device.ads.AdError;
+import com.amazon.device.ads.AdProperties;
+import com.amazon.device.ads.AdRegistration;
+import com.amazon.device.ads.DefaultAdListener;
+import com.amazon.device.ads.InterstitialAd;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
 import com.google.android.vending.licensing.AESObfuscator;
 import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
@@ -178,6 +187,10 @@ public class LaunchPadActivity extends Activity {
     private int sampleLibraryIndex = -1;
     private MediaPlayer samplePlayer;
     private Runtime runtime;
+    private InterstitialAd amznInterstitialAd;
+    private boolean isAdReady;
+    private boolean reloadAds;
+    private com.google.android.gms.ads.InterstitialAd adMobInterstitial;
 
     // Activity overrides
     // On create methods
@@ -250,6 +263,17 @@ public class LaunchPadActivity extends Activity {
         rootLayout = (RelativeLayout)findViewById(R.id.launch_pad_root_layout);
         LinearLayout library = (LinearLayout)findViewById(R.id.sample_library);
         library.setOnDragListener(new LibraryDragEventListener());
+
+        // Setup ads
+        AdRegistration.setAppKey("83c8d7d1e7ec460fbf2f8f37f88c095a");
+        // Ad testing flags
+        AdRegistration.enableTesting(true);
+        AdRegistration.enableLogging(true);
+        // Create the interstitial.
+        amznInterstitialAd = new InterstitialAd(this);
+        // Set the listener to use the callbacks below.
+        amznInterstitialAd.setListener(new AmazonAdListener());
+        amznInterstitialAd.loadAd();
 
         // Setup counter
         ActionBar actionBar = getActionBar();
@@ -471,6 +495,10 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onPause(){
         super.onPause();
+        reloadAds = false;
+        // Logs 'app deactivate' App Event to Facebook.
+        //AppEventsLogger.deactivateApp(this);
+
         if (samplePlayer != null){
             if (samplePlayer.isPlaying()) {
                 samplePlayer.stop();
@@ -484,6 +512,12 @@ public class LaunchPadActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
+        // Logs 'install' and 'app activate' App Events to Facebook.
+        //AppEventsLogger.activateApp(this);
+        // Load new amazon interstitial ad
+        reloadAds = true;
+        if (amznInterstitialAd != null && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
+            amznInterstitialAd.loadAd();
         if (rootLayout != null) {
             int newBpm = activityPrefs.getInt(LaunchPadPreferencesFragment.PREF_BPM, 120);
             int newTimeSignature = Integer.parseInt(activityPrefs.getString(LaunchPadPreferencesFragment.PREF_TIME_SIG, "4"));
@@ -500,6 +534,7 @@ public class LaunchPadActivity extends Activity {
     @Override
     protected void onDestroy(){
         super.onDestroy();
+        reloadAds = false;
         if (progressDialog != null)
             if (progressDialog.isShowing())
                 progressDialog.cancel();
@@ -539,6 +574,10 @@ public class LaunchPadActivity extends Activity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.touch_pad, menu);
         actionBarMenu = menu;
+        if (isPlaying || isRecording){
+            MenuItem playButton = menu.findItem(R.id.action_play);
+            playButton.setIcon(R.drawable.ic_action_av_pause);
+        }
         return true;
     }
     @Override
@@ -548,9 +587,6 @@ public class LaunchPadActivity extends Activity {
     }
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         switch (id) {
             case R.id.action_settings:
@@ -569,7 +605,7 @@ public class LaunchPadActivity extends Activity {
                     item.setIcon(R.drawable.ic_action_av_play_arrow);
                     stopPlayBack();
                 }
-                else if (launchEvents.size() > 0 && playEventIndex < launchEvents.size() - 1){
+                else if (launchEvents.size() > 0 && playEventIndex < launchEvents.size()){
                     item.setIcon(R.drawable.ic_action_av_pause);
                     playMix();
                 } else if (launchEvents.size() > 0){
@@ -645,6 +681,80 @@ public class LaunchPadActivity extends Activity {
                 }
             }
         }
+    }
+
+    // Amazon ad listener
+    private class AmazonAdListener extends DefaultAdListener {
+        @Override
+        public void onAdLoaded(Ad ad, AdProperties adProperties)
+        {
+            if (ad == LaunchPadActivity.this.amznInterstitialAd)
+            {
+                isAdReady = true;
+                Log.d(LOG_TAG, "Amazon interstitial loaded");
+                new Thread(new ReloadAd()).start();
+            }
+        }
+
+        @Override
+        public void onAdFailedToLoad(Ad ad, AdError error)
+        {
+            isAdReady = false;
+            // Call backup ad network.
+            Log.e(LOG_TAG, "Amazon interstitial failed to load");
+            Log.e(LOG_TAG, error.getMessage());
+            switch (error.getCode()){
+                case NETWORK_ERROR:
+                case NETWORK_TIMEOUT:
+                    reloadAds = true;
+                    new Thread(new ReloadAd()).start();
+                    break;
+                case INTERNAL_ERROR:
+                case NO_FILL:
+                    reloadAds = false;
+                    adMobInterstitial = new com.google.android.gms.ads.InterstitialAd(LaunchPadActivity.this);
+                    adMobInterstitial.setAdUnitId("ca-app-pub-4640479150069852/9227646327");
+                    adMobInterstitial.setAdListener(new AdListener() {
+                        @Override
+                        public void onAdClosed() {
+                            loadNewAdMobInterstitial();
+                            editSample();
+                        }
+                    });
+                    loadNewAdMobInterstitial();
+                    break;
+            }
+        }
+
+        @Override
+        public void onAdDismissed(Ad ad)
+        {
+            isAdReady = false;
+            // Start the activity once the interstitial has disappeared.
+            editSample();
+        }
+    }
+    private class ReloadAd implements Runnable {
+        @Override
+        public void run(){
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
+            Log.d(LOG_TAG, "Reload ad thread started");
+            try {
+                Thread.sleep(60000);
+            } catch (InterruptedException e){ e.printStackTrace();}
+            if (amznInterstitialAd != null && reloadAds && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
+                amznInterstitialAd.loadAd();
+            else if (amznInterstitialAd != null && reloadAds)
+                new Thread(new ReloadAd()).start();
+        }
+    }
+    private void loadNewAdMobInterstitial() {
+        AdRequest adRequest = new AdRequest.Builder()
+                .addTestDevice("84217760FD1D092D92F5FE072A2F1861")
+                .addTestDevice("19BA58A88672F3F9197685FEEB600EA7")
+                .addTestDevice("5E3D3DD85078633EE1836B9FC5FB4D89")
+                .build();
+        adMobInterstitial.loadAd(adRequest);
     }
 
     // Methods for managing touch pads
@@ -1057,78 +1167,6 @@ public class LaunchPadActivity extends Activity {
             notifySampleLoadError(sample);
         }
     }
-    private ActionMode.Callback emptyPadActionModeCallback = new ActionMode.Callback() {
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            MenuInflater inflater = mode.getMenuInflater();
-            inflater.inflate(R.menu.launch_pad_empty_context, menu);
-            isEditMode = true;
-            View newView = findViewById(selectedSampleID);
-            newView.setSelected(true);
-            return true;
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-            return false;
-        }
-
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            Intent intent;
-            switch (item.getItemId()){
-                case R.id.action_load_sample:
-                    intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
-                    intent.putExtra(TOUCHPAD_ID, selectedSampleID);
-                    startActivityForResult(intent, GET_SAMPLE);
-                    return true;
-                case R.id.action_multi_select:
-                    if (!multiSelect){
-                        selections = new ArrayList<String>();
-                    }
-                    multiSelect = true;
-                    selections.add(String.valueOf(selectedSampleID));
-                    Menu menu = mode.getMenu();
-                    MenuItem newItem = menu.findItem(R.id.action_load_sample);
-                    newItem.setVisible(false);
-                    newItem = menu.findItem(R.id.action_multi_select);
-                    newItem.setVisible(false);
-                    Toast.makeText(context, R.string.slice_multi_select, Toast.LENGTH_SHORT).show();
-                    return true;
-                case R.id.action_record_sample:
-                    recordSample();
-                    return true;
-                case R.id.action_load_sample_mode:
-                    if (multiSelect){
-                        if (selections.size() > 0) {
-                            intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
-                            intent.putExtra(NUM_SLICES, selections.size());
-                            startActivityForResult(intent, GET_SLICES);
-                        }
-                        else {
-                            Toast.makeText(context, R.string.slice_selection_error, Toast.LENGTH_SHORT).show();
-                        }
-                        return true;
-                    }
-            }
-            return false;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode) {
-            isEditMode = false;
-            multiSelect = false;
-            View oldView = findViewById(selectedSampleID);
-            oldView.setSelected(false);
-            if (selections != null) {
-                for (String s : selections) {
-                    oldView = findViewById(Integer.parseInt(s));
-                    oldView.setSelected(false);
-                }
-            }
-            gotoPlayMode();
-        }
-    };
     private ActionMode.Callback launchPadActionModeCallback = new ActionMode.Callback() {
         @Override
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
@@ -1166,14 +1204,14 @@ public class LaunchPadActivity extends Activity {
             SharedPreferences.Editor prefEditor = launchPadprefs.edit();
             switch (item.getItemId()){
                 case R.id.action_edit_sample:
-                    Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
-                    intent.putExtra(TOUCHPAD_ID, selectedSampleID);
-                    if (samples.indexOfKey(selectedSampleID) >= 0){
-                        intent.putExtra(SAMPLE_PATH, samples.get(selectedSampleID).getPath());
-                        String padNumber = (String)findViewById(selectedSampleID).getTag();
-                        intent.putExtra(COLOR, launchPadprefs.getInt(padNumber + COLOR, 0));
+                    if (isAdReady){
+                        amznInterstitialAd.showAd();
                     }
-                    startActivityForResult(intent, GET_SAMPLE);
+                    else if (adMobInterstitial != null && adMobInterstitial.isLoaded())
+                        adMobInterstitial.show();
+                    else {
+                        editSample();
+                    }
                     return true;
                 case R.id.action_loop_mode:
                     if (item.isChecked()) {
@@ -1565,8 +1603,27 @@ public class LaunchPadActivity extends Activity {
         }
     }
     public void AddSampleClick(View v){
+        selectedSampleID = -1;
+        if (isAdReady) {
+            amznInterstitialAd.showAd();
+        }
+        else if (adMobInterstitial != null && adMobInterstitial.isLoaded()) {
+            adMobInterstitial.show();
+        }
+        else {
+            editSample();
+        }
+    }
+    private void editSample(){
         Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
-        intent.putExtra(TOUCHPAD_ID, selectedSampleID);
+        if (isEditMode) {
+            intent.putExtra(TOUCHPAD_ID, selectedSampleID);
+            if (samples.indexOfKey(selectedSampleID) >= 0) {
+                intent.putExtra(SAMPLE_PATH, samples.get(selectedSampleID).getPath());
+                String padNumber = (String) findViewById(selectedSampleID).getTag();
+                intent.putExtra(COLOR, launchPadprefs.getInt(padNumber + COLOR, 0));
+            }
+        }
         startActivityForResult(intent, GET_SAMPLE);
     }
     public void DeleteSampleClick(View v){

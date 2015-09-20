@@ -114,4 +114,7 @@
     <string name="resample_msg">Re-sampling</string>
     <string name="save_resample_msg">Save sample?</string>
 
+    <!-- Admob ad unit id strings-->
+    <string name="sample_edit_banner_ad_id">ca-app-pub-4640479150069852/3320713529</string>
+
 </resources>

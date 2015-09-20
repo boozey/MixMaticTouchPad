@@ -65,7 +65,7 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     private LinearGradient gradient;
     private float selectStart, selectEnd;
     private List<BeatInfo> beatsData = new ArrayList<BeatInfo>();
-    private Bitmap wavBitmap;
+    private Bitmap wavBitmap, zoomedBitmap;
     private float[] playPos = {0, 0};
     public boolean isPlaying = false;
     private boolean showBeats = false;
@@ -213,6 +213,89 @@ public class AudioSampleView extends View implements View.OnTouchListener {
                 isLoading = false;
                 needsSaving = true;
                 beatsData = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    if (wavStream != null) wavStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    private void loadZoomedBitmap(){
+        InputStream wavStream = null;
+        File sampleFile = new File(samplePath); // File pointer to the current wav sample
+        // If the sample file exists, try to generate the waveform
+        if (sampleFile.isFile() && getWidth() > 0) {
+            try {
+                wavStream = new BufferedInputStream(new FileInputStream(sampleFile));
+                long length;
+                int sampleSize = 1024;
+
+                // Determine length of wav file
+                byte[] lenInt = new byte[4];
+                wavStream.skip(40);
+                wavStream.read(lenInt, 0, 4);
+                ByteBuffer bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                bb = ByteBuffer.wrap(lenInt).order(ByteOrder.LITTLE_ENDIAN);
+                length = bb.getInt();
+                int startOffset = (int)(windowStart / wavBitmap.getWidth() * length);
+                startOffset = Math.max(0, startOffset);
+                int endOffset = (int)(windowEnd / wavBitmap.getWidth() * length);
+                endOffset = Math.min(endOffset, (int)length);
+                int zoomedByteLength = endOffset - startOffset;
+
+                // Prepare bitmap
+                int numSamples = (int) (zoomedByteLength / sampleSize);
+                int skipSize = Math.max(1, numSamples / getWidth());
+                int bitmapHeight = getHeight();
+                int bitmapWidth;
+                if (skipSize > 1)
+                    bitmapWidth = numSamples / skipSize;
+                else
+                    bitmapWidth = getWidth();
+                zoomedBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+                zoomedBitmap.setHasAlpha(true);
+                Canvas canvas = new Canvas(zoomedBitmap);
+
+                // Prepare paint
+                float strokeWidth = Math.max(1, (float) bitmapWidth / numSamples);
+                paintWave.setStrokeWidth(strokeWidth);
+                paintWave.setColor(Color.parseColor(foregroundColor));
+                paintWave.setStrokeCap(Paint.Cap.ROUND);
+
+                // Draw the waveform
+                wavStream.skip(startOffset);
+                float axis = bitmapHeight / 2;
+                byte[] buffer = new byte[sampleSize];
+                int i = 0, x = 0;
+                while (i < endOffset) {
+                    if (length - i >= buffer.length) {
+                        wavStream.read(buffer);
+                    } else { // Read the remaining number of bytes
+                        buffer = new byte[(int) length - i];
+                        wavStream.read(buffer);
+                    }
+                    short[] shorts = new short[buffer.length / 2];
+                    ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                    float leftTotal = 0, rightTotal = 0;
+                    for (int n = 0; n + 1 < shorts.length; n += 2) {
+                        leftTotal += shorts[n];
+                        rightTotal += shorts[n + 1];
+                    }
+                    canvas.drawLine(x, axis, x, axis - leftTotal / (shorts.length / 2) / Short.MAX_VALUE * bitmapHeight, paintWave);
+                    canvas.drawLine(x, axis, x, axis + rightTotal / (shorts.length / 2) / Short.MAX_VALUE * bitmapHeight, paintWave);
+                    x += strokeWidth;
+                    i += buffer.length * skipSize;
+                    if (skipSize > 1)
+                        wavStream.skip(buffer.length * (skipSize - 1));
+                }
+                // adjust bitmap size to compensate for rounding inaccuracies
+                if (x < bitmapWidth) {
+                    zoomedBitmap = Bitmap.createBitmap(zoomedBitmap, 0, 0, x, bitmapHeight);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -897,78 +980,78 @@ public class AudioSampleView extends View implements View.OnTouchListener {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-            if (wavBitmap != null) {
-                // Draw background
-                canvas.drawPaint(paintBackground);
-                // Draw waveform
-                canvas.drawBitmap(wavBitmap, zoomMatrix, null);
-            }
-            switch (selectionMode) {
-                case PAN_ZOOM_MODE:
-                    break;
-                case BEAT_MOVE_MODE:
-                case BEAT_SELECTION_MODE:
-                    // Draw beat marks
-                    paintWave.setColor(Color.DKGRAY);
-                    paintSelect.setColor(Color.YELLOW);
-                    float[] beatPoint = {0, 0};
-                    for (BeatInfo beatInfo : beatsData) {
-                        if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
-                            beatPoint[0] = (float)(beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
-                            zoomMatrix.mapPoints(beatPoint);
-                            canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
-                            canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
-                        }
-                    }
-                    // Draw selected beat
-                    if (selectedBeat != null){
-                        beatPoint[0] = (float)(selectedBeat.getTime() / sampleLength * wavBitmap.getWidth());
+        if (wavBitmap != null) {
+            // Draw background
+            canvas.drawPaint(paintBackground);
+            // Draw waveform
+            canvas.drawBitmap(wavBitmap, zoomMatrix, null);
+        }
+        switch (selectionMode) {
+            case PAN_ZOOM_MODE:
+                break;
+            case BEAT_MOVE_MODE:
+            case BEAT_SELECTION_MODE:
+                // Draw beat marks
+                paintWave.setColor(Color.DKGRAY);
+                paintSelect.setColor(Color.YELLOW);
+                float[] beatPoint = {0, 0};
+                for (BeatInfo beatInfo : beatsData) {
+                    if (beatInfo.getTime() >= windowStartTime && beatInfo.getTime() <= windowEndTime) {
+                        beatPoint[0] = (float) (beatInfo.getTime() / sampleLength * wavBitmap.getWidth());
                         zoomMatrix.mapPoints(beatPoint);
-                        paintWave.setColor(Color.CYAN);
-                        paintSelect.setColor(Color.CYAN);
                         canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
                         canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
                     }
-                    break;
-                case SELECTION_MODE:
+                }
+                // Draw selected beat
+                if (selectedBeat != null) {
+                    beatPoint[0] = (float) (selectedBeat.getTime() / sampleLength * wavBitmap.getWidth());
+                    zoomMatrix.mapPoints(beatPoint);
+                    paintWave.setColor(Color.CYAN);
+                    paintSelect.setColor(Color.CYAN);
+                    canvas.drawLine(beatPoint[0], 0, beatPoint[0], getHeight(), paintWave);
+                    canvas.drawCircle(beatPoint[0], getHeight() / 2, 6, paintSelect);
+                }
+                break;
+            case SELECTION_MODE:
                 /* If this draw is due to a runtime change, this will be true and selectStart and selectEnd
                 need to be set in order for the selection to persist*/
-                    if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0 && wavBitmap != null) {
-                        float[] point = {0, 0};
-                        point[0] = (float)(selectionStartTime / sampleLength * wavBitmap.getWidth());
-                        zoomMatrix.mapPoints(point);
-                        selectStart = point[0];
-                        point[0] = (float)(selectionEndTime / sampleLength * wavBitmap.getWidth());
-                        zoomMatrix.mapPoints(point);
-                        selectEnd = point[0];
-                    }
-                    // Draw selection region
-                    if (Math.abs(selectEnd - selectStart) > 5) {
-                        float[] startPoint = {selectStart, 0};
-                        float[] endPoint = {selectEnd, 0};
-                        zoomMatrix.mapPoints(startPoint);
-                        zoomMatrix.mapPoints(endPoint);
-                        paintSelect.setColor(Color.argb(127, 65, 65, 65));
-                        canvas.drawRect(startPoint[0], 0, endPoint[0], getHeight(), paintSelect);
-                        paintSelect.setColor(Color.LTGRAY);
-                        canvas.drawLine(startPoint[0], 0, startPoint[0], getHeight(), paintSelect);
-                        canvas.drawLine(endPoint[0], 0, endPoint[0], getHeight(), paintSelect);
-                        paintSelect.setColor(Color.YELLOW);
-                        canvas.drawCircle(startPoint[0], 0, 5, paintSelect);
-                        canvas.drawCircle(startPoint[0], getHeight(), 5, paintSelect);
-                        canvas.drawCircle(endPoint[0], 0, 5, paintSelect);
-                        canvas.drawCircle(endPoint[0], getHeight(), 5, paintSelect);
-                        paintSelect.setColor(Color.LTGRAY);
-                        canvas.drawText(String.valueOf((int) Math.floor(selectionStartTime / 60)) + ":" + String.format("%.2f", selectionStartTime % 60), startPoint[0], getHeight() - 10, paintSelect);
-                        canvas.drawText(String.valueOf((int) Math.floor(selectionEndTime / 60)) + ":" + String.format("%.2f", selectionEndTime % 60), endPoint[0], getHeight() - 10, paintSelect);
-                    }
-                    break;
-            }
+                if (selectStart == 0 && selectionStartTime > 0 && getWidth() > 0 && wavBitmap != null) {
+                    float[] point = {0, 0};
+                    point[0] = (float) (selectionStartTime / sampleLength * wavBitmap.getWidth());
+                    zoomMatrix.mapPoints(point);
+                    selectStart = point[0];
+                    point[0] = (float) (selectionEndTime / sampleLength * wavBitmap.getWidth());
+                    zoomMatrix.mapPoints(point);
+                    selectEnd = point[0];
+                }
+                // Draw selection region
+                if (Math.abs(selectEnd - selectStart) > 5) {
+                    float[] startPoint = {selectStart, 0};
+                    float[] endPoint = {selectEnd, 0};
+                    zoomMatrix.mapPoints(startPoint);
+                    zoomMatrix.mapPoints(endPoint);
+                    paintSelect.setColor(Color.argb(127, 65, 65, 65));
+                    canvas.drawRect(startPoint[0], 0, endPoint[0], getHeight(), paintSelect);
+                    paintSelect.setColor(Color.LTGRAY);
+                    canvas.drawLine(startPoint[0], 0, startPoint[0], getHeight(), paintSelect);
+                    canvas.drawLine(endPoint[0], 0, endPoint[0], getHeight(), paintSelect);
+                    paintSelect.setColor(Color.YELLOW);
+                    canvas.drawCircle(startPoint[0], 0, 5, paintSelect);
+                    canvas.drawCircle(startPoint[0], getHeight(), 5, paintSelect);
+                    canvas.drawCircle(endPoint[0], 0, 5, paintSelect);
+                    canvas.drawCircle(endPoint[0], getHeight(), 5, paintSelect);
+                    paintSelect.setColor(Color.LTGRAY);
+                    canvas.drawText(String.valueOf((int) Math.floor(selectionStartTime / 60)) + ":" + String.format("%.2f", selectionStartTime % 60), startPoint[0], getHeight() - 10, paintSelect);
+                    canvas.drawText(String.valueOf((int) Math.floor(selectionEndTime / 60)) + ":" + String.format("%.2f", selectionEndTime % 60), endPoint[0], getHeight() - 10, paintSelect);
+                }
+                break;
+        }
 
-            if (isPlaying) {
-                // Draw play position indicator
-                paintSelect.setColor(Color.RED);
-                canvas.drawLine(playPos[0], 0, playPos[0], getHeight(), paintSelect);
-            }
+        if (isPlaying) {
+            // Draw play position indicator
+            paintSelect.setColor(Color.RED);
+            canvas.drawLine(playPos[0], 0, playPos[0], getHeight(), paintSelect);
+        }
     }
 }
