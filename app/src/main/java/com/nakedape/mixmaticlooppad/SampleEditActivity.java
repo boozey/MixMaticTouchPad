@@ -133,7 +133,7 @@ public class SampleEditActivity extends Activity {
 
         // Setup Amazon Ad
         AdRegistration.setAppKey("83c8d7d1e7ec460fbf2f8f37f88c095a");
-        AdRegistration.enableTesting(true);
+        //AdRegistration.enableTesting(true);
         AdRegistration.enableLogging(true);
         adView = (AdLayout) findViewById(R.id.amazonAdView);
         adView.setListener(new AmazonAdListener());

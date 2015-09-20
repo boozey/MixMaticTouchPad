@@ -193,6 +193,7 @@ public class LaunchPadActivity extends Activity {
     private InterstitialAd amznInterstitialAd;
     private boolean reloadAds;
     private com.google.android.gms.ads.InterstitialAd adMobInterstitial;
+    private int adReloadAttempts = 0;
 
     // Activity overrides
     // On create methods
@@ -272,7 +273,7 @@ public class LaunchPadActivity extends Activity {
         // Setup ads
         AdRegistration.setAppKey("83c8d7d1e7ec460fbf2f8f37f88c095a");
         // Ad testing flags
-        AdRegistration.enableTesting(true);
+        //AdRegistration.enableTesting(true);
         AdRegistration.enableLogging(true);
         // Create the interstitial.
         amznInterstitialAd = new InterstitialAd(this);
@@ -520,7 +521,6 @@ public class LaunchPadActivity extends Activity {
         // Logs 'install' and 'app activate' App Events to Facebook.
         AppEventsLogger.activateApp(this);
         // Load new amazon interstitial ad
-        reloadAds = true;
         if (amznInterstitialAd != null && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
             amznInterstitialAd.loadAd();
         if (rootLayout != null) {
@@ -696,6 +696,7 @@ public class LaunchPadActivity extends Activity {
             if (ad == LaunchPadActivity.this.amznInterstitialAd)
             {
                 //Log.d(LOG_TAG, "Amazon interstitial loaded");
+                adReloadAttempts = 0;
             }
         }
 
@@ -708,22 +709,29 @@ public class LaunchPadActivity extends Activity {
             switch (error.getCode()){
                 case NETWORK_ERROR:
                 case NETWORK_TIMEOUT:
-                    reloadAds = true;
-                    new Thread(new ReloadAd()).start();
-                    break;
-                case INTERNAL_ERROR:
                 case NO_FILL:
-                    reloadAds = false;
-                    adMobInterstitial = new com.google.android.gms.ads.InterstitialAd(LaunchPadActivity.this);
-                    adMobInterstitial.setAdUnitId("ca-app-pub-4640479150069852/9227646327");
-                    adMobInterstitial.setAdListener(new AdListener() {
-                        @Override
-                        public void onAdClosed() {
-                            loadNewAdMobInterstitial();
-                            editSample();
-                        }
-                    });
-                    loadNewAdMobInterstitial();
+                    if (adReloadAttempts < 5){
+                        reloadAds = true;
+                        adReloadAttempts++;
+                        new Thread(new ReloadAd()).start();
+                    } else {
+                        reloadAds = false;
+                    }
+                case INTERNAL_ERROR:
+                    if (adMobInterstitial == null) {
+                        adMobInterstitial = new com.google.android.gms.ads.InterstitialAd(LaunchPadActivity.this);
+                        adMobInterstitial.setAdUnitId("ca-app-pub-4640479150069852/9227646327");
+                        adMobInterstitial.setAdListener(new AdListener() {
+                            @Override
+                            public void onAdClosed() {
+                                loadNewAdMobInterstitial();
+                                editSample();
+                            }
+                        });
+                        loadNewAdMobInterstitial();
+                    } else if (!adMobInterstitial.isLoaded() && !adMobInterstitial.isLoading()){
+                        loadNewAdMobInterstitial();
+                    }
                     break;
             }
         }
@@ -747,7 +755,7 @@ public class LaunchPadActivity extends Activity {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
             Log.d(LOG_TAG, "Reload ad thread started");
             try {
-                Thread.sleep(60000);
+                Thread.sleep(30000);
                 if (amznInterstitialAd != null && reloadAds && !amznInterstitialAd.isLoading() && !amznInterstitialAd.isReady())
                     amznInterstitialAd.loadAd();
             } catch (InterruptedException e){ e.printStackTrace();}
