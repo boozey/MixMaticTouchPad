@@ -657,7 +657,7 @@ public class SampleEditActivity extends Activity {
                 continuePlaying = false;
                 findViewById(R.id.buttonPlay).setBackgroundResource(R.drawable.button_play_large);
 
-        } else {
+        } else if (sampleView.getSamplePath() != null){
             // Request audio focs for playback
             int result = am.requestAudioFocus(afChangeListener,
                     // Use the music stream.

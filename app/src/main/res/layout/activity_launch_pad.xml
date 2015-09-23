@@ -295,10 +295,26 @@
                 android:background="@drawable/ic_action_delete"
                 android:onClick="DeleteSampleClick"/>
         </RelativeLayout>
-        <ListView
-            android:id="@+id/sample_listview"
-            android:layout_width="250dp"
-            android:layout_height="match_parent"
-            android:choiceMode="singleChoice"/>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/first_sample_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/ic_sound_wave_icon_green"
+                android:drawableStart="@drawable/ic_sound_wave_icon_green"
+                android:gravity="center_vertical"
+                android:text="@string/create_first_sample_msg"
+                android:background="@drawable/button_transparent"
+                android:onClick="AddSampleClick"
+                android:visibility="gone"/>
+            <ListView
+                android:id="@+id/sample_listview"
+                android:layout_width="250dp"
+                android:layout_height="match_parent"
+                android:choiceMode="singleChoice"/>
+        </LinearLayout>
     </LinearLayout>
 </RelativeLayout>

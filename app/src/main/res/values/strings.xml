@@ -82,6 +82,9 @@
     <string name="action_set_volume">Volume</string>
     <string name="action_reset">Reset recording</string>
 
+    <!-- Sample Library Strings -->
+    <string name="create_first_sample_msg">Create your first sample</string>
+
     <!-- Delete sample dialog strings -->
     <string name="remove_sample_dialog_title">Remove sample</string>
     <string name="remove_sample_dialog_message">Are you sure you want to permanently delete this sample?</string>

@@ -861,16 +861,16 @@ public class LaunchPadActivity extends Activity {
     private void setSampleVolume(final int sampleId){
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         final NumberPicker numberPicker = new NumberPicker(context);
-        numberPicker.setMaxValue((int)(AudioTrack.getMaxVolume() * 100));
-        numberPicker.setValue((int)(samples.get(sampleId).getVolume() *100));
+        numberPicker.setMaxValue((int) (AudioTrack.getMaxVolume() * 100));
+        numberPicker.setValue((int) (samples.get(sampleId).getVolume() * 100));
         builder.setView(numberPicker);
         builder.setPositiveButton(R.string.set, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                float volume = (float)numberPicker.getValue() / 100;
+                float volume = (float) numberPicker.getValue() / 100;
                 samples.get(sampleId).setVolume(volume);
-                TouchPad pad = (TouchPad)findViewById(sampleId);
-                String padNumber = (String)pad.getTag();
+                TouchPad pad = (TouchPad) findViewById(sampleId);
+                String padNumber = (String) pad.getTag();
                 SharedPreferences.Editor editor = launchPadprefs.edit();
                 editor.putFloat(padNumber + SAMPLE_VOLUME, volume);
                 editor.apply();
@@ -1345,20 +1345,7 @@ public class LaunchPadActivity extends Activity {
     }
     private void showSampleLibrary(){
         if (!isSampleLibraryShowing) {
-            // Prepare Sample Library list adapter
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    File[] sampleFiles = sampleDirectory.listFiles(new FileFilter() {
-                        @Override
-                        public boolean accept(File pathname) {
-                            return pathname.getName().endsWith(".wav");
-                        }
-                    });
-                    sampleListAdapter.addAll(sampleFiles);
-                }
-            }).start();
-            LinearLayout library = (LinearLayout)findViewById(R.id.sample_library);
+            final LinearLayout library = (LinearLayout)findViewById(R.id.sample_library);
             ListView sampleListView = (ListView)library.findViewById(R.id.sample_listview);
             sampleListView.setAdapter(sampleListAdapter);
             sampleListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -1380,7 +1367,7 @@ public class LaunchPadActivity extends Activity {
                     ClipData dragData = new ClipData(SAMPLE_PATH, mime_type, pathItem);
                     Random random = new Random();
                     Drawable drawable;
-                    switch (random.nextInt(4)){
+                    switch (random.nextInt(4)) {
                         case 0:
                             drawable = getResources().getDrawable(R.drawable.button_blue);
                             dragData.addItem(new ClipData.Item(String.valueOf(0)));
@@ -1411,6 +1398,30 @@ public class LaunchPadActivity extends Activity {
                     return true;
                 }
             });
+
+            // Prepare Sample Library list adapter
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    File[] sampleFiles = sampleDirectory.listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File pathname) {
+                            return pathname.getName().endsWith(".wav");
+                        }
+                    });
+                    sampleListAdapter.addAll(sampleFiles);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (sampleListAdapter.getCount() == 0){
+                                library.findViewById(R.id.first_sample_button).setVisibility(View.VISIBLE);
+                            } else {
+                                library.findViewById(R.id.first_sample_button).setVisibility(View.GONE);
+                            }
+                        }
+                    });
+                }
+            }).start();
 
             // Start the animation
             AnimatorSet set = new AnimatorSet();
@@ -1521,7 +1532,9 @@ public class LaunchPadActivity extends Activity {
         }
         @Override
         public int getCount() {
-            return sampleFiles.size();
+            if (sampleFiles != null)
+                return sampleFiles.size();
+            else return 0;
         }
 
         @Override
@@ -1631,7 +1644,7 @@ public class LaunchPadActivity extends Activity {
         }
     }
     private void editSample(){
-        Intent intent = new Intent(Intent.ACTION_SEND, null, context, SampleEditActivity.class);
+        Intent intent = new Intent(Intent.ACTION_SEND, null, this, SampleEditActivity.class);
         if (isEditMode) {
             intent.putExtra(TOUCHPAD_ID, selectedSampleID);
             if (samples.indexOfKey(selectedSampleID) >= 0) {
